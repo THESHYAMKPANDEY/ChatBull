@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "appVersionSource": "local"
+  },
+  "builds": {
+    "android": {
+      "debug": {
+        "developmentClient": true,
+        "distribution": "internal",
+        "channel": "debug"
+      },
+      "preview": {
+        "distribution": "internal",
+        "channel": "preview"
+      },
+      "production": {
+        "channel": "production"
+      }
+    },
+    "ios": {
+      "debug": {
+        "developmentClient": true,
+        "simulator": true,
+        "channel": "debug"
+      },
+      "preview": {
+        "distribution": "internal",
+        "channel": "preview"
+      },
+      "production": {
+        "channel": "production"
+      }
+    }
+  }
+}

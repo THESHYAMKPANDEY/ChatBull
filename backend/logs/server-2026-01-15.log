@@ -1,0 +1,384 @@
+[2026-01-15T05:17:05.021Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "35ms",
+  "contentLength": "189"
+}
+[2026-01-15T05:17:06.820Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "1115ms",
+  "contentLength": "201"
+}
+[2026-01-15T05:17:07.391Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "124ms",
+  "contentLength": "633"
+}
+[2026-01-15T05:17:14.347Z] [INFO] GET /users {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "136ms"
+}
+[2026-01-15T05:17:54.519Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "2ms",
+  "contentLength": "189"
+}
+[2026-01-15T05:17:55.508Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "244ms",
+  "contentLength": "201"
+}
+[2026-01-15T05:17:56.186Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "239ms",
+  "contentLength": "633"
+}
+[2026-01-15T05:25:20.468Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "2ms",
+  "contentLength": "189"
+}
+[2026-01-15T05:25:21.451Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "243ms",
+  "contentLength": "201"
+}
+[2026-01-15T05:25:22.211Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "301ms",
+  "contentLength": "633"
+}
+[2026-01-15T05:27:13.882Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "121ms",
+  "contentLength": "634"
+}
+[2026-01-15T05:28:53.975Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "2ms",
+  "contentLength": "189"
+}
+[2026-01-15T05:28:54.727Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "299ms",
+  "contentLength": "201"
+}
+[2026-01-15T05:28:55.388Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "110ms",
+  "contentLength": "634"
+}
+[2026-01-15T05:29:42.856Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "214ms",
+  "contentLength": "634"
+}
+[2026-01-15T05:29:56.298Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "108ms",
+  "contentLength": "634"
+}
+[2026-01-15T05:30:16.659Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "108ms",
+  "contentLength": "634"
+}
+[2026-01-15T05:58:01.438Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "10ms",
+  "contentLength": "188"
+}
+[2026-01-15T05:58:04.701Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "2556ms",
+  "contentLength": "201"
+}
+[2026-01-15T05:58:05.330Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "111ms",
+  "contentLength": "634"
+}
+[2026-01-15T05:58:15.177Z] [INFO] GET /users {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "134ms"
+}
+[2026-01-15T05:58:41.434Z] [INFO] GET /users {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "130ms"
+}
+[2026-01-15T06:01:30.616Z] [INFO] GET /feed {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "229ms",
+  "contentLength": "57"
+}
+[2026-01-15T06:01:54.146Z] [INFO] POST /upload {
+  "statusCode": 500,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "64ms",
+  "contentLength": "47"
+}
+[2026-01-15T06:02:05.767Z] [INFO] POST / {
+  "statusCode": 400,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "10ms",
+  "contentLength": "191"
+}
+[2026-01-15T06:17:12.202Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.7462",
+  "ip": "127.0.0.1",
+  "duration": "11ms",
+  "contentLength": "187"
+}
+[2026-01-15T06:18:02.866Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "2ms",
+  "contentLength": "188"
+}
+[2026-01-15T06:18:03.884Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "1ms",
+  "contentLength": "188"
+}
+[2026-01-15T06:18:04.563Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "1035ms",
+  "contentLength": "201"
+}
+[2026-01-15T06:18:04.787Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "518ms",
+  "contentLength": "201"
+}
+[2026-01-15T06:18:05.154Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "116ms",
+  "contentLength": "634"
+}
+[2026-01-15T06:18:10.480Z] [INFO] GET /feed {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "131ms"
+}
+[2026-01-15T06:18:14.609Z] [INFO] POST / {
+  "statusCode": 400,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "25ms",
+  "contentLength": "191"
+}
+[2026-01-15T06:18:21.394Z] [INFO] GET /users {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "144ms"
+}
+[2026-01-15T06:18:34.599Z] [INFO] POST /upload {
+  "statusCode": 500,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "82ms",
+  "contentLength": "47"
+}
+[2026-01-15T10:22:41.272Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.7462",
+  "ip": "127.0.0.1",
+  "duration": "10ms",
+  "contentLength": "188"
+}
+[2026-01-15T10:24:24.509Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.7462",
+  "ip": "127.0.0.1",
+  "duration": "1ms",
+  "contentLength": "188"
+}
+[2026-01-15T10:31:09.402Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "13ms",
+  "contentLength": "188"
+}
+[2026-01-15T10:31:11.221Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "1311ms",
+  "contentLength": "201"
+}
+[2026-01-15T10:31:11.837Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "132ms",
+  "contentLength": "634"
+}
+[2026-01-15T10:32:55.270Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "1ms",
+  "contentLength": "189"
+}
+[2026-01-15T10:32:56.059Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "308ms",
+  "contentLength": "201"
+}
+[2026-01-15T10:32:56.680Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.186",
+  "duration": "105ms",
+  "contentLength": "633"
+}
+[2026-01-15T10:56:51.408Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "13ms",
+  "contentLength": "188"
+}
+[2026-01-15T10:57:01.014Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "1329ms",
+  "contentLength": "201"
+}
+[2026-01-15T10:57:01.732Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "196ms",
+  "contentLength": "634"
+}
+[2026-01-15T10:58:16.792Z] [INFO] GET /users {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "197ms"
+}
+[2026-01-15T10:58:32.681Z] [INFO] GET /feed {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "115ms"
+}
+[2026-01-15T10:58:37.681Z] [INFO] GET /users {
+  "statusCode": 304,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "10.134.161.248",
+  "duration": "207ms"
+}
+[2026-01-15T22:18:46.808Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "10ms",
+  "contentLength": "186"
+}
+[2026-01-15T22:18:46.813Z] [INFO] GET /health {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "1ms",
+  "contentLength": "186"
+}
+[2026-01-15T22:18:49.329Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "2010ms",
+  "contentLength": "201"
+}
+[2026-01-15T22:18:49.529Z] [INFO] POST /sync {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "1967ms",
+  "contentLength": "201"
+}
+[2026-01-15T22:18:50.257Z] [INFO] GET /users {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "58ms",
+  "contentLength": "161"
+}
+[2026-01-15T22:18:56.843Z] [INFO] GET /feed {
+  "statusCode": 200,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "75ms",
+  "contentLength": "57"
+}
+[2026-01-15T22:19:09.469Z] [INFO] POST /upload {
+  "statusCode": 503,
+  "userAgent": "okhttp/4.12.0",
+  "ip": "192.168.1.19",
+  "duration": "79ms",
+  "contentLength": "94"
+}
