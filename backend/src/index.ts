@@ -111,6 +111,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// API-prefixed health check (for monitoring tools)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    service: 'ChatBull Backend',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Extended health check with database connectivity
 app.get('/health/extended', async (req, res) => {
   try {

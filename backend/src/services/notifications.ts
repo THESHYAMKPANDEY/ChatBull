@@ -6,31 +6,57 @@ let firebaseInitialized = false;
 
 /**
  * Initialize Firebase Admin SDK
- * Reads service account from file path specified in FIREBASE_SERVICE_ACCOUNT_PATH
+ * In production:
+ * - Prefer FIREBASE_SERVICE_ACCOUNT_JSON (full JSON as env var)
+ * - Fallback to FIREBASE_SERVICE_ACCOUNT_PATH (file path on disk)
  */
 export const initializeFirebaseAdmin = (): boolean => {
   if (firebaseInitialized) {
     return true;
   }
 
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
 
-  if (!serviceAccountPath) {
-    console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_PATH not set. Push notifications disabled.');
-    return false;
-  }
-
   try {
-    const absolutePath = path.isAbsolute(serviceAccountPath)
-      ? serviceAccountPath
-      : path.join(process.cwd(), serviceAccountPath);
+    let serviceAccount: any | null = null;
 
-    if (!fs.existsSync(absolutePath)) {
-      console.error(`❌ Firebase service account file not found: ${absolutePath}`);
-      return false;
+    if (serviceAccountJson) {
+      try {
+        serviceAccount = JSON.parse(serviceAccountJson);
+        console.log('✅ Loaded Firebase service account from FIREBASE_SERVICE_ACCOUNT_JSON');
+      } catch (error) {
+        console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', error);
+      }
     }
 
-    const serviceAccount = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+    if (!serviceAccount) {
+      if (!serviceAccountPath) {
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+        if (isProduction) {
+          console.warn(
+            '⚠️  Firebase Admin not configured. For cloud deployments (Render, Heroku, etc.), set FIREBASE_SERVICE_ACCOUNT_JSON environment variable with the full JSON content as a single-line string. Push notifications will be disabled until configured.'
+          );
+        } else {
+          console.warn(
+            '⚠️  Firebase Admin not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON (preferred) or FIREBASE_SERVICE_ACCOUNT_PATH. Push notifications will be disabled until configured.'
+          );
+        }
+        return false;
+      }
+
+      const absolutePath = path.isAbsolute(serviceAccountPath)
+        ? serviceAccountPath
+        : path.join(process.cwd(), serviceAccountPath);
+
+      if (!fs.existsSync(absolutePath)) {
+        console.error(`❌ Firebase service account file not found: ${absolutePath}`);
+        return false;
+      }
+
+      serviceAccount = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+      console.log('✅ Loaded Firebase service account from FIREBASE_SERVICE_ACCOUNT_PATH');
+    }
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
