@@ -75,7 +75,7 @@ npm install
 ```bash
 MONGODB_URI=your_mongodb_connection_string
 PORT=5000
-FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+FIREBASE_SERVICE_ACCOUNT_JSON=your_firebase_service_account_json_as_single_line
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret

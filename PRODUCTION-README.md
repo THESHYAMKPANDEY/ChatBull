@@ -91,8 +91,9 @@ MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/socialchat?retry
 # Server Configuration
 PORT=5000
 
-# Firebase Admin SDK
-FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+# Firebase Admin SDK - Push Notifications
+# Paste the full JSON content of your service account key as a single line
+FIREBASE_SERVICE_ACCOUNT_JSON=""
 
 # Optional: Cloudinary for media storage
 CLOUDINARY_CLOUD_NAME=your_cloud_name
@@ -197,7 +198,7 @@ npx expo start --host lan
 
 ### Backend Server:
 - [ ] MongoDB connection tested
-- [ ] Firebase service account configured
+- [ ] Firebase `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable is set
 - [ ] Environment variables set
 - [ ] Server accessible over network
 - [ ] Health checks passing

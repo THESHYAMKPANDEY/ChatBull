@@ -17,7 +17,6 @@ Ensure your backend `.env` file contains:
 ```
 MONGODB_URI=your_mongodb_connection_string
 PORT=5000
-FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
@@ -100,7 +99,7 @@ eas build --platform ios
 
 2. **Firebase Auth Issues**:
    - Verify Firebase project configuration
-   - Check that `firebase-service-account.json` exists in backend root
+   - Check that `FIREBASE_SERVICE_ACCOUNT_JSON` is set in your environment variables
    - Confirm environment variables are set correctly
 
 3. **Database Connection Issues**:

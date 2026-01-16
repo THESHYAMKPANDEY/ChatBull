@@ -24,7 +24,7 @@ router.post('/notify', notificationValidationRules(), validate, async (req: Requ
     // Check if Firebase Admin is ready
     if (!isFirebaseAdminReady()) {
       res.status(503).json({ 
-        error: 'Push notifications not configured. FIREBASE_SERVICE_ACCOUNT_PATH not set.' 
+        error: 'Push notifications not configured. FIREBASE_SERVICE_ACCOUNT_JSON not set.' 
       });
       return;
     }
@@ -111,7 +111,7 @@ router.get('/fcm-status', (req: Request, res: Response) => {
     fcmEnabled: ready,
     message: ready 
       ? 'Firebase Cloud Messaging is configured and ready' 
-      : 'FCM not configured. Set FIREBASE_SERVICE_ACCOUNT_PATH in .env'
+      : 'FCM not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON in .env'
   });
 });
 
