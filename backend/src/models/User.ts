@@ -52,10 +52,6 @@ const userSchema = new Schema<IUser>(
       type: String,
       default: '',
     },
-    stripeCustomerId: {
-      type: String,
-      default: '',
-    },
     isPremium: {
       type: Boolean,
       default: false,
