@@ -1,8 +1,16 @@
-node_modules
-.expo
-.expo-shared
-dist
-build
+backend/firebase-service-account.json
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+
+backend/logs/
+backend/uploads/
 
 backend/.env
+backend/.env.local
+
 mobile/.env
+mobile/.env.production
+mobile/.env.local
