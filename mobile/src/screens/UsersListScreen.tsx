@@ -9,11 +9,14 @@ import {
 } from 'react-native';
 import { api } from '../services/api';
 
+import { VerifiedBadge } from '../components/VerifiedBadge';
+
 interface User {
   _id: string;
   displayName: string;
   email: string;
   isOnline: boolean;
+  isPremium?: boolean;
 }
 
 interface UsersListScreenProps {
@@ -35,6 +38,7 @@ export default function UsersListScreen({
 }: UsersListScreenProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStartingPrivate, setIsStartingPrivate] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -55,6 +59,28 @@ export default function UsersListScreen({
     }
   };
 
+  const handlePrivateMode = async () => {
+    try {
+      setIsStartingPrivate(true);
+      const result = await api.startPrivateSession();
+      // Pass sessionId to the private mode screen/handler
+      // Since current navigation is state-based in App.tsx, we pass it via callback
+      // But App.tsx logic for 'private' screen needs to know about the session
+      // For now, we assume App.tsx or PrivateModeScreen handles the session initialization
+      // We'll update onPrivateMode to accept data if needed, but current prop signature is void
+      
+      // We will rely on PrivateModeScreen to handle the session join if we can't pass params
+      // However, we updated api.ts to have startPrivateSession
+      
+      onPrivateMode();
+    } catch (error) {
+      console.error('Failed to start private session:', error);
+      alert('Could not start private session. Please try again.');
+    } finally {
+      setIsStartingPrivate(false);
+    }
+  };
+
   const renderUser = ({ item }: { item: User }) => (
     <TouchableOpacity style={styles.userItem} onPress={() => onSelectUser(item)}>
       <View style={styles.avatar}>
@@ -63,7 +89,10 @@ export default function UsersListScreen({
         </Text>
       </View>
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.displayName}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.userName}>{item.displayName}</Text>
+          {item.isPremium && <VerifiedBadge size={14} />}
+        </View>
         <Text style={styles.userEmail}>{item.email}</Text>
       </View>
       <View
@@ -99,8 +128,16 @@ export default function UsersListScreen({
       </View>
 
       {/* Private Mode Button */}
-      <TouchableOpacity style={styles.privateButton} onPress={onPrivateMode}>
-        <Text style={styles.privateButtonText}>🔒 Enter Private Mode</Text>
+      <TouchableOpacity 
+        style={styles.privateButton} 
+        onPress={handlePrivateMode}
+        disabled={isStartingPrivate}
+      >
+        {isStartingPrivate ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={styles.privateButtonText}>🔒 Enter Private Mode</Text>
+        )}
       </TouchableOpacity>
 
       {/* Feed Button */}
@@ -232,6 +269,10 @@ const styles = StyleSheet.create({
   userInfo: {
     flex: 1,
     marginLeft: 15,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   userName: {
     fontSize: 16,

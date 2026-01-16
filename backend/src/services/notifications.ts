@@ -1,8 +1,9 @@
 import admin from 'firebase-admin';
 
-if (!admin.apps.length) {
-  console.warn("⚠️ FCM not configured (Firebase not initialized)");
-}
+// Remove top-level check that runs before initialization
+// if (!admin.apps.length) {
+//   console.warn("⚠️ FCM not configured (Firebase not initialized)");
+// }
 
 let firebaseInitialized = false;
 

@@ -41,22 +41,31 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
 
   useEffect(() => {
     // Connect to private namespace
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = io(SOCKET_URL, {
+      extraHeaders: {
+        'X-Ephemeral-Session': sessionId || '',
+      }
+    });
 
     socketRef.current.on('connect', () => {
-      // Join private mode and get anonymous alias
-      socketRef.current?.emit('private:join', (data: any) => {
-        setSessionId(data.sessionId);
-        setAlias(data.alias);
-        setIsConnecting(false);
-        
-        // Add welcome message
-        setMessages([{
-          senderAlias: 'System',
-          content: `${data.message} You are: ${data.alias}`,
-          createdAt: new Date(),
-        }]);
-      });
+      // If we have a sessionId (from API start), join the room
+      if (sessionId) {
+        socketRef.current?.emit('private:join-session', { sessionId });
+      } else {
+        // Fallback for direct socket join without API (legacy)
+        socketRef.current?.emit('private:join', (data: any) => {
+          setSessionId(data.sessionId);
+          setAlias(data.alias);
+          setIsConnecting(false);
+          
+          // Add welcome message
+          setMessages([{
+            senderAlias: 'System',
+            content: `${data.message} You are: ${data.alias}`,
+            createdAt: new Date(),
+          }]);
+        });
+      }
     });
 
     // Listen for broadcasts

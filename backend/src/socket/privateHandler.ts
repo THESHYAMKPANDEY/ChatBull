@@ -74,9 +74,10 @@ export const setupPrivateSocket = (io: Server) => {
         // Save message (will auto-delete after 24h)
         const message = await PrivateMessage.create({
           sessionId: data.sessionId,
-          senderAlias: session.alias,
-          receiverAlias: data.receiverAlias,
+          ephemeralUserId: session.alias,
+          recipientEphemeralId: data.receiverAlias,
           content: data.content,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
         });
 
         // Send to receiver if online

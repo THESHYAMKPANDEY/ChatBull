@@ -188,31 +188,36 @@ npx expo start
 5. **Security Headers**: Helmet adds various security headers
 6. **Data Deletion**: Complete data removal on account deletion
 
-## Privacy Controls
+## Privacy & Ephemeral Mode
+The new "Private Tab" features true ephemeral messaging:
+- **Session-Based**: Each private session generates a unique, temporary ID (`ephemeralUserId`) and session ID.
+- **Auto-Deletion (TTL)**: MongoDB TTL indexes automatically wipe sessions and messages after 6 hours.
+- **Secure Wipe**: Ending a session triggers an atomic deletion of all associated messages and media.
+- **Media**: Private media uploads are tagged as 'ephemeral' and wiped on session end.
+- **Audit Logs**: Deletion events are logged (metadata only) for compliance.
 
-- **Private Mode**: Anonymous chat with automatic message deletion
-- **Account Deletion**: Complete removal of user data from system
-- **Data Encryption**: Messages encrypted in transit
-- **Compliance**: Privacy policy outlining data practices
+**Note**: While we strive for privacy, we cannot prevent physical recording devices. Do not use this platform for illegal activities. We cooperate with lawful requests.
 
-## Running Tests
+## Premium Features
+- **Verified Badge**: Golden tick for premium users.
+- **Gated Features**: High-quality uploads, Story Highlights (coming soon).
 
-Coming soon - unit and integration tests for all major functionality.
-
-## Deployment
-
-### Backend Deployment
-Deploy to platforms like Heroku, AWS, or DigitalOcean with:
-- MongoDB Atlas for database
-- Cloudinary for media storage
-- Firebase for authentication
-
-### Mobile Deployment
-Use Expo Application Services (EAS) for building and deploying:
+### Seeding Premium Users
+To seed the initial premium users (Amit & Shyam), run:
 ```bash
-eas build --platform android
-eas build --platform ios
+# In backend directory
+npx ts-node scripts/seedUsers.ts
 ```
+Ensure `MONGODB_URI` is set in your `.env`.
+
+## 🔐 Security & Secrets
+- **NEVER commit .env files.**
+- Use `scrub_secrets.sh` if you accidentally commit keys.
+- **Rotation**: If a key is leaked, revoke it immediately in the provider dashboard (Firebase/MongoDB) and update Render env vars.
+
+## 📦 Deployment
+See [RENDER_DEPLOY.md](RENDER_DEPLOY.md) for detailed backend deployment instructions.
+
 
 ## Contributing
 

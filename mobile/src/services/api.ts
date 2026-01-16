@@ -243,4 +243,23 @@ export const api = {
       body: JSON.stringify(postData),
     });
   },
+
+  // Private Mode
+  startPrivateSession: async (encryptionKey?: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/private/start', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ encryptionKey }),
+    });
+  },
+
+  endPrivateSession: async (sessionId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/private/end', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ sessionId }),
+    });
+  },
 };

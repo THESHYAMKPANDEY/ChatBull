@@ -1,7 +1,23 @@
 import { Router, Request, Response } from 'express';
-import { handleScreenshotDetection } from '../controllers/securityController';
+import { handleScreenshotDetection, reportContent } from '../controllers/securityController';
+import { verifyFirebaseToken } from '../middleware/auth';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+// Rate limiting for reports
+const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // limit each IP to 5 reports per hour
+  message: 'Too many reports submitted, please try again later',
+});
+
+/**
+ * POST /api/security/report
+ * Endpoint to report content or sessions
+ * Body: { sessionId, messageId, reason, category }
+ */
+router.post('/report', verifyFirebaseToken, reportLimiter, reportContent);
 
 /**
  * POST /api/security/screenshot-detected
