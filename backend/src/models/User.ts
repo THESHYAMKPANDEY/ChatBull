@@ -8,7 +8,6 @@ export interface IUser extends Document {
   photoURL?: string;
   phoneNumber?: string;
   deviceToken?: string;
-  stripeCustomerId?: string;
   isPremium?: boolean;
   isDeleted?: boolean;
   deletedAt?: Date;
