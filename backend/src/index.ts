@@ -29,7 +29,8 @@ const io = new Server(httpServer, {
   },
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || '10000';
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Security middleware
 app.use(helmet()); // Sets security headers
@@ -179,23 +180,25 @@ const startServer = async () => {
     // Initialize Firebase Admin for push notifications
     initializeFirebaseAdmin();
     
-    const server = httpServer.listen({
-      port: PORT,
-      host: '0.0.0.0'
-    }, () => {
+    httpServer.listen(Number(PORT), HOST, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Socket.IO ready for connections`);
+      console.log(`Server accessible at: http://${HOST}:${PORT}/`);
       
-      const localIPs = getLocalIPAddresses();
-      console.log(`Server accessible at:`);
-      console.log(`  - http://localhost:${PORT}`);
-      console.log(`  - http://127.0.0.1:${PORT}`);
-      localIPs.forEach(ip => {
-        console.log(`  - http://${ip}:${PORT}`);
-      });
-      console.log(`  - http://0.0.0.0:${PORT} (internal)`);
+      // Only log local IPs in development
+      if (process.env.NODE_ENV !== 'production') {
+        const localIPs = getLocalIPAddresses();
+        console.log(`Server accessible at:`);
+        console.log(`  - http://localhost:${PORT}`);
+        console.log(`  - http://127.0.0.1:${PORT}`);
+        localIPs.forEach(ip => {
+          console.log(`  - http://${ip}:${PORT}`);
+        });
+        console.log(`  - http://${HOST}:${PORT} (internal)`);
+      }
     });
-    server.on('error', (err) => {
+    
+    httpServer.on('error', (err) => {
       console.error('Server error:', err);
     });
   } catch (error) {
