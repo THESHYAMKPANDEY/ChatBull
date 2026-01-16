@@ -1,4 +1,6 @@
 backend/firebase-service-account.json
+backend/social-chat-2df37-firebase-adminsdk-fbsvc-6c77f21c79.json
+backend/*firebase*.json
 node_modules/
 .expo/
 .expo-shared/
