@@ -11,15 +11,17 @@ import ChatScreen from './src/screens/ChatScreen';
 import PrivateModeScreen from './src/screens/PrivateModeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import FeedScreen from './src/screens/FeedScreen';
+import CreateGroupScreen from './src/screens/CreateGroupScreen';
+import CallScreen from './src/screens/CallScreen';
 import { ThemeProvider } from './src/config/theme';
-import AIChatScreen from './src/screens/AIChatScreen';
 
-type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai';
+type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [callData, setCallData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -159,6 +161,14 @@ export default function App() {
           />
         )}
         
+        {currentScreen === 'createGroup' && currentUser && (
+          <CreateGroupScreen />
+        )}
+        
+        {currentScreen === 'call' && callData && (
+          <CallScreen />
+        )}
+
         {currentScreen === 'chat' && currentUser && selectedUser && (
           <ChatScreen
             currentUser={currentUser}

@@ -1,104 +1,46 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-// import { RTCView, mediaDevices, RTCPeerConnection, RTCSessionDescription, RTCIceCandidate } from 'react-native-webrtc';
-// NOTE: react-native-webrtc requires a development build (EAS Build) and does not work in Expo Go.
-// For now, we mock the UI and signaling logic.
+import React from 'react';
+import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity } from 'react-native';
+import { ZegoUIKitPrebuiltCall, ONE_ON_ONE_VIDEO_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
-interface CallScreenProps {
-  currentUser: any;
-  otherUser: any;
-  isIncoming: boolean;
-  isVideo: boolean;
-  onEndCall: () => void;
-  socket: any; // Passed from parent or context
-}
+export default function CallScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { callID, userID, userName } = route.params as { callID: string; userID: string; userName: string };
 
-export default function CallScreen({
-  currentUser,
-  otherUser,
-  isIncoming,
-  isVideo,
-  onEndCall,
-  socket
-}: CallScreenProps) {
-  const [status, setStatus] = useState(isIncoming ? 'Incoming Call...' : 'Calling...');
-  const [isConnected, setIsConnected] = useState(false);
-  
-  // Ref for PeerConnection
-  const peerConnection = useRef<any>(null);
+  // Use environment variables or fallbacks (ensure you updated .env)
+  const appId = Number(process.env.EXPO_PUBLIC_ZEGO_APP_ID);
+  const appSign = process.env.EXPO_PUBLIC_ZEGO_APP_SIGN || '';
 
-  useEffect(() => {
-    // Initialize WebRTC (Mocked for safety if lib is missing)
-    startCall();
-
-    return () => {
-      // Cleanup
-      if (peerConnection.current) {
-        peerConnection.current.close();
-      }
-    };
-  }, []);
-
-  const startCall = async () => {
-    // In a real app:
-    // 1. Get local stream: const stream = await mediaDevices.getUserMedia({ audio: true, video: isVideo });
-    // 2. Set local stream to state
-    // 3. Create PeerConnection
-    // 4. Add stream tracks to PeerConnection
-    
-    if (!isIncoming) {
-      // Initiate offer
-      // const offer = await peerConnection.current.createOffer();
-      // await peerConnection.current.setLocalDescription(offer);
-      // socket.emit('call:offer', { targetId: otherUser.id, sdp: offer });
-    }
-  };
-
-  const handleAccept = async () => {
-    setStatus('Connecting...');
-    setIsConnected(true);
-    // In a real app:
-    // 1. Create Answer
-    // 2. Set Local Description
-    // 3. Emit 'call:answer'
-  };
-
-  const handleHangup = () => {
-    socket.emit('call:hangup', { targetId: otherUser.id });
-    onEndCall();
-  };
+  if (!appId || !appSign) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>Missing ZegoCloud Configuration.</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.remoteStream}>
-        <Text style={styles.remoteText}>
-          {isConnected ? 'Remote Stream Placeholder' : ''}
-        </Text>
-        {!isConnected && (
-          <View style={styles.infoContainer}>
-            <View style={styles.avatarPlaceholder} />
-            <Text style={styles.name}>{otherUser.displayName}</Text>
-            <Text style={styles.status}>{status}</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.controls}>
-        {isIncoming && !isConnected ? (
-          <>
-            <TouchableOpacity style={[styles.button, styles.rejectButton]} onPress={handleHangup}>
-              <Text style={styles.buttonText}>Decline</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.acceptButton]} onPress={handleAccept}>
-              <Text style={styles.buttonText}>Accept</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity style={[styles.button, styles.hangupButton]} onPress={handleHangup}>
-            <Text style={styles.buttonText}>End Call</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <ZegoUIKitPrebuiltCall
+        appID={appId}
+        appSign={appSign}
+        userID={userID}
+        userName={userName}
+        callID={callID}
+        config={{
+          ...ONE_ON_ONE_VIDEO_CALL_CONFIG,
+          onOnlySelfInRoom: () => {
+            navigation.goBack();
+          },
+          onHangUp: () => {
+            navigation.goBack();
+          },
+        }}
+      />
     </View>
   );
 }
@@ -106,62 +48,25 @@ export default function CallScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#222',
+    backgroundColor: '#000',
   },
-  remoteStream: {
+  errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
   },
-  remoteText: {
-    color: '#fff',
-  },
-  infoContainer: {
-    alignItems: 'center',
-  },
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#555',
+  errorText: {
+    fontSize: 16,
+    color: 'red',
     marginBottom: 20,
   },
-  name: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  backButton: {
+    padding: 10,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
   },
-  status: {
-    color: '#ccc',
-    fontSize: 16,
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    paddingBottom: 50,
-    paddingHorizontal: 20,
-  },
-  button: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  acceptButton: {
-    backgroundColor: '#4CD964',
-  },
-  rejectButton: {
-    backgroundColor: '#FF3B30',
-  },
-  hangupButton: {
-    backgroundColor: '#FF3B30',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  buttonText: {
+  backButtonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
