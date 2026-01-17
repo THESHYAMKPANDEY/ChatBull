@@ -20,6 +20,7 @@ import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
 import storyRoutes from './routes/story';
 import aiRoutes from './routes/ai';
+import groupRoutes from './routes/groups';
 
 dotenv.config({ override: true });
 

@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import Message from '../models/Message';
 import User from '../models/User';
+import Group from '../models/Group';
 
 // Store connected users: userId -> socketId
 const connectedUsers: Map<string, string> = new Map();
@@ -37,18 +38,20 @@ export const setupSocket = (io: Server) => {
     // Send message
     socket.on('message:send', async (data: {
       senderId: string;
-      receiverId: string;
+      receiverId?: string;
+      groupId?: string;
       content: string;
       messageType?: string;
       isPrivate?: boolean;
     }) => {
       try {
-        const { senderId, receiverId, content, messageType = 'text', isPrivate = false } = data;
+        const { senderId, receiverId, groupId, content, messageType = 'text', isPrivate = false } = data;
 
         // Save message to database
         const message = await Message.create({
           sender: senderId,
-          receiver: receiverId,
+          receiver: receiverId, // Can be null for group messages
+          groupId: groupId,     // New field for groups
           content,
           messageType,
           isPrivate,
@@ -57,16 +60,33 @@ export const setupSocket = (io: Server) => {
         // Populate sender info
         await message.populate('sender', 'displayName photoURL');
 
-        // Send to receiver if online
-        const receiverSocketId = connectedUsers.get(receiverId);
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit('message:receive', message);
+        if (groupId) {
+          // Group Message Logic
+          const group = await Group.findById(groupId);
+          if (group) {
+            // Send to all group members except sender
+            group.members.forEach((memberId) => {
+              const memberIdStr = memberId.toString();
+              if (memberIdStr !== senderId) {
+                const memberSocketId = connectedUsers.get(memberIdStr);
+                if (memberSocketId) {
+                  io.to(memberSocketId).emit('message:receive', message);
+                }
+              }
+            });
+          }
+        } else if (receiverId) {
+          // Direct Message Logic
+          const receiverSocketId = connectedUsers.get(receiverId);
+          if (receiverSocketId) {
+            io.to(receiverSocketId).emit('message:receive', message);
+          }
         }
 
         // Confirm to sender
         socket.emit('message:sent', message);
 
-        console.log(`Message sent from ${senderId} to ${receiverId}`);
+        console.log(`Message sent from ${senderId} to ${groupId ? 'Group ' + groupId : receiverId}`);
       } catch (error) {
         console.error('Message send error:', error);
         socket.emit('message:error', { error: 'Failed to send message' });
@@ -74,17 +94,26 @@ export const setupSocket = (io: Server) => {
     });
 
     // Get chat history
-    socket.on('messages:get', async (data: { userId: string; otherUserId: string }) => {
+    socket.on('messages:get', async (data: { userId: string; otherUserId?: string; groupId?: string }) => {
       try {
-        const { userId, otherUserId } = data;
+        const { userId, otherUserId, groupId } = data;
+        let query;
 
-        const messages = await Message.find({
-          $or: [
-            { sender: userId, receiver: otherUserId },
-            { sender: otherUserId, receiver: userId },
-          ],
-          isPrivate: false,
-        })
+        if (groupId) {
+          query = { groupId };
+        } else if (otherUserId) {
+          query = {
+            $or: [
+              { sender: userId, receiver: otherUserId },
+              { sender: otherUserId, receiver: userId },
+            ],
+            isPrivate: false,
+          };
+        } else {
+            return;
+        }
+
+        const messages = await Message.find(query)
           .sort({ createdAt: 1 })
           .populate('sender', 'displayName photoURL')
           .limit(100);
@@ -97,17 +126,26 @@ export const setupSocket = (io: Server) => {
     });
 
     // Typing indicator
-    socket.on('typing:start', (data: { senderId: string; receiverId: string }) => {
-      const receiverSocketId = connectedUsers.get(data.receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('typing:start', data.senderId);
+    socket.on('typing:start', (data: { senderId: string; receiverId?: string; groupId?: string }) => {
+      if (data.groupId) {
+         // Broadcast to group (simplified for now, ideally iterate members)
+         socket.broadcast.to(data.groupId).emit('typing:start', data.senderId);
+      } else if (data.receiverId) {
+        const receiverSocketId = connectedUsers.get(data.receiverId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('typing:start', data.senderId);
+        }
       }
     });
 
-    socket.on('typing:stop', (data: { senderId: string; receiverId: string }) => {
-      const receiverSocketId = connectedUsers.get(data.receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('typing:stop', data.senderId);
+    socket.on('typing:stop', (data: { senderId: string; receiverId?: string; groupId?: string }) => {
+       if (data.groupId) {
+         socket.broadcast.to(data.groupId).emit('typing:stop', data.senderId);
+      } else if (data.receiverId) {
+        const receiverSocketId = connectedUsers.get(data.receiverId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('typing:stop', data.senderId);
+        }
       }
     });
 
