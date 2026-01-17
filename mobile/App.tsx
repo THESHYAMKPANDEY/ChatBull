@@ -14,6 +14,7 @@ import FeedScreen from './src/screens/FeedScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CallScreen from './src/screens/CallScreen';
 import { ThemeProvider } from './src/config/theme';
+import AIChatScreen from './src/screens/AIChatScreen';
 
 type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call';
 
