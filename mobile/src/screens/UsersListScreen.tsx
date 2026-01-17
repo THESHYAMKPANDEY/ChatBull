@@ -116,7 +116,7 @@ export default function UsersListScreen({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chats</Text>
+        <Text style={styles.headerTitle}>ChatBull</Text>
         <TouchableOpacity onPress={onLogout}>
           <Text style={styles.logoutButton}>Logout</Text>
         </TouchableOpacity>
@@ -124,33 +124,41 @@ export default function UsersListScreen({
 
       {/* Current User Info */}
       <View style={styles.currentUserBar}>
-        <Text style={styles.welcomeText}>Welcome, {currentUser.displayName}</Text>
+        <View style={styles.currentUserInfo}>
+           <Text style={styles.welcomeText}>Hi, {currentUser.displayName}</Text>
+        </View>
+        <TouchableOpacity style={styles.profileIcon} onPress={onProfile}>
+           <Text style={styles.profileIconText}>👤</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Private Mode Button */}
-      <TouchableOpacity 
-        style={styles.privateButton} 
-        onPress={handlePrivateMode}
-        disabled={isStartingPrivate}
-      >
-        {isStartingPrivate ? (
-          <ActivityIndicator color="#fff" size="small" />
-        ) : (
-          <Text style={styles.privateButtonText}>🔒 Enter Private Mode</Text>
-        )}
-      </TouchableOpacity>
+      {/* Action Buttons Row */}
+      <View style={styles.actionButtonsRow}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.feedButton]} 
+          onPress={onFeed}
+        >
+          <Text style={styles.actionButtonText}>📣 Feed</Text>
+        </TouchableOpacity>
 
-      {/* Feed Button */}
-      <TouchableOpacity style={styles.feedButton} onPress={onFeed}>
-        <Text style={styles.feedButtonText}>📣 Open Feed</Text>
-      </TouchableOpacity>
-
-      {/* Profile Button */}
-      <TouchableOpacity style={styles.profileButton} onPress={onProfile}>
-        <Text style={styles.profileButtonText}>👤 Profile Settings</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.privateButton]} 
+          onPress={handlePrivateMode}
+          disabled={isStartingPrivate}
+        >
+          {isStartingPrivate ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.actionButtonText}>🔒 Private</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* Users List */}
+      <View style={styles.listHeader}>
+         <Text style={styles.listTitle}>Recent Chats</Text>
+      </View>
+
       {users.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No other users yet</Text>
@@ -191,56 +199,79 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#fff',
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   logoutButton: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+    opacity: 0.9,
   },
   currentUserBar: {
-    padding: 15,
-    backgroundColor: '#f0f0f0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  currentUserInfo: {
+    flex: 1,
   },
   welcomeText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '700',
     color: '#333',
   },
+  profileIcon: {
+    padding: 8,
+    backgroundColor: '#f0f2f5',
+    borderRadius: 20,
+  },
+  profileIconText: {
+    fontSize: 20,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    padding: 15,
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    flex: 0.48,
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   privateButton: {
-    margin: 15,
-    padding: 15,
     backgroundColor: '#333',
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  privateButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  profileButton: {
-    margin: 15,
-    padding: 15,
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  profileButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   feedButton: {
-    marginHorizontal: 15,
-    marginBottom: 5,
-    padding: 15,
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    alignItems: 'center',
+    backgroundColor: '#007AFF',
   },
-  feedButtonText: {
+  actionButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  listHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#f8f9fa',
+  },
+  listTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   usersList: {
     padding: 10,

@@ -73,12 +73,38 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       console.error('❌ FULL AUTH ERROR:', error);
       console.error('Error stack:', error.stack);
       
-      let errorMessage = error.message || 'Authentication failed';
-      if (error.message?.includes('Network')) {
-        errorMessage = 'Cannot reach backend. Check WiFi and API URL.';
+      // Better error messages for users
+      let displayMessage = 'Authentication failed. Please try again.';
+      
+      if (error.code) {
+        switch(error.code) {
+          case 'auth/invalid-credential':
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+            displayMessage = 'Invalid email or password.';
+            break;
+          case 'auth/email-already-in-use':
+            displayMessage = 'This email is already registered. Please login instead.';
+            break;
+          case 'auth/invalid-email':
+            displayMessage = 'Please enter a valid email address.';
+            break;
+          case 'auth/weak-password':
+            displayMessage = 'Password should be at least 6 characters.';
+            break;
+          case 'auth/network-request-failed':
+            displayMessage = 'Network error. Please check your internet connection.';
+            break;
+          default:
+            displayMessage = error.message || displayMessage;
+        }
+      } else if (error.message?.includes('Network')) {
+        displayMessage = 'Cannot reach backend. Check WiFi and API URL.';
+      } else if (error.message?.includes('sync')) {
+        displayMessage = 'Login successful but failed to connect to server. Please try again.';
       }
       
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Login Failed', displayMessage);
     } finally {
       setIsLoading(false);
     }
@@ -86,50 +112,59 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Social Chat</Text>
-      <Text style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
+      <View style={styles.headerContainer}>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoIcon}>💬</Text>
+        </View>
+        <Text style={styles.title}>ChatBull</Text>
+        <Text style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+      <View style={styles.formContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          placeholderTextColor="#999"
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholderTextColor="#999"
+        />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleAuth}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>
-            {isSignUp ? 'Sign Up' : 'Login'}
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleAuth}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {isSignUp ? 'Sign Up' : 'Login'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.switchButton}
+          onPress={() => setIsSignUp(!isSignUp)}
+        >
+          <Text style={styles.switchText}>
+            {isSignUp
+              ? 'Already have an account? Login'
+              : "Don't have an account? Sign Up"}
           </Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.switchButton}
-        onPress={() => setIsSignUp(!isSignUp)}
-      >
-        <Text style={styles.switchText}>
-          {isSignUp
-            ? 'Already have an account? Login'
-            : "Don't have an account? Sign Up"}
-        </Text>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -137,37 +172,77 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  headerContainer: {
+    flex: 0.4,
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    alignItems: 'center',
+    backgroundColor: '#007AFF',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingBottom: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  logoIcon: {
+    fontSize: 40,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-    color: '#007AFF',
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 1,
+    marginBottom: 5,
   },
   subtitle: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 30,
-    color: '#666',
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+  },
+  formContainer: {
+    flex: 0.6,
+    padding: 24,
   },
   input: {
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+    borderColor: '#e1e4e8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     fontSize: 16,
+    color: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
   button: {
     backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
+    padding: 18,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 10,
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonText: {
     color: '#fff',
@@ -175,11 +250,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   switchButton: {
-    marginTop: 20,
+    marginTop: 24,
     alignItems: 'center',
   },
   switchText: {
     color: '#007AFF',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
