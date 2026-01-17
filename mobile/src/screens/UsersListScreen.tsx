@@ -10,6 +10,7 @@ import {
 import { api } from '../services/api';
 
 import { VerifiedBadge } from '../components/VerifiedBadge';
+import BottomTabBar from '../components/BottomTabBar';
 
 interface User {
   _id: string;
@@ -175,6 +176,16 @@ export default function UsersListScreen({
           contentContainerStyle={styles.usersList}
         />
       )}
+
+      <View style={styles.tabBar}>
+        <BottomTabBar
+          active="chats"
+          onChats={() => {}}
+          onFeed={onFeed}
+          onPrivate={handlePrivateMode}
+          onProfile={onProfile}
+        />
+      </View>
     </View>
   );
 }
@@ -183,6 +194,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingBottom: 56,
   },
   loadingContainer: {
     flex: 1,
@@ -340,5 +352,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8e8e8e',
     textAlign: 'center',
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });
