@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IMessage extends Document {
   sender: mongoose.Types.ObjectId;
   receiver: mongoose.Types.ObjectId;
+  groupId: mongoose.Types.ObjectId;
   content: string;
   messageType: 'text' | 'image' | 'file' | 'video' | 'document';
   isRead: boolean;
