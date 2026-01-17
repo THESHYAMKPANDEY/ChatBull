@@ -21,7 +21,12 @@ const messageSchema = new Schema<IMessage>(
     receiver: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false, // Optional for group messages
+    },
+    groupId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Group',
+      required: false,
     },
     content: {
       type: String,
