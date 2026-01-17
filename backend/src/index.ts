@@ -54,33 +54,11 @@ app.use(limiter);
 
 // Production-ready CORS configuration for mobile apps
 const corsOptions = {
-  origin: [
-    'exp://*', // Expo Go
-    'http://localhost:*', // Local development
-    'http://127.0.0.1:*', // Local development
-    'http://192.168.*:*', // LAN access
-    'http://10.*:*', // LAN access
-    'http://172.16.*:*', // LAN access
-    'http://172.17.*:*', // LAN access
-    'http://172.18.*:*', // LAN access
-    'http://172.19.*:*', // LAN access
-    'http://172.20.*:*', // LAN access
-    'http://172.21.*:*', // LAN access
-    'http://172.22.*:*', // LAN access
-    'http://172.23.*:*', // LAN access
-    'http://172.24.*:*', // LAN access
-    'http://172.25.*:*', // LAN access
-    'http://172.26.*:*', // LAN access
-    'http://172.27.*:*', // LAN access
-    'http://172.28.*:*', // LAN access
-    'http://172.29.*:*', // LAN access
-    'http://172.30.*:*', // LAN access
-    'http://172.31.*:*', // LAN access
-  ],
+  origin: true, // Reflect the request origin, allowing all
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
 };
 app.use(cors(corsOptions));
 
