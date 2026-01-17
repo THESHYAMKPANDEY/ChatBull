@@ -4,6 +4,7 @@
     "slug": "chatbull",
     "version": "1.0.0",
     "orientation": "portrait",
+    "plugins": ["@react-native-firebase/app", "@react-native-firebase/auth"],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
@@ -14,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.social.chatapp.moblie",
+      "bundleIdentifier": "com.social.chatapp.mobile",
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
@@ -24,26 +25,12 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true,
+      "usesCleartextTraffic": false,
       "package": "com.socialchat.app",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      [
-        "@zegocloud/zego-uikit-prebuilt-call-rn",
-        {
-          "android": {
-            "minSdkVersion": 24
-          },
-          "ios": {
-            "cameraUsageDescription": "We need your camera for video calls.",
-            "microphoneUsageDescription": "We need your microphone for audio calls."
-          }
-        }
-      ]
-    ]
+    }
   }
 }

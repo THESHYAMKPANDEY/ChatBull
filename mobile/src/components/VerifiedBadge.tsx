@@ -1,29 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-interface VerifiedBadgeProps {
+export interface VerifiedBadgeProps {
   size?: number;
 }
 
-export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({ size = 16 }) => {
+export const VerifiedBadge = ({ size = 16 }: VerifiedBadgeProps) => {
   return (
     <View style={[styles.container, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[styles.check, { fontSize: size * 0.7 }]}>✓</Text>
+      <Text style={[styles.checkmark, { fontSize: size * 0.6 }]}>✓</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFD700', // Gold color
+    backgroundColor: '#0095f6',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,
-    borderWidth: 1,
-    borderColor: '#fff',
   },
-  check: {
-    color: '#000',
+  checkmark: {
+    color: '#fff',
     fontWeight: 'bold',
   },
 });

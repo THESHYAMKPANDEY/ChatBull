@@ -1,7 +1,7 @@
 // PRODUCTION-READY CONNECTION STATE MANAGER
 // Note: @react-native-netinfo needs to be installed
 // npm install @react-native-netinfo
-import { EventEmitter } from 'events';
+import EventEmitter from 'eventemitter3';
 
 // Mock NetInfo for now - will be replaced with actual implementation
 const NetInfo = {

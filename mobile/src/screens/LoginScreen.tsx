@@ -7,96 +7,139 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  reload,
-  linkWithPhoneNumber,
-} from 'firebase/auth';
-import { auth } from '../config/firebase';
+  confirmPhoneOtp,
+  signInCustomToken,
+  signInEmailPassword,
+  startPhoneOtp,
+} from '../services/authClient';
 import { api } from '../services/api';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
-import { firebaseConfig } from '../config/firebase';
 
 interface LoginScreenProps {
   onLogin: (user: any) => void;
 }
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
+  const [authMode, setAuthMode] = useState<'emailPassword' | 'emailOtp' | 'phoneOtp'>('emailPassword');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [step, setStep] = useState<'auth' | 'verifyEmail' | 'verifyPhone'>('auth');
+  const [emailOtp, setEmailOtp] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [confirmation, setConfirmation] = useState<any>(null);
-  const recaptchaVerifier = React.useRef<FirebaseRecaptchaVerifierModal>(null);
-
-  const syncAndLogin = async (firebaseUser: any) => {
-    const result = await api.syncUser({
-      firebaseUid: firebaseUser.uid,
-      email: firebaseUser.email || email,
-      displayName: firebaseUser.displayName || (firebaseUser.email || email).split('@')[0],
-      photoURL: firebaseUser.photoURL || '',
-      phoneNumber: firebaseUser.phoneNumber || undefined,
-    });
-
-    if (result.success === false) {
-      throw new Error(result.error || 'Backend sync failed');
-    }
-
-    if (result.user) {
-      onLogin(result.user);
-      return;
-    }
-
-    throw new Error('Backend sync did not return user data');
-  };
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneConfirmation, setPhoneConfirmation] = useState<any>(null);
+  const recaptchaContainerId = 'recaptcha-container';
 
   const handleAuth = async () => {
-    console.log('LOGIN START:', isSignUp ? 'SIGNUP' : 'LOGIN');
-    
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      let userCredential;
-      
-      console.log('Attempting', isSignUp ? 'sign up' : 'login', 'for email:', email);
-      
-      if (isSignUp) {
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await sendEmailVerification(userCredential.user);
-      } else {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
+      if (authMode === 'emailPassword') {
+        if (!email || !password) {
+          Alert.alert('Error', 'Please enter email and password');
+          return;
+        }
+
+        const userCredential = await signInEmailPassword(email, password, isSignUp);
+
+        const firebaseUser = userCredential.user;
+
+        const result = await api.syncUser({
+          firebaseUid: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          displayName: firebaseUser.displayName || email.split('@')[0],
+          photoURL: firebaseUser.photoURL || '',
+          phoneNumber: firebaseUser.phoneNumber || '',
+        });
+
+        if (result?.user) {
+          onLogin(result.user);
+          return;
+        }
+
+        throw new Error(result?.error || 'Backend sync failed');
       }
 
-      const firebaseUser = userCredential.user;
-      console.log('Firebase login success for user:', firebaseUser.uid);
+      if (authMode === 'emailOtp') {
+        if (!email) {
+          Alert.alert('Error', 'Please enter email');
+          return;
+        }
 
-      await reload(firebaseUser);
-      // Temporarily disabled email verification check for development
-      // if (!firebaseUser.emailVerified) {
-      //   setStep('verifyEmail');
-      //   return;
-      // }
+        if (!emailOtp) {
+          await api.sendEmailOtp(email);
+          Alert.alert('OTP Sent', 'Check your email for the 6-digit code.');
+          return;
+        }
 
-      if (!firebaseUser.phoneNumber) {
-        setStep('verifyPhone');
-        return;
+        const verify = await api.verifyEmailOtp(email, emailOtp);
+        const token = verify?.customToken;
+        if (!token) throw new Error('Invalid OTP response');
+
+        const userCredential = await signInCustomToken(token);
+        const firebaseUser = userCredential.user;
+
+        const result = await api.syncUser({
+          firebaseUid: firebaseUser.uid,
+          email: firebaseUser.email || email,
+          displayName: firebaseUser.displayName || email.split('@')[0],
+          photoURL: firebaseUser.photoURL || '',
+          phoneNumber: firebaseUser.phoneNumber || '',
+        });
+
+        if (result?.user) {
+          onLogin(result.user);
+          return;
+        }
+
+        throw new Error(result?.error || 'Backend sync failed');
       }
 
-      await syncAndLogin(firebaseUser);
+      if (authMode === 'phoneOtp') {
+        if (!phoneConfirmation) {
+          if (!phoneNumber || !phoneNumber.startsWith('+')) {
+            Alert.alert('Error', 'Enter phone number in international format (e.g. +15551234567)');
+            return;
+          }
+
+          const confirmation =
+            Platform.OS === 'web'
+              ? await (startPhoneOtp as any)(phoneNumber, recaptchaContainerId)
+              : await (startPhoneOtp as any)(phoneNumber);
+          setPhoneConfirmation(confirmation);
+          Alert.alert('OTP Sent', 'Check your SMS for the 6-digit code.');
+          return;
+        }
+
+        if (!phoneOtp || phoneOtp.length !== 6) {
+          Alert.alert('Error', 'Please enter the 6-digit code');
+          return;
+        }
+
+        const userCredential = await confirmPhoneOtp(phoneConfirmation, phoneOtp);
+        if (!userCredential?.user) {
+          throw new Error('Phone verification failed');
+        }
+        const firebaseUser = userCredential.user;
+
+        const result = await api.syncUser({
+          firebaseUid: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          displayName: firebaseUser.displayName || (firebaseUser.phoneNumber || phoneNumber),
+          photoURL: firebaseUser.photoURL || '',
+          phoneNumber: firebaseUser.phoneNumber || phoneNumber,
+        });
+
+        if (result?.user) {
+          onLogin(result.user);
+          return;
+        }
+
+        throw new Error(result?.error || 'Backend sync failed');
+      }
     } catch (error: any) {
-      console.error('❌ FULL AUTH ERROR:', error);
-      console.error('Error stack:', error.stack);
-      
       // Better error messages for users
       let displayMessage = 'Authentication failed. Please try again.';
       
@@ -134,183 +177,60 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     }
   };
 
-  const checkEmailVerified = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      await reload(user);
-      if (!user.emailVerified) {
-        Alert.alert('Not verified yet', 'Please verify your email, then tap "I Verified".');
-        return;
-      }
-      if (!user.phoneNumber) {
-        setStep('verifyPhone');
-        return;
-      }
-      await syncAndLogin(user);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to verify');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resendEmailVerification = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      await sendEmailVerification(user);
-      Alert.alert('Sent', 'Verification email sent. Please check your inbox/spam.');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to resend');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const sendPhoneOtp = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    if (!phoneNumber.trim().startsWith('+')) {
-      Alert.alert('Phone format', 'Use E.164 format like +919999999999');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const result = await linkWithPhoneNumber(user, phoneNumber.trim(), recaptchaVerifier.current as any);
-      setConfirmation(result);
-      Alert.alert('OTP sent', 'Enter the SMS code to verify your phone.');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send OTP');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const verifyPhoneOtp = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    if (!confirmation) {
-      Alert.alert('Send OTP first', 'Tap "Send OTP" first.');
-      return;
-    }
-    if (!otpCode.trim()) {
-      Alert.alert('Enter code', 'Please enter the SMS OTP code.');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      await confirmation.confirm(otpCode.trim());
-      await reload(user);
-      await syncAndLogin(auth.currentUser);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to verify OTP');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={firebaseConfig as any}
-      />
-
       <View style={styles.headerContainer}>
         <View style={styles.logoContainer}>
           <Text style={styles.logoIcon}>💬</Text>
         </View>
         <Text style={styles.title}>ChatBull</Text>
-        <Text style={styles.subtitle}>
-          {step === 'auth'
-            ? isSignUp
-              ? 'Create Account'
-              : 'Welcome Back'
-            : step === 'verifyEmail'
-              ? 'Verify Email'
-              : 'Verify Phone'}
-        </Text>
+        <Text style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
       </View>
 
       <View style={styles.formContainer}>
-        {step === 'verifyEmail' && (
-          <>
-            <Text style={styles.helperText}>
-              We sent a verification link to your email. Open it, then come back.
+        <View style={styles.modeSwitch}>
+          <TouchableOpacity
+            style={[styles.modeButton, authMode === 'emailPassword' && styles.modeButtonActive]}
+            onPress={() => {
+              setAuthMode('emailPassword');
+              setEmailOtp('');
+              setPhoneOtp('');
+              setPhoneConfirmation(null);
+            }}
+          >
+            <Text style={[styles.modeButtonText, authMode === 'emailPassword' && styles.modeButtonTextActive]}>
+              Email
             </Text>
-
-            <TouchableOpacity style={styles.button} onPress={checkEmailVerified} disabled={isLoading}>
-              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>I Verified</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.switchButton} onPress={resendEmailVerification} disabled={isLoading}>
-              <Text style={styles.switchText}>Resend verification email</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {step === 'verifyPhone' && (
-          <>
-            <Text style={styles.helperText}>
-              Verify your phone with OTP (SMS). Use format like +919999999999.
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, authMode === 'emailOtp' && styles.modeButtonActive]}
+            onPress={() => {
+              setAuthMode('emailOtp');
+              setPassword('');
+              setPhoneOtp('');
+              setPhoneConfirmation(null);
+            }}
+          >
+            <Text style={[styles.modeButtonText, authMode === 'emailOtp' && styles.modeButtonTextActive]}>
+              Email OTP
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, authMode === 'phoneOtp' && styles.modeButtonActive]}
+            onPress={() => {
+              setAuthMode('phoneOtp');
+              setPassword('');
+              setEmailOtp('');
+              setPhoneConfirmation(null);
+            }}
+          >
+            <Text style={[styles.modeButtonText, authMode === 'phoneOtp' && styles.modeButtonTextActive]}>
+              Phone OTP
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Phone number (+countrycode...)"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              placeholderTextColor="#999"
-            />
-
-            <TouchableOpacity style={styles.button} onPress={sendPhoneOtp} disabled={isLoading}>
-              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send OTP</Text>}
-            </TouchableOpacity>
-
-            {confirmation && (
-              <>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter OTP"
-                  value={otpCode}
-                  onChangeText={setOtpCode}
-                  keyboardType="number-pad"
-                  autoCapitalize="none"
-                  placeholderTextColor="#999"
-                />
-
-                <TouchableOpacity style={styles.button} onPress={verifyPhoneOtp} disabled={isLoading}>
-                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verify OTP</Text>}
-                </TouchableOpacity>
-              </>
-            )}
-
-            <TouchableOpacity
-              style={styles.switchButton}
-              onPress={async () => {
-                try {
-                  const user = auth.currentUser;
-                  if (user) {
-                    await syncAndLogin(user);
-                  }
-                } catch (error: any) {
-                  Alert.alert('Error', error.message || 'Failed to continue');
-                }
-              }}
-              disabled={isLoading}
-            >
-              <Text style={styles.switchText}>Skip for now</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {step === 'auth' && (
-          <>
+        {authMode !== 'phoneOtp' && (
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -320,15 +240,54 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           autoCapitalize="none"
           placeholderTextColor="#999"
         />
+        )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#999"
-        />
+        {authMode === 'emailPassword' && (
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor="#999"
+          />
+        )}
+
+        {authMode === 'emailOtp' && (
+          <TextInput
+            style={styles.input}
+            placeholder="6-digit code"
+            value={emailOtp}
+            onChangeText={setEmailOtp}
+            keyboardType="number-pad"
+            placeholderTextColor="#999"
+          />
+        )}
+
+        {authMode === 'phoneOtp' && (
+          <>
+            {Platform.OS === 'web' ? React.createElement('div', { id: recaptchaContainerId }) : null}
+            <TextInput
+              style={styles.input}
+              placeholder="+15551234567"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              placeholderTextColor="#999"
+            />
+            {phoneConfirmation && (
+              <TextInput
+                style={styles.input}
+                placeholder="6-digit code"
+                value={phoneOtp}
+                onChangeText={setPhoneOtp}
+                keyboardType="number-pad"
+                placeholderTextColor="#999"
+              />
+            )}
+          </>
+        )}
 
         <TouchableOpacity
           style={styles.button}
@@ -339,22 +298,26 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.buttonText}>
-              {isSignUp ? 'Sign Up' : 'Login'}
+              {authMode === 'emailPassword'
+                ? (isSignUp ? 'Sign Up' : 'Login')
+                : authMode === 'emailOtp'
+                ? (emailOtp ? 'Verify Code' : 'Send Code')
+                : (phoneConfirmation ? 'Verify Code' : 'Send Code')}
             </Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.switchButton}
-          onPress={() => setIsSignUp(!isSignUp)}
-        >
-          <Text style={styles.switchText}>
-            {isSignUp
-              ? 'Already have an account? Login'
-              : "Don't have an account? Sign Up"}
-          </Text>
-        </TouchableOpacity>
-          </>
+        {authMode === 'emailPassword' && (
+          <TouchableOpacity
+            style={styles.switchButton}
+            onPress={() => setIsSignUp(!isSignUp)}
+          >
+            <Text style={styles.switchText}>
+              {isSignUp
+                ? 'Already have an account? Login'
+                : "Don't have an account? Sign Up"}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -405,15 +368,35 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
   },
-  helperText: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 12,
-    lineHeight: 18,
-  },
   formContainer: {
     flex: 0.6,
     padding: 24,
+  },
+  modeSwitch: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e1e4e8',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  modeButtonActive: {
+    borderColor: '#007AFF',
+    backgroundColor: 'rgba(0,122,255,0.08)',
+  },
+  modeButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#333',
+  },
+  modeButtonTextActive: {
+    color: '#007AFF',
   },
   input: {
     backgroundColor: '#fff',

@@ -1,58 +1,44 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IEphemeralSession extends Document {
   sessionId: string;
   ephemeralUserId: string;
   owner: mongoose.Types.ObjectId;
-  createdAt: Date;
   expiresAt: Date;
-  encryptionKey?: string; // Optional: If client provides a public key
+  encryptionKey?: string;
   isActive: boolean;
+  createdAt: Date;
 }
 
-const ephemeralSessionSchema = new Schema<IEphemeralSession>(
-  {
-    sessionId: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
-    ephemeralUserId: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    owner: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    expiresAt: {
-      type: Date,
-      required: true,
-    },
-    encryptionKey: {
-      type: String,
-      default: null,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+const EphemeralSessionSchema: Schema = new Schema({
+  sessionId: {
+    type: String,
+    required: true,
+    unique: true,
   },
-  {
-    timestamps: true,
-  }
-);
+  ephemeralUserId: {
+    type: String,
+    required: true,
+  },
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  expiresAt: {
+    type: Date,
+    required: true,
+    index: { expires: 0 }, // TTL index
+  },
+  encryptionKey: {
+    type: String,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+}, {
+  timestamps: true,
+});
 
-// TTL Index: Automatically delete documents after 'expiresAt' time
-ephemeralSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
-const EphemeralSession = mongoose.model<IEphemeralSession>('EphemeralSession', ephemeralSessionSchema);
-
-export default EphemeralSession;
+export default mongoose.model<IEphemeralSession>('EphemeralSession', EphemeralSessionSchema);

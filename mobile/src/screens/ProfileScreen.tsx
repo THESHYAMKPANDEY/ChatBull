@@ -1,9 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { appConfig } from '../config/appConfig';
-import BottomTabBar from '../components/BottomTabBar';
-import { useTheme } from '../config/theme';
-import AppHeader from '../components/AppHeader';
 
 interface ProfileScreenProps {
   currentUser: any;
@@ -14,16 +11,7 @@ interface ProfileScreenProps {
   onDeleteAccount: () => void;
 }
 
-export default function ProfileScreen({
-  currentUser,
-  onChats,
-  onFeed,
-  onPrivate,
-  onAI,
-  onDeleteAccount,
-}: ProfileScreenProps) {
-  const { mode, toggle, colors } = useTheme();
-
+export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onAI, onDeleteAccount }: ProfileScreenProps) {
   const handlePrivacyPolicy = () => {
     // In a real app, you might navigate to a dedicated privacy policy screen
     // For now, we'll show an alert with the policy
@@ -53,46 +41,33 @@ export default function ProfileScreen({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Settings" />
+    <View style={styles.container}>
+      <Text style={styles.header}>Profile Settings</Text>
       
-      <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.label, { color: colors.mutedText }]}>Name</Text>
-        <Text style={[styles.value, { color: colors.text }]}>{currentUser.displayName}</Text>
+      <View style={styles.profileCard}>
+        <Text style={styles.label}>Name:</Text>
+        <Text style={styles.value}>{currentUser.displayName}</Text>
         
-        <Text style={[styles.label, { color: colors.mutedText }]}>Email</Text>
-        <Text style={[styles.value, { color: colors.text }]}>{currentUser.email}</Text>
+        <Text style={styles.label}>Email:</Text>
+        <Text style={styles.value}>{currentUser.email}</Text>
         
-        <Text style={[styles.label, { color: colors.mutedText }]}>Premium Status</Text>
-        <Text style={[styles.value, { color: colors.text }]}>
+        <Text style={styles.label}>Premium Status:</Text>
+        <Text style={styles.value}>
           {currentUser.isPremium ? 'Active' : 'Not subscribed'}
         </Text>
       </View>
 
-      <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handlePrivacyPolicy}>
+      <TouchableOpacity style={styles.button} onPress={handlePrivacyPolicy}>
         <Text style={styles.buttonText}>Privacy Policy</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.button, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]} onPress={toggle}>
-        <Text style={[styles.buttonText, { color: colors.text }]}>
-          Theme: {mode === 'dark' ? 'Dark' : 'Light'} (Tap to switch)
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.danger }]} onPress={handleDeleteAccount}>
+      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
         <Text style={styles.deleteButtonText}>Delete Account</Text>
       </TouchableOpacity>
 
-      <View style={styles.tabBar}>
-        <BottomTabBar
-          active="profile"
-          onChats={onChats}
-          onFeed={onFeed}
-          onPrivate={onPrivate}
-          onAI={onAI}
-          onProfile={() => {}}
-        />
-      </View>
+      <TouchableOpacity style={styles.backButton} onPress={onChats}>
+        <Text style={styles.backButtonText}>Back to Chats</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -100,36 +75,44 @@ export default function ProfileScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 56,
+    padding: 20,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#333',
   },
   profileCard: {
     backgroundColor: '#fff',
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#efefef',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   label: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#8e8e8e',
+    color: '#333',
     marginTop: 10,
   },
   value: {
-    fontSize: 15,
-    color: '#262626',
-    marginTop: 4,
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 10,
   },
   button: {
-    backgroundColor: '#0095f6',
-    padding: 14,
-    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 12,
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginBottom: 10,
   },
   buttonText: {
     color: '#fff',
@@ -138,21 +121,25 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#FF3B30',
-    padding: 14,
-    borderRadius: 12,
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 12,
-    marginHorizontal: 16,
+    marginBottom: 20,
   },
   deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  tabBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+  backButton: {
+    backgroundColor: '#666',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -7,16 +7,15 @@ import { verifyFirebaseToken } from '../middleware/auth';
 
 const router = Router();
 
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads', { recursive: true });
 }
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     // Create temp uploads directory
-    cb(null, uploadsDir);
+    cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     // Generate unique filename
@@ -44,33 +43,13 @@ const upload = multer({
   },
 });
 
-const singleFileUpload = (req: Request, res: Response, next: (err?: any) => void) => {
-  upload.single('file')(req, res, (err: any) => {
-    if (err) {
-      res.status(400).json({ success: false, error: err.message || 'Upload failed' });
-      return;
-    }
-    next();
-  });
-};
-
 /**
  * POST /api/media/upload
  * Upload media file to Cloudinary
  * Requires: multipart/form-data with 'file' field
  * Returns: { success: boolean, url: string, publicId: string, metadata: object }
  */
-const multipleFilesUpload = (req: Request, res: Response, next: (err?: any) => void) => {
-  upload.array('files', 10)(req, res, (err: any) => {
-    if (err) {
-      res.status(400).json({ success: false, error: err.message || 'Upload failed' });
-      return;
-    }
-    next();
-  });
-};
-
-router.post('/upload', verifyFirebaseToken, singleFileUpload, async (req: Request, res: Response) => {
+router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -97,7 +76,7 @@ router.post('/upload', verifyFirebaseToken, singleFileUpload, async (req: Reques
     });
 
     // Clean up temp file (optional - we could do this later)
-    fs.unlinkSync(req.file.path);
+    await fs.promises.unlink(req.file.path);
 
     res.status(200).json({
       success: true,
@@ -117,7 +96,7 @@ router.post('/upload', verifyFirebaseToken, singleFileUpload, async (req: Reques
     
     // Clean up temp file if exists
     if (req.file) {
-      fs.unlinkSync(req.file.path);
+      await fs.promises.unlink(req.file.path).catch(() => undefined);
     }
 
     res.status(500).json({ 
@@ -127,7 +106,12 @@ router.post('/upload', verifyFirebaseToken, singleFileUpload, async (req: Reques
   }
 });
 
-router.post('/upload-multiple', verifyFirebaseToken, multipleFilesUpload, async (req: Request, res: Response) => {
+/**
+ * POST /api/media/upload-multiple
+ * Upload multiple media files to Cloudinary
+ * Requires: multipart/form-data with 'files' field (array)
+ */
+router.post('/upload-multiple', verifyFirebaseToken, upload.array('files', 10), async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -160,9 +144,7 @@ router.post('/upload-multiple', verifyFirebaseToken, multipleFilesUpload, async 
     const results = await Promise.all(uploadPromises);
 
     // Clean up temp files
-    files.forEach(file => {
-      fs.unlinkSync(file.path);
-    });
+    await Promise.all(files.map((file) => fs.promises.unlink(file.path).catch(() => undefined)));
 
     const urls = results.map(result => ({
       url: result.secure_url,
@@ -182,9 +164,9 @@ router.post('/upload-multiple', verifyFirebaseToken, multipleFilesUpload, async 
     
     // Clean up temp files if any exist
     if (req.files) {
-      (req.files as Express.Multer.File[]).forEach(file => {
-        fs.unlinkSync(file.path);
-      });
+      await Promise.all(
+        (req.files as Express.Multer.File[]).map((file) => fs.promises.unlink(file.path).catch(() => undefined))
+      );
     }
 
     res.status(500).json({ 

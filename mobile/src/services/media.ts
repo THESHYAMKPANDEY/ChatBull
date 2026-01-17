@@ -2,15 +2,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
 import { appConfig } from '../config/appConfig';
-import { auth } from '../config/firebase';
 
 export type PickedMedia = {
   uri: string;
-  name: string;
-  mimeType: string;
-  kind: 'image' | 'video' | 'file';
+  type: 'image' | 'video' | 'file';
+  mimeType?: string;
+  name?: string;
 };
 
+// Function to take a photo using camera
 export const takePhoto = async (): Promise<PickedMedia | null> => {
   const { status } = await ImagePicker.requestCameraPermissionsAsync();
   if (status !== 'granted') {
@@ -18,24 +18,24 @@ export const takePhoto = async (): Promise<PickedMedia | null> => {
     return null;
   }
 
-  const imagesType =
-    (ImagePicker as any).MediaType?.Images ?? (ImagePicker as any).MediaTypeOptions?.Images;
-
   const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: imagesType,
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
     quality: 0.8,
   });
 
   if (!result.canceled) {
-    const asset = result.assets[0];
-    const name = asset.fileName || asset.uri.split('/').pop() || `photo-${Date.now()}.jpg`;
-    const mimeType = asset.mimeType || 'image/jpeg';
-    return { uri: asset.uri, name, mimeType, kind: 'image' };
+    return {
+      uri: result.assets[0].uri,
+      type: 'image',
+      name: result.assets[0].fileName || `photo_${Date.now()}.jpg`,
+      mimeType: 'image/jpeg'
+    };
   }
   return null;
 };
 
+// Function to take a video using camera
 export const takeVideo = async (): Promise<PickedMedia | null> => {
   const { status } = await ImagePicker.requestCameraPermissionsAsync();
   if (status !== 'granted') {
@@ -43,19 +43,19 @@ export const takeVideo = async (): Promise<PickedMedia | null> => {
     return null;
   }
 
-  const videosType =
-    (ImagePicker as any).MediaType?.Videos ?? (ImagePicker as any).MediaTypeOptions?.Videos;
-
   const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: videosType,
+    mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+    allowsEditing: true,
     quality: 0.8,
   });
 
   if (!result.canceled) {
-    const asset = result.assets[0];
-    const name = asset.fileName || asset.uri.split('/').pop() || `video-${Date.now()}.mp4`;
-    const mimeType = asset.mimeType || 'video/mp4';
-    return { uri: asset.uri, name, mimeType, kind: 'video' };
+    return {
+      uri: result.assets[0].uri,
+      type: 'video',
+      name: result.assets[0].fileName || `video_${Date.now()}.mp4`,
+      mimeType: 'video/mp4'
+    };
   }
   return null;
 };
@@ -69,20 +69,19 @@ export const pickImage = async (): Promise<PickedMedia | null> => {
     return null;
   }
 
-  const imagesType =
-    (ImagePicker as any).MediaType?.Images ?? (ImagePicker as any).MediaTypeOptions?.Images;
-
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: imagesType,
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
     quality: 0.8,
   });
 
   if (!result.canceled) {
-    const asset = result.assets[0];
-    const name = asset.fileName || asset.uri.split('/').pop() || `image-${Date.now()}.jpg`;
-    const mimeType = asset.mimeType || 'image/jpeg';
-    return { uri: asset.uri, name, mimeType, kind: 'image' };
+    return {
+      uri: result.assets[0].uri,
+      type: 'image',
+      name: result.assets[0].fileName || `image_${Date.now()}.jpg`,
+      mimeType: 'image/jpeg'
+    };
   }
   return null;
 };
@@ -96,20 +95,19 @@ export const pickVideo = async (): Promise<PickedMedia | null> => {
     return null;
   }
 
-  const videosType =
-    (ImagePicker as any).MediaType?.Videos ?? (ImagePicker as any).MediaTypeOptions?.Videos;
-
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: videosType,
+    mediaTypes: ImagePicker.MediaTypeOptions.Videos,
     allowsEditing: true,
     quality: 0.8,
   });
 
   if (!result.canceled) {
-    const asset = result.assets[0];
-    const name = asset.fileName || asset.uri.split('/').pop() || `video-${Date.now()}.mp4`;
-    const mimeType = asset.mimeType || 'video/mp4';
-    return { uri: asset.uri, name, mimeType, kind: 'video' };
+    return {
+      uri: result.assets[0].uri,
+      type: 'video',
+      name: result.assets[0].fileName || `video_${Date.now()}.mp4`,
+      mimeType: 'video/mp4'
+    };
   }
   return null;
 };
@@ -123,12 +121,15 @@ export const pickDocument = async (): Promise<PickedMedia | null> => {
 
     if (result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      const name = asset.name || asset.uri.split('/').pop() || `file-${Date.now()}`;
-      const mimeType = asset.mimeType || getFileType(asset.uri);
-      const isImage = mimeType.startsWith('image/');
-      const isVideo = mimeType.startsWith('video/');
-      const kind: PickedMedia['kind'] = isImage ? 'image' : isVideo ? 'video' : 'file';
-      return { uri: asset.uri, name, mimeType, kind };
+      const type = asset.mimeType?.startsWith('image/') ? 'image' : 
+                   asset.mimeType?.startsWith('video/') ? 'video' : 'file';
+      
+      return {
+        uri: asset.uri,
+        type: type as 'image' | 'video' | 'file',
+        name: asset.name,
+        mimeType: asset.mimeType
+      };
     }
     return null;
   } catch (error) {
@@ -138,34 +139,30 @@ export const pickDocument = async (): Promise<PickedMedia | null> => {
 };
 
 // Function to upload file to backend (which forwards to Cloudinary)
-export const uploadFile = async (picked: PickedMedia): Promise<{
+export const uploadFile = async (media: PickedMedia): Promise<{
   success: boolean;
   url?: string;
   error?: string;
 }> => {
   const formData = new FormData();
   
+  // Get file name from URI if not provided
+  const actualFileName = media.name || media.uri.split('/').pop() || 'file';
+  
+  // Add file to form data
   formData.append('file', {
-    uri: picked.uri,
-    name: picked.name,
-    type: picked.mimeType,
+    uri: media.uri,
+    name: actualFileName,
+    type: media.mimeType || getFileType(media.uri),
   } as any);
 
   try {
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-    };
-
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      const token = await currentUser.getIdToken();
-      headers.Authorization = `Bearer ${token}`;
-    }
-
     const response = await fetch(`${appConfig.API_BASE_URL}/api/media/upload`, {
       method: 'POST',
       body: formData,
-      headers,
+      headers: {
+        'Accept': 'application/json',
+      },
     });
 
     if (!response.ok) {

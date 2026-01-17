@@ -180,7 +180,7 @@ This is a “what exists” checklist based on the current codebase (mobile + ba
 
 | Feature | Mobile | Backend | Realtime | Notes |
 |---|---:|---:|---:|---|
-| AI chat screen (“JANEAI”) | ✅ | — | — | [AIChatScreen.tsx](file:///d:/New%20folder%20(3)/Chatbull/mobile/src/screens/AIChatScreen.tsx) |
+| AI chat screen (“MetaAI”) | ✅ | — | — | [AIChatScreen.tsx](file:///d:/New%20folder%20(3)/Chatbull/mobile/src/screens/AIChatScreen.tsx) |
 | AI chat endpoint | — | ✅ | — | `POST /api/ai/chat` in [ai.ts](file:///d:/New%20folder%20(3)/Chatbull/backend/src/routes/ai.ts) |
 | Uses OpenAI when configured | — | ✅ | — | `OPENAI_API_KEY` enables OpenAI; otherwise safe fallback reply |
 

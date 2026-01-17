@@ -37,8 +37,8 @@ router.delete('/me', verifyFirebaseToken, async (req: Request, res: Response) =>
     // Delete all private messages associated with this user
     await PrivateMessage.deleteMany({
       $or: [
-        { ephemeralUserId: user.displayName }, // Best effort guess if they used displayName as alias
-        { recipientEphemeralId: user.displayName },
+        { senderAlias: user.displayName },
+        { receiverAlias: user.displayName },
       ],
     });
 
