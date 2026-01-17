@@ -40,12 +40,13 @@ if (Platform.OS === 'web') {
   authInstance = getAuth(app);
 } else {
   try {
-    const reactNativeAuth = require('firebase/auth/react-native');
+    // Check if auth is already initialized
+    authInstance = getAuth(app);
+  } catch {
+    const reactNativeAuth = require('firebase/auth');
     authInstance = initializeAuth(app, {
       persistence: reactNativeAuth.getReactNativePersistence(ReactNativeAsyncStorage),
     });
-  } catch (error) {
-    authInstance = getAuth(app);
   }
 }
 
