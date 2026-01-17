@@ -174,49 +174,58 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
 
       {/* Create Post */}
       <View style={styles.createContainer}>
-        <Text style={styles.createLabel}>Create a post</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="What's on your mind?"
-          value={content}
-          onChangeText={setContent}
-          multiline
-        />
+        <View style={styles.createHeader}>
+          <View style={styles.userAvatarSmall}>
+             <Text style={styles.userAvatarText}>
+               {currentUser?.displayName?.charAt(0).toUpperCase() || 'U'}
+             </Text>
+          </View>
+          <TextInput
+            style={styles.input}
+            placeholder="What's happening?"
+            value={content}
+            onChangeText={setContent}
+            multiline
+          />
+        </View>
+        
         {mediaUrl && mediaType && (
-          <Text style={styles.attachedText}>
-            Attached: [{mediaType.toUpperCase()}]
-          </Text>
-        )}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.mediaButton}
-            onPress={() => handleMediaPick('image')}
-            disabled={uploading}
-          >
-            <Text style={styles.mediaButtonText}>📷</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.mediaButton}
-            onPress={() => handleMediaPick('document')}
-            disabled={uploading}
-          >
-            <Text style={styles.mediaButtonText}>📄</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.mediaButton}
-            onPress={() => handleMediaPick('video')}
-            disabled={uploading}
-          >
-            <Text style={styles.mediaButtonText}>🎥</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.postButton}
-            onPress={handleCreatePost}
-            disabled={isPosting || uploading}
-          >
-            <Text style={styles.postButtonText}>
-              {isPosting ? 'Posting...' : 'Post'}
+          <View style={styles.mediaPreview}>
+            <Text style={styles.attachedText}>
+              📎 Attached: {mediaType.toUpperCase()}
             </Text>
+            <TouchableOpacity onPress={() => {
+              setMediaUrl(undefined);
+              setMediaType(undefined);
+            }}>
+              <Text style={styles.removeMedia}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        <View style={styles.actionsRow}>
+          <View style={styles.mediaButtons}>
+            <TouchableOpacity onPress={() => handleMediaPick('image')}>
+              <Text style={styles.mediaIcon}>🖼️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleMediaPick('video')}>
+              <Text style={styles.mediaIcon}>🎥</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleMediaPick('document')}>
+              <Text style={styles.mediaIcon}>📄</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity
+            style={[styles.postButton, (!content.trim() && !mediaUrl) && styles.postButtonDisabled]}
+            onPress={handleCreatePost}
+            disabled={isPosting || uploading || (!content.trim() && !mediaUrl)}
+          >
+            {isPosting || uploading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.postButtonText}>Post</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -232,6 +241,7 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
           keyExtractor={(item) => item._id}
           renderItem={renderPost}
           contentContainerStyle={styles.feedList}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </KeyboardAvoidingView>
@@ -241,82 +251,108 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 15,
-    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
     paddingTop: 50,
+    paddingBottom: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#efefef',
   },
   backButton: {
-    color: '#fff',
     fontSize: 16,
+    color: '#007AFF',
   },
   headerTitle: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#000',
   },
   headerSpacer: {
-    width: 60,
+    width: 50,
   },
   createContainer: {
-    backgroundColor: '#fff',
-    padding: 15,
-    margin: 10,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#efefef',
   },
-  createLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  createHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  userAvatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  userAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    minHeight: 40,
+    maxHeight: 100,
+    paddingTop: 8,
+  },
+  mediaPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
     padding: 10,
-    minHeight: 60,
-    maxHeight: 120,
-    marginBottom: 10,
-    backgroundColor: '#fafafa',
+    borderRadius: 8,
+    marginTop: 10,
+    marginLeft: 48,
   },
   attachedText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#007AFF',
+  },
+  removeMedia: {
+    fontSize: 16,
+    color: '#999',
+    fontWeight: 'bold',
   },
   actionsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 12,
+    paddingLeft: 48,
   },
-  mediaButton: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    borderRadius: 20,
-    marginRight: 8,
+  mediaButtons: {
+    flexDirection: 'row',
+    gap: 20,
   },
-  mediaButtonText: {
-    fontSize: 16,
+  mediaIcon: {
+    fontSize: 20,
   },
   postButton: {
-    marginLeft: 'auto',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    backgroundColor: '#0095f6',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     borderRadius: 20,
+  },
+  postButtonDisabled: {
+    backgroundColor: '#b2dffc',
   },
   postButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: 14,
   },
   loadingContainer: {
     flex: 1,
@@ -324,57 +360,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   feedList: {
-    padding: 10,
     paddingBottom: 20,
   },
   postCard: {
+    marginBottom: 1,
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    padding: 10,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 10,
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
   },
   postHeaderText: {
-    marginLeft: 10,
+    justifyContent: 'center',
   },
   authorName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#262626',
   },
   postTime: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11,
+    color: '#8e8e8e',
+    marginTop: 1,
   },
   postContent: {
-    fontSize: 15,
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 14,
+    color: '#262626',
+    lineHeight: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   mediaLink: {
-    color: '#007AFF',
+    color: '#0095f6',
     fontSize: 14,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
 });
