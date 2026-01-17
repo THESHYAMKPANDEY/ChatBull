@@ -67,7 +67,7 @@ router.post('/chat', verifyFirebaseToken, chatValidationRules, validate, async (
           {
             role: 'system',
             content:
-              'You are ChatBull AI, a helpful assistant for a social chat app. Keep responses short and practical.',
+              'You are JANEAI, a helpful assistant for a social chat app. Keep responses short and practical.',
           },
           { role: 'user', content: message },
         ],
