@@ -49,6 +49,7 @@ router.post('/start', verifyFirebaseToken, sessionCreationLimiter, async (req: R
       owner: user._id,
       expiresAt,
       encryptionKey: req.body.encryptionKey || null, // Optional client-side key
+      isActive: true,
     });
 
     logger.info(`Private session started: ${sessionId} for user ${user._id}`);
