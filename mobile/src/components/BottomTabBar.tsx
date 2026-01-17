@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme } from '../config/theme';
 
-type TabKey = 'chats' | 'feed' | 'private' | 'profile';
+type TabKey = 'chats' | 'feed' | 'private' | 'ai' | 'profile';
 
 type BottomTabBarProps = {
   active: TabKey;
   onChats: () => void;
   onFeed: () => void;
   onPrivate: () => void;
+  onAI: () => void;
   onProfile: () => void;
 };
 
@@ -16,21 +18,27 @@ export default function BottomTabBar({
   onChats,
   onFeed,
   onPrivate,
+  onAI,
   onProfile,
 }: BottomTabBarProps) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
       <TouchableOpacity style={styles.tab} onPress={onChats}>
-        <Text style={[styles.icon, active === 'chats' && styles.iconActive]}>🏠</Text>
+        <Text style={[styles.icon, { color: active === 'chats' ? colors.text : colors.mutedText }]}>🏠</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.tab} onPress={onFeed}>
-        <Text style={[styles.icon, active === 'feed' && styles.iconActive]}>📰</Text>
+        <Text style={[styles.icon, { color: active === 'feed' ? colors.text : colors.mutedText }]}>📰</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.tab} onPress={onPrivate}>
-        <Text style={[styles.icon, active === 'private' && styles.iconActive]}>🔒</Text>
+        <Text style={[styles.icon, { color: active === 'private' ? colors.text : colors.mutedText }]}>🔒</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.tab} onPress={onAI}>
+        <Text style={[styles.icon, { color: active === 'ai' ? colors.text : colors.mutedText }]}>✨</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.tab} onPress={onProfile}>
-        <Text style={[styles.icon, active === 'profile' && styles.iconActive]}>👤</Text>
+        <Text style={[styles.icon, { color: active === 'profile' ? colors.text : colors.mutedText }]}>👤</Text>
       </TouchableOpacity>
     </View>
   );
@@ -43,8 +51,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     borderTopWidth: 1,
-    borderTopColor: '#efefef',
-    backgroundColor: '#fff',
   },
   tab: {
     flex: 1,
@@ -54,10 +60,5 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 24,
-    color: '#8e8e8e',
-  },
-  iconActive: {
-    color: '#000',
   },
 });
-

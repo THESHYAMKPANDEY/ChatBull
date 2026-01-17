@@ -261,6 +261,31 @@ export const api = {
     });
   },
 
+  // Stories
+  getStories: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/stories', { headers });
+  },
+
+  createStory: async (storyData: { mediaUrl: string; mediaType: 'image' | 'video' }) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/stories', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(storyData),
+    });
+  },
+
+  // AI
+  aiChat: async (message: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/ai/chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message }),
+    });
+  },
+
   // Private Mode
   startPrivateSession: async (encryptionKey?: string) => {
     const headers = await getAuthHeaders();

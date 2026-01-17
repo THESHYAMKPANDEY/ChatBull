@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { appConfig } from '../config/appConfig';
 import BottomTabBar from '../components/BottomTabBar';
+import { useTheme } from '../config/theme';
 
 interface ProfileScreenProps {
   currentUser: any;
   onChats: () => void;
   onFeed: () => void;
   onPrivate: () => void;
+  onAI: () => void;
   onDeleteAccount: () => void;
 }
 
@@ -16,8 +18,11 @@ export default function ProfileScreen({
   onChats,
   onFeed,
   onPrivate,
+  onAI,
   onDeleteAccount,
 }: ProfileScreenProps) {
+  const { mode, toggle, colors } = useTheme();
+
   const handlePrivacyPolicy = () => {
     // In a real app, you might navigate to a dedicated privacy policy screen
     // For now, we'll show an alert with the policy
@@ -47,29 +52,35 @@ export default function ProfileScreen({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
       </View>
       
-      <View style={styles.profileCard}>
-        <Text style={styles.label}>Name:</Text>
-        <Text style={styles.value}>{currentUser.displayName}</Text>
+      <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.mutedText }]}>Name</Text>
+        <Text style={[styles.value, { color: colors.text }]}>{currentUser.displayName}</Text>
         
-        <Text style={styles.label}>Email:</Text>
-        <Text style={styles.value}>{currentUser.email}</Text>
+        <Text style={[styles.label, { color: colors.mutedText }]}>Email</Text>
+        <Text style={[styles.value, { color: colors.text }]}>{currentUser.email}</Text>
         
-        <Text style={styles.label}>Premium Status:</Text>
-        <Text style={styles.value}>
+        <Text style={[styles.label, { color: colors.mutedText }]}>Premium Status</Text>
+        <Text style={[styles.value, { color: colors.text }]}>
           {currentUser.isPremium ? 'Active' : 'Not subscribed'}
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handlePrivacyPolicy}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handlePrivacyPolicy}>
         <Text style={styles.buttonText}>Privacy Policy</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]} onPress={toggle}>
+        <Text style={[styles.buttonText, { color: colors.text }]}>
+          Theme: {mode === 'dark' ? 'Dark' : 'Light'} (Tap to switch)
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.danger }]} onPress={handleDeleteAccount}>
         <Text style={styles.deleteButtonText}>Delete Account</Text>
       </TouchableOpacity>
 
@@ -79,6 +90,7 @@ export default function ProfileScreen({
           onChats={onChats}
           onFeed={onFeed}
           onPrivate={onPrivate}
+          onAI={onAI}
           onProfile={() => {}}
         />
       </View>
