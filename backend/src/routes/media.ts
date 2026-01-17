@@ -2,14 +2,20 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { uploadToCloudinary, isCloudinaryConfigured } from '../services/cloudinary';
+import fs from 'fs';
 
 const router = Router();
+
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     // Create temp uploads directory
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     // Generate unique filename
@@ -37,13 +43,23 @@ const upload = multer({
   },
 });
 
+const singleFileUpload = (req: Request, res: Response, next: (err?: any) => void) => {
+  upload.single('file')(req, res, (err: any) => {
+    if (err) {
+      res.status(400).json({ success: false, error: err.message || 'Upload failed' });
+      return;
+    }
+    next();
+  });
+};
+
 /**
  * POST /api/media/upload
  * Upload media file to Cloudinary
  * Requires: multipart/form-data with 'file' field
  * Returns: { success: boolean, url: string, publicId: string, metadata: object }
  */
-router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/upload', singleFileUpload, async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -70,7 +86,6 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     });
 
     // Clean up temp file (optional - we could do this later)
-    const fs = await import('fs');
     fs.unlinkSync(req.file.path);
 
     res.status(200).json({
@@ -91,7 +106,6 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     
     // Clean up temp file if exists
     if (req.file) {
-      const fs = await import('fs');
       fs.unlinkSync(req.file.path);
     }
 

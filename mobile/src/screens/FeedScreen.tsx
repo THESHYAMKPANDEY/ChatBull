@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { api } from '../services/api';
-import { pickImage, pickVideo, pickDocument, uploadFile } from '../services/media';
+import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadFile, PickedMedia } from '../services/media';
 import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
 
@@ -49,6 +49,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
   const [isPosting, setIsPosting] = useState(false);
   const [content, setContent] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<PickedMedia | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'file' | undefined>(undefined);
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
@@ -75,27 +76,43 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
     setUploading(true);
     try {
-      let uri: string | null = null;
+      let picked: PickedMedia | null = null;
 
       if (type === 'image') {
-        uri = await pickImage();
+        const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+          Alert.alert('Add Photo', 'Choose source', [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+            { text: 'Camera', onPress: () => resolve('camera') },
+            { text: 'Library', onPress: () => resolve('library') },
+          ]);
+        });
+        if (!source) return;
+        picked = source === 'camera' ? await takePhoto() : await pickImage();
       } else if (type === 'video') {
-        uri = await pickVideo();
+        const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+          Alert.alert('Add Video', 'Choose source', [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+            { text: 'Camera', onPress: () => resolve('camera') },
+            { text: 'Library', onPress: () => resolve('library') },
+          ]);
+        });
+        if (!source) return;
+        picked = source === 'camera' ? await takeVideo() : await pickVideo();
       } else {
-        uri = await pickDocument();
+        picked = await pickDocument();
       }
 
-      if (!uri) {
+      if (!picked) {
         setUploading(false);
         return;
       }
 
-      const result = await uploadFile(uri);
+      setSelectedMedia(picked);
+      const result = await uploadFile(picked);
 
       if (result.success && result.url) {
         setMediaUrl(result.url);
-        const mt: 'image' | 'video' | 'file' =
-          type === 'image' ? 'image' : type === 'video' ? 'video' : 'file';
+        const mt: 'image' | 'video' | 'file' = picked.kind === 'image' ? 'image' : picked.kind === 'video' ? 'video' : 'file';
         setMediaType(mt);
         Alert.alert('Success', 'Media attached to your post');
       } else {
@@ -126,6 +143,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       if (result.success && result.post) {
         setPosts((prev) => [result.post, ...prev]);
         setContent('');
+        setSelectedMedia(null);
         setMediaUrl(undefined);
         setMediaType(undefined);
       } else {
@@ -271,13 +289,14 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
           <View style={styles.mediaPreview}>
             <View style={styles.mediaPreviewLeft}>
               {mediaType === 'image' ? (
-                <Image source={{ uri: mediaUrl }} style={styles.mediaPreviewThumb} />
+                <Image source={{ uri: selectedMedia?.uri || mediaUrl }} style={styles.mediaPreviewThumb} />
               ) : (
                 <Text style={styles.mediaPreviewIcon}>{mediaType === 'video' ? '▶' : '📎'}</Text>
               )}
               <Text style={styles.attachedText}>Attached: {mediaType.toUpperCase()}</Text>
             </View>
             <TouchableOpacity onPress={() => {
+              setSelectedMedia(null);
               setMediaUrl(undefined);
               setMediaType(undefined);
             }}>

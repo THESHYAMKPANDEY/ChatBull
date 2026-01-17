@@ -145,6 +145,7 @@ export const api = {
     email: string;
     displayName?: string;
     photoURL?: string;
+    phoneNumber?: string;
   }) => {
     console.log('🔄 Starting user sync process...');
     
