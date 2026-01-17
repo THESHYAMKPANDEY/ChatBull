@@ -11,8 +11,10 @@ import ChatScreen from './src/screens/ChatScreen';
 import PrivateModeScreen from './src/screens/PrivateModeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import FeedScreen from './src/screens/FeedScreen';
+import { ThemeProvider } from './src/config/theme';
+import AIChatScreen from './src/screens/AIChatScreen';
 
-type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed';
+type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -103,6 +105,10 @@ export default function App() {
     setCurrentScreen('feed');
   };
 
+  const handleAI = () => {
+    setCurrentScreen('ai');
+  };
+
   const handleBackToUsers = () => {
     setCurrentScreen('users');
   };
@@ -135,55 +141,69 @@ export default function App() {
   }
 
   return (
-    <View style={styles.container}>
-      {currentScreen === 'login' && (
-        <LoginScreen onLogin={handleLogin} />
-      )}
-      
-      {currentScreen === 'users' && currentUser && (
-        <UsersListScreen
-          currentUser={currentUser}
-          onSelectUser={handleSelectUser}
-          onLogout={handleLogout}
-          onPrivateMode={handlePrivateMode}
-          onProfile={handleProfile}
-          onFeed={handleFeed}
-        />
-      )}
-      
-      {currentScreen === 'chat' && currentUser && selectedUser && (
-        <ChatScreen
-          currentUser={currentUser}
-          otherUser={selectedUser}
-          onBack={handleBackFromChat}
-        />
-      )}
+    <ThemeProvider>
+      <View style={styles.container}>
+        {currentScreen === 'login' && (
+          <LoginScreen onLogin={handleLogin} />
+        )}
+        
+        {currentScreen === 'users' && currentUser && (
+          <UsersListScreen
+            currentUser={currentUser}
+            onSelectUser={handleSelectUser}
+            onLogout={handleLogout}
+            onPrivateMode={handlePrivateMode}
+            onProfile={handleProfile}
+            onFeed={handleFeed}
+            onAI={handleAI}
+          />
+        )}
+        
+        {currentScreen === 'chat' && currentUser && selectedUser && (
+          <ChatScreen
+            currentUser={currentUser}
+            otherUser={selectedUser}
+            onBack={handleBackFromChat}
+          />
+        )}
 
-      {currentScreen === 'private' && (
-        <PrivateModeScreen onExit={handleExitPrivateMode} />
-      )}
+        {currentScreen === 'private' && (
+          <PrivateModeScreen onExit={handleExitPrivateMode} />
+        )}
 
-      {currentScreen === 'profile' && currentUser && (
-        <ProfileScreen
-          currentUser={currentUser}
-          onChats={handleBackToUsers}
-          onFeed={handleFeed}
-          onPrivate={handlePrivateMode}
-          onDeleteAccount={handleDeleteAccount}
-        />
-      )}
+        {currentScreen === 'profile' && currentUser && (
+          <ProfileScreen
+            currentUser={currentUser}
+            onChats={handleBackToUsers}
+            onFeed={handleFeed}
+            onPrivate={handlePrivateMode}
+            onAI={handleAI}
+            onDeleteAccount={handleDeleteAccount}
+          />
+        )}
 
-      {currentScreen === 'feed' && currentUser && (
-        <FeedScreen
-          currentUser={currentUser}
-          onChats={handleBackToUsers}
-          onPrivate={handlePrivateMode}
-          onProfile={handleProfile}
-        />
-      )}
-      
-      <StatusBar style="auto" />
-    </View>
+        {currentScreen === 'feed' && currentUser && (
+          <FeedScreen
+            currentUser={currentUser}
+            onChats={handleBackToUsers}
+            onPrivate={handlePrivateMode}
+            onAI={handleAI}
+            onProfile={handleProfile}
+          />
+        )}
+
+        {currentScreen === 'ai' && currentUser && (
+          <AIChatScreen
+            onChats={handleBackToUsers}
+            onFeed={handleFeed}
+            onPrivate={handlePrivateMode}
+            onProfile={handleProfile}
+          />
+        )}
+        
+        <StatusBar style="auto" />
+      </View>
+    </ThemeProvider>
   );
 }
 

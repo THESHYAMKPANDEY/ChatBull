@@ -18,6 +18,8 @@ import { setupPrivateSocket } from './socket/privateHandler';
 import { initializeFirebaseAdmin } from './services/notifications';
 import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
+import storyRoutes from './routes/story';
+import aiRoutes from './routes/ai';
 
 dotenv.config({ override: true });
 
@@ -96,6 +98,8 @@ app.use('/api/legal', legalRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/private', privateRoutes);
+app.use('/api/stories', storyRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Production-ready health check endpoints
 app.get('/', (req, res) => {

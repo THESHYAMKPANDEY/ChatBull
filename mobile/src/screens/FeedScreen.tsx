@@ -10,12 +10,14 @@ import {
   Alert,
   Linking,
   Image,
+  Share,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { api } from '../services/api';
 import { pickImage, pickVideo, pickDocument, uploadFile } from '../services/media';
 import BottomTabBar from '../components/BottomTabBar';
+import { useTheme } from '../config/theme';
 
 interface PostAuthor {
   _id: string;
@@ -36,10 +38,12 @@ interface FeedScreenProps {
   currentUser: any;
   onChats: () => void;
   onPrivate: () => void;
+  onAI: () => void;
   onProfile: () => void;
 }
 
-export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile }: FeedScreenProps) {
+export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onProfile }: FeedScreenProps) {
+  const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
@@ -139,6 +143,17 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
     setLikedPosts((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
 
+  const handleSharePost = async (post: Post) => {
+    try {
+      const authorName = post.author?.displayName || 'User';
+      const text = post.content ? `${authorName}: ${post.content}` : `${authorName} posted`;
+      const url = post.mediaUrl || undefined;
+      await Share.share({ message: url ? `${text}\n${url}` : text, url });
+    } catch (error) {
+      console.error('Share error:', error);
+    }
+  };
+
   const renderMedia = (post: Post) => {
     if (!post.mediaUrl || !post.mediaType) return null;
 
@@ -171,7 +186,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
     const isLiked = !!likedPosts[item._id];
 
     return (
-      <View style={styles.postCard}>
+      <View style={[styles.postCard, { backgroundColor: colors.card }]}>
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -179,10 +194,10 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
             </Text>
           </View>
           <View style={styles.postHeaderText}>
-            <Text style={styles.authorName}>{authorName}</Text>
+            <Text style={[styles.authorName, { color: colors.text }]}>{authorName}</Text>
           </View>
           <View style={styles.postHeaderRight}>
-            <Text style={styles.moreIcon}>⋯</Text>
+            <Text style={[styles.moreIcon, { color: colors.text }]}>⋯</Text>
           </View>
         </View>
 
@@ -191,51 +206,47 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
         <View style={styles.postActions}>
           <View style={styles.actionsLeft}>
             <TouchableOpacity onPress={() => toggleLike(item._id)} style={styles.actionButton}>
-              <Text style={[styles.actionIcon, isLiked && styles.likedIcon]}>{isLiked ? '♥' : '♡'}</Text>
+              <Text style={[styles.actionIcon, { color: isLiked ? '#ed4956' : colors.text }]}>{isLiked ? '♥' : '♡'}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => Alert.alert('Coming soon', 'Comments are not implemented yet')} style={styles.actionButton}>
-              <Text style={styles.actionIcon}>💬</Text>
+              <Text style={[styles.actionIcon, { color: colors.text }]}>💬</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => Alert.alert('Coming soon', 'Sharing is not implemented yet')} style={styles.actionButton}>
-              <Text style={styles.actionIcon}>↗</Text>
+            <TouchableOpacity onPress={() => handleSharePost(item)} style={styles.actionButton}>
+              <Text style={[styles.actionIcon, { color: colors.text }]}>↗</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity onPress={() => Alert.alert('Saved', 'Post saved (UI only)')} style={styles.actionButton}>
-            <Text style={styles.actionIcon}>🔖</Text>
+            <Text style={[styles.actionIcon, { color: colors.text }]}>🔖</Text>
           </TouchableOpacity>
         </View>
 
         {isLiked ? (
-          <Text style={styles.likesText}>Liked by you</Text>
+          <Text style={[styles.likesText, { color: colors.text }]}>Liked by you</Text>
         ) : (
           <View style={styles.likesSpacer} />
         )}
 
         {item.content ? (
-          <Text style={styles.captionText}>
-            <Text style={styles.captionUser}>{authorName}</Text> {item.content}
+          <Text style={[styles.captionText, { color: colors.text }]}>
+            <Text style={[styles.captionUser, { color: colors.text }]}>{authorName}</Text> {item.content}
           </Text>
         ) : (
           <View style={styles.captionSpacer} />
         )}
 
-        <Text style={styles.postTime}>{new Date(item.createdAt).toLocaleString()}</Text>
+        <Text style={[styles.postTime, { color: colors.mutedText }]}>{new Date(item.createdAt).toLocaleString()}</Text>
       </View>
     );
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>ChatBull</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={loadFeed} style={styles.headerIcon}>
-            <Text style={styles.headerIconText}>⟳</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>ChatBull</Text>
+        <View />
       </View>
 
       {/* Create Post */}
@@ -247,8 +258,9 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
              </Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="What's happening?"
+            placeholderTextColor={colors.mutedText}
             value={content}
             onChangeText={setContent}
             multiline
@@ -257,9 +269,14 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
         
         {mediaUrl && mediaType && (
           <View style={styles.mediaPreview}>
-            <Text style={styles.attachedText}>
-              📎 Attached: {mediaType.toUpperCase()}
-            </Text>
+            <View style={styles.mediaPreviewLeft}>
+              {mediaType === 'image' ? (
+                <Image source={{ uri: mediaUrl }} style={styles.mediaPreviewThumb} />
+              ) : (
+                <Text style={styles.mediaPreviewIcon}>{mediaType === 'video' ? '▶' : '📎'}</Text>
+              )}
+              <Text style={styles.attachedText}>Attached: {mediaType.toUpperCase()}</Text>
+            </View>
             <TouchableOpacity onPress={() => {
               setMediaUrl(undefined);
               setMediaType(undefined);
@@ -317,6 +334,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile 
           onChats={onChats}
           onFeed={() => {}}
           onPrivate={onPrivate}
+          onAI={onAI}
           onProfile={onProfile}
         />
       </View>
@@ -397,6 +415,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
     marginLeft: 48,
+  },
+  mediaPreviewLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  mediaPreviewThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: '#e9ecef',
+  },
+  mediaPreviewIcon: {
+    width: 36,
+    height: 36,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 18,
+    color: '#262626',
+    backgroundColor: '#e9ecef',
+    borderRadius: 6,
+    overflow: 'hidden',
   },
   attachedText: {
     fontSize: 13,
