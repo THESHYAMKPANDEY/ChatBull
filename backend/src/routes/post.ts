@@ -9,9 +9,8 @@ const router = Router();
 
 const postValidationRules = [
   body('content')
-    .trim()
-    .isLength({ min: 1, max: 1000 })
-    .withMessage('Post content is required and must be between 1-1000 characters'),
+    .optional() // Allow optional content if media is present
+    .trim(),
   body('mediaUrl')
     .optional()
     .isURL()
@@ -20,6 +19,12 @@ const postValidationRules = [
     .optional()
     .isIn(['image', 'video', 'file'])
     .withMessage('Media type must be image, video, or file'),
+  body().custom((value, { req }) => {
+    if (!req.body.content && !req.body.mediaUrl) {
+      throw new Error('Post must have either content or media');
+    }
+    return true;
+  }),
 ];
 
 /**
@@ -45,7 +50,7 @@ router.post(
 
       const post = await Post.create({
         author: user._id,
-        content,
+        content: content || '', // Allow empty content
         mediaUrl: mediaUrl || '',
         mediaType,
       });

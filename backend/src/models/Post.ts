@@ -18,7 +18,7 @@ const postSchema = new Schema<IPost>(
     },
     content: {
       type: String,
-      required: true,
+      default: '',
       trim: true,
       maxlength: 1000,
     },
