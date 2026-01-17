@@ -30,6 +30,20 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "@zegocloud/zego-uikit-prebuilt-call-rn",
+        {
+          "android": {
+            "minSdkVersion": 24
+          },
+          "ios": {
+            "cameraUsageDescription": "We need your camera for video calls.",
+            "microphoneUsageDescription": "We need your microphone for audio calls."
+          }
+        }
+      ]
+    ]
   }
 }

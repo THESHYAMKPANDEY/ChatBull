@@ -300,7 +300,8 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
     socketRef.current.emit('message:send', {
       _id: tempId, // Include temp ID
       senderId: currentUser.id,
-      receiverId: otherUser._id,
+      receiverId: otherUser.isGroup ? undefined : otherUser._id,
+      groupId: otherUser.isGroup ? otherUser._id : undefined,
       content: newMessage.trim(),
       messageType: 'text' as const,
       ...(replyingTo && { replyTo: replyingTo }) // Include reply info

@@ -486,6 +486,17 @@ const styles = StyleSheet.create({
     color: '#8e8e8e',
     textAlign: 'center',
   },
+  createGroupButton: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    alignItems: 'center',
+  },
+  createGroupText: {
+    color: '#007AFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   tabBar: {
     position: 'absolute',
     left: 0,

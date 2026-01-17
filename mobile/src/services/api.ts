@@ -286,6 +286,32 @@ export const api = {
     });
   },
 
+  // Groups
+  createGroup: async (name: string, description: string, members: string[]) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/groups', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name, description, members }),
+    });
+  },
+
+  getGroups: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/groups', {
+      headers,
+    });
+  },
+
+  addGroupMember: async (groupId: string, userId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/groups/${groupId}/members`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ userId }),
+    });
+  },
+
   // AI
   aiChat: async (message: string) => {
     const headers = await getAuthHeaders();
