@@ -1,12 +1,17 @@
-# Social Chat App
+# ChatBull - Secure Social AI Chat
 
-A secure, real-time chat application built with React Native (Expo) and Node.js/Express backend.
+A secure, real-time chat application built with React Native (Expo) and Node.js/Express backend, featuring **JANEAI** (Voice-enabled AI Assistant).
 
 ## Features
 
+### JANEAI (New!)
+- **Voice Interaction**: Speak to JANEAI and hear responses (Speech-to-Text & Text-to-Speech).
+- **AI Chat**: Powered by OpenAI for intelligent assistance.
+- **Smart Assistant**: Helps with app features, debugging, and general queries.
+
 ### Core Chat Features
 - Real-time messaging using Socket.IO
-- User authentication with Firebase
+- User authentication with Firebase (OTP/Email)
 - Private chat rooms
 - Media sharing (images, videos, documents)
 - Online/offline status indicators
@@ -28,12 +33,12 @@ A secure, real-time chat application built with React Native (Expo) and Node.js/
 ## Tech Stack
 
 ### Frontend (Mobile)
-- React Native with Expo
+- React Native with Expo (Managed Workflow)
 - TypeScript
 - Socket.IO Client
 - Firebase Authentication
+- Expo AV & Expo Speech (Voice)
 - React Navigation
-- Screenshot prevention library
 
 ### Backend
 - Node.js with Express
@@ -53,17 +58,18 @@ A secure, real-time chat application built with React Native (Expo) and Node.js/
 ## Installation & Setup
 
 ### Prerequisites
-- Node.js (v16 or higher)
+- Node.js (v18 or higher)
 - npm or yarn
 - MongoDB Atlas account
 - Firebase project
 - Cloudinary account (for media storage)
+- OpenAI API Key (for JANEAI)
 
 ### Backend Setup
 
 1. Navigate to the backend directory:
 ```bash
-cd social-chat-app/backend
+cd backend
 ```
 
 2. Install dependencies:
@@ -74,11 +80,12 @@ npm install
 3. Create a `.env` file based on `.env.example`:
 ```bash
 MONGODB_URI=your_mongodb_connection_string
-PORT=5000
+PORT=10000
 FIREBASE_SERVICE_ACCOUNT_JSON=your_firebase_service_account_json_as_single_line
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+OPENAI_API_KEY=your_openai_key
 ```
 
 4. Start the backend server:
@@ -90,7 +97,7 @@ npm run dev
 
 1. Navigate to the mobile directory:
 ```bash
-cd social-chat-app/mobile
+cd mobile
 ```
 
 2. Install dependencies:
@@ -98,12 +105,7 @@ cd social-chat-app/mobile
 npm install
 ```
 
-3. Install additional required packages:
-```bash
-npx expo install @react-native-async-storage/async-storage
-```
-
-4. Create a `.env` file with your Firebase configuration:
+3. Create a `.env` file with your configuration:
 ```bash
 EXPO_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
@@ -112,33 +114,26 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
 EXPO_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 # For device access, use your computer's IP address instead of localhost
-EXPO_PUBLIC_API_BASE_URL=http://your_computer_ip_address:5000
+EXPO_PUBLIC_API_BASE_URL=http://your_computer_ip_address:10000
 ```
 
-5. Start the development server:
+4. Start the development server:
 ```bash
 npx expo start
 ```
-
-### For Physical Device Testing
-
-To test on a physical device:
-1. Ensure both your computer and device are on the same WiFi network
-2. Replace `localhost` in `EXPO_PUBLIC_API_BASE_URL` with your computer's IP address
-3. Example: `http://192.168.1.xxx:5000`
-4. Scan the QR code with Expo Go app on your device
+*Note: We use `newArchEnabled: false` in `app.json` for maximum compatibility.*
 
 ### Running Both Servers
 
 1. Terminal 1 - Backend:
 ```bash
-cd social-chat-app/backend
+cd backend
 npm run dev
 ```
 
 2. Terminal 2 - Mobile:
 ```bash
-cd social-chat-app/mobile
+cd mobile
 npx expo start
 ```
 
@@ -154,12 +149,16 @@ npx expo start
 - `src/utils/` - Utility functions (logging, helpers)
 
 ### Mobile Structure
-- `src/screens/` - UI screens (Login, Chat, Private Mode, etc.)
+- `src/screens/` - UI screens (Login, Chat, Private Mode, JANEAI, etc.)
 - `src/services/` - API clients and utilities (Firebase, Media, Security)
 - `src/config/` - Configuration files (Firebase setup)
 - `src/components/` - Reusable UI components
 
 ## API Endpoints
+
+### JANEAI
+- `POST /api/ai/chat` - Chat with JANEAI
+- `POST /api/ai/transcribe` - Speech-to-Text
 
 ### Authentication
 - `POST /api/auth/sync` - Sync user with backend
@@ -216,7 +215,8 @@ Ensure `MONGODB_URI` is set in your `.env`.
 - **Rotation**: If a key is leaked, revoke it immediately in the provider dashboard (Firebase/MongoDB) and update Render env vars.
 
 ## 📦 Deployment
-See [RENDER_DEPLOY.md](RENDER_DEPLOY.md) for detailed backend deployment instructions.
+- **Backend**: See [DEPLOYMENT_GODADDY.md](docs/DEPLOYMENT_GODADDY.md) for detailed deployment instructions including GoDaddy custom domain setup.
+- **Mobile**: Use `eas build` or `npx expo publish`.
 
 
 ## Contributing

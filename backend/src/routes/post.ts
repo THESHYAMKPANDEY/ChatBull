@@ -86,6 +86,13 @@ router.post(
  */
 router.get('/feed', verifyFirebaseToken, async (req: Request, res: Response) => {
   try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '20', 10), 1), 50);
     const skip = (page - 1) * limit;
@@ -99,16 +106,72 @@ router.get('/feed', verifyFirebaseToken, async (req: Request, res: Response) => 
       Post.countDocuments(),
     ]);
 
+    const mappedPosts = posts.map((p: any) => {
+      const likes = Array.isArray(p.likes) ? p.likes.map((id: any) => String(id)) : [];
+      return {
+        ...p.toObject(),
+        likeCount: likes.length,
+        likedByMe: likes.includes(String(user._id)),
+      };
+    });
+
     res.status(200).json({
       success: true,
       page,
       limit,
       total,
-      posts,
+      posts: mappedPosts,
     });
   } catch (error) {
     console.error('Get feed error:', error);
     res.status(500).json({ success: false, error: 'Failed to load feed' });
+  }
+});
+
+/**
+ * POST /api/posts/:postId/like
+ * Toggle like on a post
+ */
+router.post('/:postId/like', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const postId = req.params.postId;
+    const post = await Post.findById(postId);
+    if (!post) {
+      res.status(404).json({ success: false, error: 'Post not found' });
+      return;
+    }
+
+    const userIdStr = String(user._id);
+    const likes = (post as any).likes as any[] | undefined;
+    const alreadyLiked = Array.isArray(likes) && likes.map((id) => String(id)).includes(userIdStr);
+
+    if (alreadyLiked) {
+      await Post.updateOne({ _id: post._id }, { $pull: { likes: user._id } });
+    } else {
+      await Post.updateOne({ _id: post._id }, { $addToSet: { likes: user._id } });
+    }
+
+    const updated = await Post.findById(post._id).populate('author', 'displayName photoURL');
+    const updatedLikes = Array.isArray((updated as any)?.likes) ? (updated as any).likes.map((id: any) => String(id)) : [];
+
+    res.status(200).json({
+      success: true,
+      post: {
+        ...(updated as any).toObject(),
+        likeCount: updatedLikes.length,
+        likedByMe: updatedLikes.includes(userIdStr),
+      },
+    });
+  } catch (error) {
+    console.error('Toggle like error:', error);
+    res.status(500).json({ success: false, error: 'Failed to toggle like' });
   }
 });
 
