@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-
 import { appConfig } from '../config/appConfig';
 import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
+import AppHeader from '../components/AppHeader';
 
 interface ProfileScreenProps {
   currentUser: any;
@@ -53,9 +54,7 @@ export default function ProfileScreen({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
-      </View>
+      <AppHeader title="Settings" />
       
       <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.label, { color: colors.mutedText }]}>Name</Text>
@@ -101,20 +100,7 @@ export default function ProfileScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
-    backgroundColor: '#fff',
     paddingBottom: 56,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#efefef',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000',
   },
   profileCard: {
     backgroundColor: '#fff',
