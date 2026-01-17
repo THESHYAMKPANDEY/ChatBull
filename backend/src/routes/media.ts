@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { uploadToCloudinary, isCloudinaryConfigured } from '../services/cloudinary';
 import fs from 'fs';
+import { verifyFirebaseToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -59,7 +60,17 @@ const singleFileUpload = (req: Request, res: Response, next: (err?: any) => void
  * Requires: multipart/form-data with 'file' field
  * Returns: { success: boolean, url: string, publicId: string, metadata: object }
  */
-router.post('/upload', singleFileUpload, async (req: Request, res: Response) => {
+const multipleFilesUpload = (req: Request, res: Response, next: (err?: any) => void) => {
+  upload.array('files', 10)(req, res, (err: any) => {
+    if (err) {
+      res.status(400).json({ success: false, error: err.message || 'Upload failed' });
+      return;
+    }
+    next();
+  });
+};
+
+router.post('/upload', verifyFirebaseToken, singleFileUpload, async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -116,12 +127,7 @@ router.post('/upload', singleFileUpload, async (req: Request, res: Response) => 
   }
 });
 
-/**
- * POST /api/media/upload-multiple
- * Upload multiple media files to Cloudinary
- * Requires: multipart/form-data with 'files' field (array)
- */
-router.post('/upload-multiple', upload.array('files', 10), async (req: Request, res: Response) => {
+router.post('/upload-multiple', verifyFirebaseToken, multipleFilesUpload, async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -154,7 +160,6 @@ router.post('/upload-multiple', upload.array('files', 10), async (req: Request, 
     const results = await Promise.all(uploadPromises);
 
     // Clean up temp files
-    const fs = await import('fs');
     files.forEach(file => {
       fs.unlinkSync(file.path);
     });
@@ -177,7 +182,6 @@ router.post('/upload-multiple', upload.array('files', 10), async (req: Request, 
     
     // Clean up temp files if any exist
     if (req.files) {
-      const fs = await import('fs');
       (req.files as Express.Multer.File[]).forEach(file => {
         fs.unlinkSync(file.path);
       });

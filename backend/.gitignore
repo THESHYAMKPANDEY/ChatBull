@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+logs/
+uploads/
+coverage/
+*.log
+.DS_Store
+firebase-service-account.json
+*.pem
