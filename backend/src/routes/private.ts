@@ -62,7 +62,11 @@ router.post('/start', verifyFirebaseToken, sessionCreationLimiter, async (req: R
     });
   } catch (error: any) {
     logger.error('Failed to start private session', error);
-    res.status(500).json({ error: 'Internal server error' });
+    // Return detailed error in development for debugging
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined 
+    });
   }
 });
 
