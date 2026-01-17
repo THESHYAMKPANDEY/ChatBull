@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { api } from '../services/api';
 import { pickImage, pickVideo, pickDocument, uploadFile } from '../services/media';
+import BottomTabBar from '../components/BottomTabBar';
 
 interface PostAuthor {
   _id: string;
@@ -32,10 +34,12 @@ interface Post {
 
 interface FeedScreenProps {
   currentUser: any;
-  onBack: () => void;
+  onChats: () => void;
+  onPrivate: () => void;
+  onProfile: () => void;
 }
 
-export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
+export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile }: FeedScreenProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
@@ -43,6 +47,7 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
   const [uploading, setUploading] = useState(false);
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'file' | undefined>(undefined);
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadFeed();
@@ -130,30 +135,91 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
     }
   };
 
+  const toggleLike = (postId: string) => {
+    setLikedPosts((prev) => ({ ...prev, [postId]: !prev[postId] }));
+  };
+
+  const renderMedia = (post: Post) => {
+    if (!post.mediaUrl || !post.mediaType) return null;
+
+    if (post.mediaType === 'image') {
+      return (
+        <Image
+          source={{ uri: post.mediaUrl }}
+          style={styles.postImage}
+          resizeMode="cover"
+        />
+      );
+    }
+
+    const label = post.mediaType === 'video' ? 'Video' : 'File';
+    const icon = post.mediaType === 'video' ? '▶' : '📎';
+
+    return (
+      <TouchableOpacity onPress={() => Linking.openURL(post.mediaUrl!)}>
+        <View style={styles.mediaRow}>
+          <Text style={styles.mediaRowIcon}>{icon}</Text>
+          <Text style={styles.mediaRowText}>{label}</Text>
+          <Text style={styles.mediaRowOpen}>Open</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderPost = ({ item }: { item: Post }) => {
+    const authorName = item.author?.displayName || 'User';
+    const isLiked = !!likedPosts[item._id];
+
     return (
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {item.author?.displayName?.charAt(0)?.toUpperCase() || '?'}
+              {authorName.charAt(0)?.toUpperCase() || '?'}
             </Text>
           </View>
           <View style={styles.postHeaderText}>
-            <Text style={styles.authorName}>{item.author?.displayName || 'User'}</Text>
-            <Text style={styles.postTime}>
-              {new Date(item.createdAt).toLocaleString()}
-            </Text>
+            <Text style={styles.authorName}>{authorName}</Text>
+          </View>
+          <View style={styles.postHeaderRight}>
+            <Text style={styles.moreIcon}>⋯</Text>
           </View>
         </View>
-        {item.content ? (
-          <Text style={styles.postContent}>{item.content}</Text>
-        ) : null}
-        {item.mediaUrl && item.mediaType && (
-          <TouchableOpacity onPress={() => Linking.openURL(item.mediaUrl!)}>
-            <Text style={styles.mediaLink}>[{item.mediaType.toUpperCase()}] Open media</Text>
+
+        {renderMedia(item)}
+
+        <View style={styles.postActions}>
+          <View style={styles.actionsLeft}>
+            <TouchableOpacity onPress={() => toggleLike(item._id)} style={styles.actionButton}>
+              <Text style={[styles.actionIcon, isLiked && styles.likedIcon]}>{isLiked ? '♥' : '♡'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert('Coming soon', 'Comments are not implemented yet')} style={styles.actionButton}>
+              <Text style={styles.actionIcon}>💬</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert('Coming soon', 'Sharing is not implemented yet')} style={styles.actionButton}>
+              <Text style={styles.actionIcon}>↗</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => Alert.alert('Saved', 'Post saved (UI only)')} style={styles.actionButton}>
+            <Text style={styles.actionIcon}>🔖</Text>
           </TouchableOpacity>
+        </View>
+
+        {isLiked ? (
+          <Text style={styles.likesText}>Liked by you</Text>
+        ) : (
+          <View style={styles.likesSpacer} />
         )}
+
+        {item.content ? (
+          <Text style={styles.captionText}>
+            <Text style={styles.captionUser}>{authorName}</Text> {item.content}
+          </Text>
+        ) : (
+          <View style={styles.captionSpacer} />
+        )}
+
+        <Text style={styles.postTime}>{new Date(item.createdAt).toLocaleString()}</Text>
       </View>
     );
   };
@@ -163,13 +229,13 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.backButton}>← Chats</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Feed</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>ChatBull</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={loadFeed} style={styles.headerIcon}>
+            <Text style={styles.headerIconText}>⟳</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Create Post */}
@@ -244,6 +310,16 @@ export default function FeedScreen({ currentUser, onBack }: FeedScreenProps) {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <View style={styles.tabBar}>
+        <BottomTabBar
+          active="feed"
+          onChats={onChats}
+          onFeed={() => {}}
+          onPrivate={onPrivate}
+          onProfile={onProfile}
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -252,6 +328,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingBottom: 56,
   },
   header: {
     flexDirection: 'row',
@@ -264,17 +341,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#efefef',
   },
-  backButton: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#000',
   },
-  headerSpacer: {
-    width: 50,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    marginLeft: 16,
+  },
+  headerIconText: {
+    fontSize: 20,
+    color: '#000',
   },
   createContainer: {
     padding: 16,
@@ -388,6 +469,14 @@ const styles = StyleSheet.create({
   postHeaderText: {
     justifyContent: 'center',
   },
+  postHeaderRight: {
+    marginLeft: 'auto',
+    paddingHorizontal: 6,
+  },
+  moreIcon: {
+    fontSize: 20,
+    color: '#262626',
+  },
   authorName: {
     fontSize: 14,
     fontWeight: '600',
@@ -397,22 +486,90 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#8e8e8e',
     marginTop: 1,
-  },
-  postContent: {
-    fontSize: 14,
-    color: '#262626',
-    lineHeight: 20,
     paddingHorizontal: 12,
     paddingBottom: 12,
   },
-  mediaLink: {
-    color: '#0095f6',
-    fontSize: 14,
-    padding: 12,
-    backgroundColor: '#f8f9fa',
+  postImage: {
+    width: '100%',
+    height: 360,
+    backgroundColor: '#f0f0f0',
+  },
+  mediaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 12,
     marginBottom: 12,
-    borderRadius: 4,
-    overflow: 'hidden',
+    marginTop: 4,
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  mediaRowIcon: {
+    fontSize: 16,
+    marginRight: 8,
+    color: '#262626',
+  },
+  mediaRowText: {
+    fontSize: 14,
+    color: '#262626',
+    fontWeight: '600',
+  },
+  mediaRowOpen: {
+    marginLeft: 'auto',
+    fontSize: 14,
+    color: '#0095f6',
+    fontWeight: '600',
+  },
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingTop: 8,
+  },
+  actionsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    paddingRight: 12,
+    paddingVertical: 4,
+  },
+  actionIcon: {
+    fontSize: 22,
+    color: '#262626',
+  },
+  likedIcon: {
+    color: '#ed4956',
+  },
+  likesText: {
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#262626',
+  },
+  likesSpacer: {
+    height: 22,
+  },
+  captionText: {
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    fontSize: 13,
+    color: '#262626',
+    lineHeight: 18,
+  },
+  captionUser: {
+    fontWeight: '600',
+    color: '#262626',
+  },
+  captionSpacer: {
+    height: 20,
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });

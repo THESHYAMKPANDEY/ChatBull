@@ -166,7 +166,9 @@ export default function App() {
       {currentScreen === 'profile' && currentUser && (
         <ProfileScreen
           currentUser={currentUser}
-          onBack={handleBackToUsers}
+          onChats={handleBackToUsers}
+          onFeed={handleFeed}
+          onPrivate={handlePrivateMode}
           onDeleteAccount={handleDeleteAccount}
         />
       )}
@@ -174,7 +176,9 @@ export default function App() {
       {currentScreen === 'feed' && currentUser && (
         <FeedScreen
           currentUser={currentUser}
-          onBack={handleBackToUsers}
+          onChats={handleBackToUsers}
+          onPrivate={handlePrivateMode}
+          onProfile={handleProfile}
         />
       )}
       

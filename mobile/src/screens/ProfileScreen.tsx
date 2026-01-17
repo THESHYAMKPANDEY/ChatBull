@@ -1,14 +1,23 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { appConfig } from '../config/appConfig';
+import BottomTabBar from '../components/BottomTabBar';
 
 interface ProfileScreenProps {
   currentUser: any;
-  onBack: () => void;
+  onChats: () => void;
+  onFeed: () => void;
+  onPrivate: () => void;
   onDeleteAccount: () => void;
 }
 
-export default function ProfileScreen({ currentUser, onBack, onDeleteAccount }: ProfileScreenProps) {
+export default function ProfileScreen({
+  currentUser,
+  onChats,
+  onFeed,
+  onPrivate,
+  onDeleteAccount,
+}: ProfileScreenProps) {
   const handlePrivacyPolicy = () => {
     // In a real app, you might navigate to a dedicated privacy policy screen
     // For now, we'll show an alert with the policy
@@ -39,7 +48,9 @@ export default function ProfileScreen({ currentUser, onBack, onDeleteAccount }: 
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Profile Settings</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Settings</Text>
+      </View>
       
       <View style={styles.profileCard}>
         <Text style={styles.label}>Name:</Text>
@@ -62,9 +73,15 @@ export default function ProfileScreen({ currentUser, onBack, onDeleteAccount }: 
         <Text style={styles.deleteButtonText}>Delete Account</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Back to Chats</Text>
-      </TouchableOpacity>
+      <View style={styles.tabBar}>
+        <BottomTabBar
+          active="profile"
+          onChats={onChats}
+          onFeed={onFeed}
+          onPrivate={onPrivate}
+          onProfile={() => {}}
+        />
+      </View>
     </View>
   );
 }
@@ -72,44 +89,49 @@ export default function ProfileScreen({ currentUser, onBack, onDeleteAccount }: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    paddingTop: 50,
+    backgroundColor: '#fff',
+    paddingBottom: 56,
   },
   header: {
-    fontSize: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#efefef',
+  },
+  headerTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#333',
+    color: '#000',
   },
   profileCard: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#efefef',
   },
   label: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#8e8e8e',
     marginTop: 10,
   },
   value: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 10,
+    fontSize: 15,
+    color: '#262626',
+    marginTop: 4,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#0095f6',
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
   },
   buttonText: {
     color: '#fff',
@@ -118,25 +140,21 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#FF3B30',
-    padding: 15,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
+    marginHorizontal: 16,
   },
   deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  backButton: {
-    backgroundColor: '#666',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });
