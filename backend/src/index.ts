@@ -22,6 +22,7 @@ import privateRoutes from './routes/private';
 dotenv.config({ override: true });
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
@@ -46,9 +47,6 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  validate: {
-    xForwardedForHeader: false,
-  },
 });
 app.use(limiter);
 

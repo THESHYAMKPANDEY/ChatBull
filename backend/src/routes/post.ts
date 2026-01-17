@@ -9,19 +9,30 @@ const router = Router();
 
 const postValidationRules = [
   body('content')
-    .optional() // Allow optional content if media is present
-    .trim(),
+    .optional({ checkFalsy: true }) // Allow optional content if media is present
+    .isString()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('Post content must be 0-1000 characters'),
   body('mediaUrl')
-    .optional()
+    .optional({ checkFalsy: true })
     .isURL()
     .withMessage('Media URL must be a valid URL'),
   body('mediaType')
-    .optional()
+    .optional({ checkFalsy: true })
     .isIn(['image', 'video', 'file'])
     .withMessage('Media type must be image, video, or file'),
   body().custom((value, { req }) => {
-    if (!req.body.content && !req.body.mediaUrl) {
+    const bodyValue = (req.body ?? {}) as { content?: unknown; mediaUrl?: unknown; mediaType?: unknown };
+    const content = typeof bodyValue.content === 'string' ? bodyValue.content.trim() : '';
+    const mediaUrl = typeof bodyValue.mediaUrl === 'string' ? bodyValue.mediaUrl.trim() : '';
+    const mediaType = typeof bodyValue.mediaType === 'string' ? bodyValue.mediaType.trim() : '';
+
+    if (!content && !mediaUrl) {
       throw new Error('Post must have either content or media');
+    }
+    if (mediaUrl && !mediaType) {
+      throw new Error('Media type is required when mediaUrl is provided');
     }
     return true;
   }),
