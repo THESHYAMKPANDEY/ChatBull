@@ -81,10 +81,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       console.log('Firebase login success for user:', firebaseUser.uid);
 
       await reload(firebaseUser);
-      if (!firebaseUser.emailVerified) {
-        setStep('verifyEmail');
-        return;
-      }
+      // Temporarily disabled email verification check for development
+      // if (!firebaseUser.emailVerified) {
+      //   setStep('verifyEmail');
+      //   return;
+      // }
 
       if (!firebaseUser.phoneNumber) {
         setStep('verifyPhone');
