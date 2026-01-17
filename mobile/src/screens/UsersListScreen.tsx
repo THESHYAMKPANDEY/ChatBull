@@ -15,6 +15,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import StoryViewer, { Story } from '../components/StoryViewer';
 import { pickImage, pickVideo, takePhoto, takeVideo, uploadFile } from '../services/media';
 import { useTheme } from '../config/theme';
+import AppHeader from '../components/AppHeader';
 
 interface User {
   _id: string;
@@ -231,10 +232,7 @@ export default function UsersListScreen({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>ChatBull</Text>
-        <View />
-      </View>
+      <AppHeader title="ChatBull" />
 
       {/* Stories/Active Section (Mock) */}
       <View style={styles.storiesContainer}>

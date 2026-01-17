@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
 import { appConfig } from '../config/appConfig';
+import { auth } from '../config/firebase';
 
 export type PickedMedia = {
   uri: string;
@@ -151,12 +152,20 @@ export const uploadFile = async (picked: PickedMedia): Promise<{
   } as any);
 
   try {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const token = await currentUser.getIdToken();
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${appConfig.API_BASE_URL}/api/media/upload`, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {

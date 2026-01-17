@@ -262,6 +262,15 @@ export const api = {
     });
   },
 
+  togglePostLike: async (postId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/posts/${postId}/like`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({}),
+    });
+  },
+
   // Stories
   getStories: async () => {
     const headers = await getAuthHeaders();

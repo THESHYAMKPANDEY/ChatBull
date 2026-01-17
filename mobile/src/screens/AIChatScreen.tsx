@@ -13,6 +13,11 @@ import {
 import { api } from '../services/api';
 import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
+import AppHeader from '../components/AppHeader';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { auth } from '../config/firebase';
+import { appConfig } from '../config/appConfig';
 
 type ChatItem = {
   id: string;
@@ -30,31 +35,116 @@ type AIChatScreenProps = {
 export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: AIChatScreenProps) {
   const { colors } = useTheme();
   const [items, setItems] = useState<ChatItem[]>([
-    { id: 'welcome', role: 'ai', text: 'Hi, I’m ChatBull AI. Ask me anything.' },
+    { id: 'welcome', role: 'ai', text: 'Hi, I’m JANEAI. Ask me anything.' },
   ]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
   const data = useMemo(() => items, [items]);
 
-  const send = async () => {
-    const message = text.trim();
-    if (!message || sending) return;
+  const sendMessage = async (message: string) => {
+    if (!message.trim() || sending) return;
 
-    const userItem: ChatItem = { id: `u_${Date.now()}`, role: 'user', text: message };
+    const userItem: ChatItem = { id: `u_${Date.now()}`, role: 'user', text: message.trim() };
     setItems((prev) => [userItem, ...prev]);
-    setText('');
 
     try {
       setSending(true);
-      const result = await api.aiChat(message);
+      const result = await api.aiChat(message.trim());
       const replyText = result?.reply || 'Okay.';
       const aiItem: ChatItem = { id: `a_${Date.now()}`, role: 'ai', text: replyText };
       setItems((prev) => [aiItem, ...prev]);
+      if (ttsEnabled) {
+        Speech.stop();
+        Speech.speak(replyText, { rate: 1.0 });
+      }
     } catch (error: any) {
       const aiItem: ChatItem = { id: `a_${Date.now()}`, role: 'ai', text: error.message || 'Failed to reply.' };
       setItems((prev) => [aiItem, ...prev]);
     } finally {
+      setSending(false);
+    }
+  };
+
+  const send = async () => {
+    const message = text.trim();
+    if (!message || sending) return;
+    setText('');
+    await sendMessage(message);
+  };
+
+  const startRecording = async () => {
+    if (sending || isRecording) return;
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) return;
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const rec = new Audio.Recording();
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await rec.startAsync();
+      setRecording(rec);
+      setIsRecording(true);
+    } catch (error) {
+      setRecording(null);
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecordingAndSend = async () => {
+    if (!recording) return;
+    try {
+      setIsRecording(false);
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+      if (!uri) return;
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const token = await currentUser.getIdToken();
+      const form = new FormData();
+      form.append(
+        'audio',
+        {
+          uri,
+          name: 'audio.m4a',
+          type: 'audio/mp4',
+        } as any
+      );
+
+      setSending(true);
+      const response = await fetch(`${appConfig.API_BASE_URL}/api/ai/transcribe`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
+
+      const data = (await response.json()) as any;
+      if (!response.ok || !data?.success) {
+        setSending(false);
+        return;
+      }
+
+      const transcript = String(data.text || '').trim();
+      setSending(false);
+      if (transcript) {
+        await sendMessage(transcript);
+      }
+    } catch (error) {
+      setRecording(null);
+      setIsRecording(false);
       setSending(false);
     }
   };
@@ -82,10 +172,7 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>MetaAI</Text>
-        <View />
-      </View>
+      <AppHeader title="JANEAI" />
 
       <FlatList
         data={data}
@@ -99,13 +186,31 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
       <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
         <TextInput
           style={[styles.input, { color: colors.text }]}
-          placeholder="Ask ChatBull AI…"
+          placeholder="Ask JANEAI…"
           placeholderTextColor={colors.mutedText}
           value={text}
           onChangeText={setText}
           multiline
         />
-        <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending}>
+        <TouchableOpacity
+          style={[styles.iconBtn, { borderColor: colors.border }]}
+          onPress={() => setTtsEnabled((v) => !v)}
+          disabled={sending}
+        >
+          <Text style={[styles.iconText, { color: ttsEnabled ? colors.primary : colors.mutedText }]}>🔊</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.iconBtn, { borderColor: colors.border }]}
+          onPress={isRecording ? stopRecordingAndSend : startRecording}
+          disabled={sending}
+        >
+          <Text style={[styles.iconText, { color: isRecording ? colors.danger : colors.text }]}>
+            {isRecording ? '■' : '🎙️'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || isRecording}>
           {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
         </TouchableOpacity>
       </View>
@@ -189,6 +294,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconBtn: {
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
   sendText: {
     color: '#fff',
     fontWeight: '700',
@@ -200,4 +318,3 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
 });
-

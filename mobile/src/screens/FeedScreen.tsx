@@ -18,6 +18,7 @@ import { api } from '../services/api';
 import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadFile, PickedMedia } from '../services/media';
 import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
+import AppHeader from '../components/AppHeader';
 
 interface PostAuthor {
   _id: string;
@@ -27,11 +28,13 @@ interface PostAuthor {
 
 interface Post {
   _id: string;
-  author: PostAuthor;
+  author?: PostAuthor | null;
   content: string;
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'file';
   createdAt: string;
+  likeCount?: number;
+  likedByMe?: boolean;
 }
 
 interface FeedScreenProps {
@@ -52,7 +55,6 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
   const [selectedMedia, setSelectedMedia] = useState<PickedMedia | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'file' | undefined>(undefined);
-  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadFeed();
@@ -141,7 +143,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       });
 
       if (result.success && result.post) {
-        setPosts((prev) => [result.post, ...prev]);
+        setPosts((prev) => [{ ...result.post, likeCount: 0, likedByMe: false }, ...prev]);
         setContent('');
         setSelectedMedia(null);
         setMediaUrl(undefined);
@@ -157,8 +159,28 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     }
   };
 
-  const toggleLike = (postId: string) => {
-    setLikedPosts((prev) => ({ ...prev, [postId]: !prev[postId] }));
+  const toggleLike = async (postId: string) => {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p._id !== postId
+          ? p
+          : {
+              ...p,
+              likedByMe: !p.likedByMe,
+              likeCount: Math.max(0, (p.likeCount || 0) + (p.likedByMe ? -1 : 1)),
+            }
+      )
+    );
+
+    try {
+      const result = await api.togglePostLike(postId);
+      if (result?.success && result?.post) {
+        setPosts((prev) => prev.map((p) => (p._id === postId ? result.post : p)));
+      }
+    } catch (error) {
+      console.error('Toggle like error:', error);
+      await loadFeed();
+    }
   };
 
   const handleSharePost = async (post: Post) => {
@@ -201,7 +223,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
   const renderPost = ({ item }: { item: Post }) => {
     const authorName = item.author?.displayName || 'User';
-    const isLiked = !!likedPosts[item._id];
+    const isLiked = !!item.likedByMe;
 
     return (
       <View style={[styles.postCard, { backgroundColor: colors.card }]}>
@@ -238,8 +260,10 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
           </TouchableOpacity>
         </View>
 
-        {isLiked ? (
-          <Text style={[styles.likesText, { color: colors.text }]}>Liked by you</Text>
+        {typeof item.likeCount === 'number' && item.likeCount > 0 ? (
+          <Text style={[styles.likesText, { color: colors.text }]}>
+            {item.likeCount} {item.likeCount === 1 ? 'like' : 'likes'}
+          </Text>
         ) : (
           <View style={styles.likesSpacer} />
         )}
@@ -262,10 +286,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>ChatBull</Text>
-        <View />
-      </View>
+      <AppHeader title="ChatBull" />
 
       {/* Create Post */}
       <View style={styles.createContainer}>
