@@ -17,12 +17,12 @@ const apiRequest = async (
     console.log(`🚀 API Request: ${API_URL}${endpoint}`);
     
     const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...(options.headers || {}),
       },
       signal: controller.signal,
-      ...options,
     });
 
     clearTimeout(timeoutId);
@@ -31,10 +31,26 @@ const apiRequest = async (
       // Handle different error statuses
       const errorData = await response.text();
       let errorMessage = `HTTP Error: ${response.status}`;
+      let errorDetails: any = undefined;
       
       try {
         const parsedError = JSON.parse(errorData);
         errorMessage = parsedError.error || parsedError.message || errorMessage;
+        errorDetails = parsedError.details;
+
+        if (
+          errorMessage.toLowerCase().includes('validation') &&
+          Array.isArray(errorDetails) &&
+          errorDetails.length > 0
+        ) {
+          const messages = errorDetails
+            .map((d: any) => d?.msg)
+            .filter(Boolean)
+            .slice(0, 2);
+          if (messages.length > 0) {
+            errorMessage = `${errorMessage}: ${messages.join(', ')}`;
+          }
+        }
       } catch {
         // If error response isn't JSON, use the raw text
         errorMessage = errorData || errorMessage;
@@ -43,6 +59,7 @@ const apiRequest = async (
       console.error(`❌ API Error: ${endpoint}`, {
         status: response.status,
         message: errorMessage,
+        details: errorDetails,
         url: response.url
       });
       
