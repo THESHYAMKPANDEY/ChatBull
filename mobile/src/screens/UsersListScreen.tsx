@@ -62,20 +62,26 @@ export default function UsersListScreen({
   const handlePrivateMode = async () => {
     try {
       setIsStartingPrivate(true);
-      const result = await api.startPrivateSession();
-      // Pass sessionId to the private mode screen/handler
-      // Since current navigation is state-based in App.tsx, we pass it via callback
-      // But App.tsx logic for 'private' screen needs to know about the session
-      // For now, we assume App.tsx or PrivateModeScreen handles the session initialization
-      // We'll update onPrivateMode to accept data if needed, but current prop signature is void
       
-      // We will rely on PrivateModeScreen to handle the session join if we can't pass params
-      // However, we updated api.ts to have startPrivateSession
+      // Add more detailed logging
+      console.log('Initiating private session request...');
+      
+      const result = await api.startPrivateSession();
+      console.log('Private session created successfully:', result);
       
       onPrivateMode();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to start private session:', error);
-      alert('Could not start private session. Please try again.');
+      
+      // More descriptive error alert
+      let errorMessage = 'Could not start private session. Please try again.';
+      if (error.message && error.message.includes('500')) {
+        errorMessage = 'Server error occurred while creating private session. Please check backend logs.';
+      } else if (error.message && error.message.includes('Network')) {
+        errorMessage = 'Network connection failed. Please check your internet.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsStartingPrivate(false);
     }
@@ -117,53 +123,48 @@ export default function UsersListScreen({
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ChatBull</Text>
-        <TouchableOpacity onPress={onLogout}>
-          <Text style={styles.logoutButton}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Current User Info */}
-      <View style={styles.currentUserBar}>
-        <View style={styles.currentUserInfo}>
-           <Text style={styles.welcomeText}>Hi, {currentUser.displayName}</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={onFeed} style={styles.headerIcon}>
+            <Text style={styles.iconText}>🏠</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handlePrivateMode} disabled={isStartingPrivate} style={styles.headerIcon}>
+            {isStartingPrivate ? (
+              <ActivityIndicator color="#000" size="small" />
+            ) : (
+              <Text style={styles.iconText}>🔒</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onProfile} style={styles.headerIcon}>
+            <Text style={styles.iconText}>👤</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.profileIcon} onPress={onProfile}>
-           <Text style={styles.profileIconText}>👤</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Action Buttons Row */}
-      <View style={styles.actionButtonsRow}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.feedButton]} 
-          onPress={onFeed}
-        >
-          <Text style={styles.actionButtonText}>📣 Feed</Text>
-        </TouchableOpacity>
+      {/* Stories/Active Section (Mock) */}
+      <View style={styles.storiesContainer}>
+        <View style={styles.storyItem}>
+          <View style={[styles.storyAvatar, styles.myStory]}>
+            <Text style={styles.storyAvatarText}>+</Text>
+          </View>
+          <Text style={styles.storyName}>Your Story</Text>
+        </View>
+        {/* We can map some active users here if we want */}
+      </View>
 
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.privateButton]} 
-          onPress={handlePrivateMode}
-          disabled={isStartingPrivate}
-        >
-          {isStartingPrivate ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.actionButtonText}>🔒 Private</Text>
-          )}
-        </TouchableOpacity>
+      <View style={styles.divider} />
+
+      {/* Messages List Header */}
+      <View style={styles.messagesHeader}>
+        <Text style={styles.messagesTitle}>Messages</Text>
+        <Text style={styles.requestsLink}>Requests</Text>
       </View>
 
       {/* Users List */}
-      <View style={styles.listHeader}>
-         <Text style={styles.listTitle}>Recent Chats</Text>
-      </View>
-
       {users.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No other users yet</Text>
+          <Text style={styles.emptyText}>No messages yet</Text>
           <Text style={styles.emptySubtext}>
-            Ask a friend to sign up and start chatting!
+            Tap the + button to start a new chat
           </Text>
         </View>
       ) : (
@@ -192,153 +193,152 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
     paddingTop: 50,
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  logoutButton: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    opacity: 0.9,
-  },
-  currentUserBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingBottom: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#efefef',
   },
-  currentUserInfo: {
-    flex: 1,
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    fontFamily: 'System', // Use default system font which is close to IG
   },
-  welcomeText: {
-    fontSize: 18,
-    fontWeight: '700',
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    marginLeft: 20,
+  },
+  iconText: {
+    fontSize: 24,
+  },
+  storiesContainer: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+  },
+  storyItem: {
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  storyAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  myStory: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  storyAvatarText: {
+    fontSize: 24,
+    color: '#007AFF',
+  },
+  storyName: {
+    fontSize: 12,
+    marginTop: 4,
     color: '#333',
   },
-  profileIcon: {
-    padding: 8,
-    backgroundColor: '#f0f2f5',
-    borderRadius: 20,
+  divider: {
+    height: 1,
+    backgroundColor: '#efefef',
   },
-  profileIconText: {
-    fontSize: 20,
-  },
-  actionButtonsRow: {
+  messagesHeader: {
     flexDirection: 'row',
-    padding: 15,
     justifyContent: 'space-between',
-  },
-  actionButton: {
-    flex: 0.48,
-    padding: 15,
-    borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  privateButton: {
-    backgroundColor: '#333',
-  },
-  feedButton: {
-    backgroundColor: '#007AFF',
-  },
-  actionButtonText: {
-    color: '#fff',
+  messagesTitle: {
     fontSize: 16,
     fontWeight: 'bold',
   },
-  listHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#f8f9fa',
-  },
-  listTitle: {
-    fontSize: 14,
+  requestsLink: {
+    color: '#0095f6',
     fontWeight: '600',
-    color: '#666',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
   usersList: {
-    padding: 10,
+    padding: 0,
   },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    marginVertical: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#007AFF',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   avatarText: {
-    color: '#fff',
+    color: '#666',
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   userInfo: {
     flex: 1,
-    marginLeft: 15,
+    justifyContent: 'center',
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 2,
   },
   userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 14,
+    color: '#262626',
+    fontWeight: '400',
   },
   userEmail: {
     fontSize: 14,
-    color: '#666',
+    color: '#8e8e8e',
   },
   onlineIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#fff',
+    position: 'absolute',
+    bottom: 12,
+    left: 58,
   },
   online: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#00d000', // IG green
   },
   offline: {
-    backgroundColor: '#ccc',
+    backgroundColor: 'transparent',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 40,
   },
   emptyText: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 10,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#262626',
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#8e8e8e',
     textAlign: 'center',
   },
 });
