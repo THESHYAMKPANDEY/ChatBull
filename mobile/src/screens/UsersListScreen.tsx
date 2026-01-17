@@ -13,7 +13,7 @@ import { api } from '../services/api';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import BottomTabBar from '../components/BottomTabBar';
 import StoryViewer, { Story } from '../components/StoryViewer';
-import { pickImage, pickVideo, uploadFile } from '../services/media';
+import { pickImage, pickVideo, takePhoto, takeVideo, uploadFile } from '../services/media';
 import { useTheme } from '../config/theme';
 
 interface User {
@@ -96,10 +96,27 @@ export default function UsersListScreen({
 
       if (!choice) return;
 
-      const uri = choice === 'image' ? await pickImage() : await pickVideo();
-      if (!uri) return;
+      const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+        Alert.alert(choice === 'image' ? 'New Photo Story' : 'New Video Story', 'Choose source', [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+          { text: 'Camera', onPress: () => resolve('camera') },
+          { text: 'Library', onPress: () => resolve('library') },
+        ]);
+      });
 
-      const upload = await uploadFile(uri);
+      if (!source) return;
+
+      const picked =
+        choice === 'image'
+          ? source === 'camera'
+            ? await takePhoto()
+            : await pickImage()
+          : source === 'camera'
+            ? await takeVideo()
+            : await pickVideo();
+      if (!picked) return;
+
+      const upload = await uploadFile(picked);
       if (!upload.success || !upload.url) {
         Alert.alert('Upload Failed', upload.error || 'Could not upload file');
         return;

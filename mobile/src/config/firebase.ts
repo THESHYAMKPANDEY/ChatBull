@@ -1,9 +1,9 @@
+import { Platform } from 'react-native';
 import { initializeApp, getApp } from 'firebase/app';
-// @ts-ignore
-import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAuth, initializeAuth } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey:
     process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
     'AIzaSyD5KYbRrN4rQl6tr7ogF5BwkzWBUa5nHYE',
@@ -34,10 +34,22 @@ try {
 }
 
 console.log('🔧 Setting up Firebase Auth with persistence...');
-// Initialize Auth with AsyncStorage persistence
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-});
+let authInstance;
+
+if (Platform.OS === 'web') {
+  authInstance = getAuth(app);
+} else {
+  try {
+    const reactNativeAuth = require('firebase/auth/react-native');
+    authInstance = initializeAuth(app, {
+      persistence: reactNativeAuth.getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+  } catch (error) {
+    authInstance = getAuth(app);
+  }
+}
+
+export const auth = authInstance;
 console.log('✅ Firebase Auth ready');
 
 export { app };

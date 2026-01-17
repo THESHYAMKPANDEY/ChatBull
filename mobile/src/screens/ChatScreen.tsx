@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { io, Socket } from 'socket.io-client';
-import { pickImage, pickVideo, pickDocument, uploadFile } from '../services/media';
+import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadFile, PickedMedia } from '../services/media';
 import { withScreenshotProtection } from '../services/security';
 import { appConfig } from '../config/appConfig';
 import { messageStatusManager, MessageStatus } from '../services/messageStatus';
@@ -325,32 +325,53 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
     if (isUploading) return;
 
     setIsUploading(true);
-    let uri: string | null = null;
+    let picked: PickedMedia | null = null;
 
     try {
       switch (mediaType) {
         case 'image':
-          uri = await pickImage();
+          {
+            const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+              Alert.alert('Send Photo', 'Choose source', [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+                { text: 'Camera', onPress: () => resolve('camera') },
+                { text: 'Library', onPress: () => resolve('library') },
+              ]);
+            });
+            if (!source) break;
+            picked = source === 'camera' ? await takePhoto() : await pickImage();
+          }
           break;
         case 'video':
-          uri = await pickVideo();
+          {
+            const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+              Alert.alert('Send Video', 'Choose source', [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+                { text: 'Camera', onPress: () => resolve('camera') },
+                { text: 'Library', onPress: () => resolve('library') },
+              ]);
+            });
+            if (!source) break;
+            picked = source === 'camera' ? await takeVideo() : await pickVideo();
+          }
           break;
         case 'document':
-          uri = await pickDocument();
+          picked = await pickDocument();
           break;
       }
 
-      if (!uri) {
+      if (!picked) {
         setIsUploading(false);
         return;
       }
 
       // Upload to backend (Cloudinary)
-      const result = await uploadFile(uri);
+      const result = await uploadFile(picked);
 
       if (result.success && result.url) {
         // Send as media message
-        sendMediaMessage(result.url, mediaType);
+        const mt = picked.kind === 'file' ? 'file' : picked.kind;
+        sendMediaMessage(result.url, mt);
         Alert.alert('Success', 'File uploaded and sent successfully!');
       } else {
         Alert.alert('Upload Failed', result.error || 'Could not upload file');
