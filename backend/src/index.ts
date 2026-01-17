@@ -17,6 +17,7 @@ import { setupSocket } from './socket/chatHandler';
 import { setupPrivateSocket } from './socket/privateHandler';
 import { initializeFirebaseAdmin } from './services/notifications';
 import userRoutes from './routes/user';
+import privateRoutes from './routes/private';
 
 dotenv.config({ override: true });
 
@@ -93,6 +94,7 @@ app.use('/api/security', securityRoutes);
 app.use('/api/legal', legalRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/private', privateRoutes);
 
 // Production-ready health check endpoints
 app.get('/', (req, res) => {

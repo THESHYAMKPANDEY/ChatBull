@@ -1,5 +1,7 @@
 import { initializeApp, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+// @ts-ignore
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey:
@@ -12,12 +14,13 @@ const firebaseConfig = {
     process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'social-chat-2df37',
   storageBucket:
     process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
-    'social-chat-2df37.appspot.com',
+    'social-chat-2df37.firebasestorage.app',
   messagingSenderId:
     process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '130500966218',
   appId:
     process.env.EXPO_PUBLIC_FIREBASE_APP_ID ||
     '1:130500966218:web:14a510344fdfb57251f3b3',
+  measurementId: 'G-QXP5W7Z2JH',
 };
 
 let app;
@@ -30,8 +33,11 @@ try {
   console.log('✅ Firebase app initialized successfully');
 }
 
-console.log('🔧 Setting up Firebase Auth...');
-export const auth = getAuth(app);
+console.log('🔧 Setting up Firebase Auth with persistence...');
+// Initialize Auth with AsyncStorage persistence
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
 console.log('✅ Firebase Auth ready');
 
 export { app };
