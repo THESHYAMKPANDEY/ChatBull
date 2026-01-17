@@ -1,12 +1,15 @@
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity } from 'react-native';
 import { ZegoUIKitPrebuiltCall, ONE_ON_ONE_VIDEO_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn';
-import { useNavigation, useRoute } from '@react-navigation/native';
 
-export default function CallScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { callID, userID, userName } = route.params as { callID: string; userID: string; userName: string };
+type CallScreenProps = {
+  callID: string;
+  userID: string;
+  userName: string;
+  onBack: () => void;
+};
+
+export default function CallScreen({ callID, userID, userName, onBack }: CallScreenProps) {
 
   // Use environment variables or fallbacks (ensure you updated .env)
   const appId = Number(process.env.EXPO_PUBLIC_ZEGO_APP_ID);
@@ -16,7 +19,7 @@ export default function CallScreen() {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Text style={styles.errorText}>Missing ZegoCloud Configuration.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -34,10 +37,10 @@ export default function CallScreen() {
         config={{
           ...ONE_ON_ONE_VIDEO_CALL_CONFIG,
           onOnlySelfInRoom: () => {
-            navigation.goBack();
+            onBack();
           },
           onHangUp: () => {
-            navigation.goBack();
+            onBack();
           },
         }}
       />

@@ -12,20 +12,17 @@ cloudinary.config({
  * Upload file to Cloudinary
  * @param filePath Path to the local file to upload
  * @param options Cloudinary upload options
- * @param isPrivate If true, upload to a private folder and add 'private' tag
  * @returns Cloudinary response object with secure_url, public_id, etc.
  */
 export const uploadToCloudinary = async (
   filePath: string,
-  options: Partial<UploadApiOptions> = {},
-  isPrivate: boolean = false
+  options: Partial<UploadApiOptions> = {}
 ) => {
   try {
     // Set default options
     const uploadOptions: UploadApiOptions = {
-      folder: isPrivate ? 'social-chat-app/private' : 'social-chat-app', // Separate private folder
+      folder: 'social-chat-app', // Organize uploads in a folder
       resource_type: 'auto', // Automatically detect image/video/raw
-      tags: isPrivate ? ['private', 'ephemeral'] : [],
       ...options,
     };
 

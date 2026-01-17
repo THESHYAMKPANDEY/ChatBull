@@ -4,6 +4,18 @@ import { auth } from '../config/firebase';
 const API_URL = `${appConfig.API_BASE_URL}/api`;
 const TIMEOUT_MS = 8000;
 
+const logDev = (...args: any[]) => {
+  if (__DEV__) console.log(...args);
+};
+
+const warnDev = (...args: any[]) => {
+  if (__DEV__) console.warn(...args);
+};
+
+const errorDev = (...args: any[]) => {
+  if (__DEV__) console.error(...args);
+};
+
 // Enhanced fetch wrapper with comprehensive error handling
 const apiRequest = async (
   endpoint: string,
@@ -14,7 +26,7 @@ const apiRequest = async (
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
   
   try {
-    console.log(`🚀 API Request: ${API_URL}${endpoint}`);
+    logDev(`🚀 API Request: ${API_URL}${endpoint}`);
     
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -56,7 +68,7 @@ const apiRequest = async (
         errorMessage = errorData || errorMessage;
       }
       
-      console.error(`❌ API Error: ${endpoint}`, {
+      errorDev(`❌ API Error: ${endpoint}`, {
         status: response.status,
         message: errorMessage,
         details: errorDetails,
@@ -67,23 +79,23 @@ const apiRequest = async (
     }
 
     const data = await response.json();
-    console.log(`✅ API Success: ${endpoint}`, data);
+    logDev(`✅ API Success: ${endpoint}`);
     return data;
     
   } catch (error: any) {
     clearTimeout(timeoutId);
     
     if (error.name === 'AbortError') {
-      console.error('⏰ Request timeout:', endpoint);
+      errorDev('⏰ Request timeout:', endpoint);
       throw new Error('Request timed out. Please check your connection.');
     }
     
     if (error.name === 'TypeError' && error.message.includes('Network')) {
-      console.error('🌐 Network error:', error.message);
+      errorDev('🌐 Network error:', error.message);
       throw new Error('Network request failed. Please check your WiFi connection.');
     }
     
-    console.error(`💥 API request failed: ${endpoint}`, error);
+    errorDev(`💥 API request failed: ${endpoint}`, error);
     throw error;
   }
 };
@@ -92,20 +104,19 @@ const getAuthHeaders = async (): Promise<Record<string, string>> => {
   const currentUser = auth.currentUser;
 
   if (!currentUser) {
-    console.log('No current user, proceeding without auth header');
+    warnDev('No current user, proceeding without auth header');
     return {};
   }
 
   try {
     // Force refresh token to ensure it's valid
     const idToken = await currentUser.getIdToken(true);
-    console.log('✅ Token generated for user:', currentUser.uid);
     
     return {
       Authorization: `Bearer ${idToken}`,
     };
   } catch (error) {
-    console.error('Auth token error:', error);
+    errorDev('Auth token error:', error);
     return {};
   }
 };
@@ -114,7 +125,7 @@ export const api = {
   // Health check endpoint
   healthCheck: async () => {
     try {
-      console.log('🔍 Performing health check...');
+      logDev('🔍 Performing health check...');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
@@ -127,19 +138,33 @@ export const api = {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Health check passed:', data);
+        logDev('✅ Health check passed');
         return { success: true, data };
       } else {
-        console.error('❌ Health check failed:', response.status);
+        errorDev('❌ Health check failed:', response.status);
         return { success: false, error: `Health check failed with status ${response.status}` };
       }
     } catch (error: any) {
-      console.error('💥 Health check error:', error);
+      errorDev('💥 Health check error:', error);
       return { success: false, error: error.message || 'Unknown error' };
     }
   },
   
   // Auth endpoints
+  sendEmailOtp: async (email: string) => {
+    return await apiRequest('/auth/email-otp/send', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  verifyEmailOtp: async (email: string, otp: string) => {
+    return await apiRequest('/auth/email-otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
   syncUser: async (userData: {
     firebaseUid: string;
     email: string;
@@ -147,12 +172,12 @@ export const api = {
     photoURL?: string;
     phoneNumber?: string;
   }) => {
-    console.log('🔄 Starting user sync process...');
+    logDev('🔄 Starting user sync process...');
     
     // Perform health check before sync
     const health = await api.healthCheck();
     if (!health.success) {
-      console.warn('⚠️ Backend health check failed, but proceeding with sync...');
+      warnDev('⚠️ Backend health check failed, but proceeding with sync...');
     }
     
     const maxRetries = 2;
@@ -160,7 +185,7 @@ export const api = {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 Sync attempt ${attempt}/${maxRetries}`);
+        logDev(`🔄 Sync attempt ${attempt}/${maxRetries}`);
         
         const headers = await getAuthHeaders();
         
@@ -170,30 +195,30 @@ export const api = {
           body: JSON.stringify(userData),
         });
         
-        console.log('✅ User sync successful!');
+        logDev('✅ User sync successful!');
         return result;
         
       } catch (error: any) {
         lastError = error;
-        console.error(`❌ Sync attempt ${attempt} failed:`, error.message);
+        errorDev(`❌ Sync attempt ${attempt} failed:`, error.message);
         
         // Don't retry on certain errors
         if (error.message.includes('401') || error.message.includes('403')) {
-          console.log('🔐 Authentication error - not retrying');
+          warnDev('🔐 Authentication error - not retrying');
           throw error;
         }
         
         // Retry with exponential backoff
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-          console.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
+          logDev(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
     
     // All retries failed
-    console.error('💥 All sync attempts failed');
+    errorDev('💥 All sync attempts failed');
     throw lastError;
   },
 
@@ -264,57 +289,17 @@ export const api = {
 
   togglePostLike: async (postId: string) => {
     const headers = await getAuthHeaders();
+    
     return await apiRequest(`/posts/${postId}/like`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({}),
     });
   },
 
-  // Stories
-  getStories: async () => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/stories', { headers });
-  },
-
-  createStory: async (storyData: { mediaUrl: string; mediaType: 'image' | 'video' }) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/stories', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(storyData),
-    });
-  },
-
-  // Groups
-  createGroup: async (name: string, description: string, members: string[]) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/groups', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ name, description, members }),
-    });
-  },
-
-  getGroups: async () => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/groups', {
-      headers,
-    });
-  },
-
-  addGroupMember: async (groupId: string, userId: string) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest(`/groups/${groupId}/members`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ userId }),
-    });
-  },
-
-  // AI
+  // AI Chat
   aiChat: async (message: string) => {
     const headers = await getAuthHeaders();
+    
     return await apiRequest('/ai/chat', {
       method: 'POST',
       headers,

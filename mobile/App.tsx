@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './src/config/firebase';
+import { observeAuthState, signOutUser } from './src/services/authClient';
 import { api } from './src/services/api';
 
 import LoginScreen from './src/screens/LoginScreen';
@@ -26,7 +25,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = observeAuthState(async (firebaseUser) => {
       if (firebaseUser) {
         // Sync with backend
         try {
@@ -35,6 +34,7 @@ export default function App() {
             firebaseUid: firebaseUser.uid,
             email: firebaseUser.email || '',
             displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            phoneNumber: firebaseUser.phoneNumber || '',
           });
           console.log('App: Backend sync successful, result:', result);
           setCurrentUser(result.user);
@@ -74,7 +74,7 @@ export default function App() {
       if (currentUser) {
         await api.logout();
       }
-      await signOut(auth);
+      await signOutUser();
       setCurrentUser(null);
       setCurrentScreen('login');
     } catch (error) {
@@ -90,6 +90,25 @@ export default function App() {
   const handleBackFromChat = () => {
     setSelectedUser(null);
     setCurrentScreen('users');
+  };
+
+  const handleStartCall = (callID: string) => {
+    if (!currentUser) return;
+    setCallData({
+      callID,
+      userID: currentUser.id,
+      userName: currentUser.displayName,
+    });
+    setCurrentScreen('call');
+  };
+
+  const handleBackFromCall = () => {
+    setCallData(null);
+    if (selectedUser) {
+      setCurrentScreen('chat');
+    } else {
+      setCurrentScreen('users');
+    }
   };
 
   const handlePrivateMode = () => {
@@ -167,7 +186,12 @@ export default function App() {
         )}
         
         {currentScreen === 'call' && callData && (
-          <CallScreen />
+          <CallScreen
+            callID={callData.callID}
+            userID={callData.userID}
+            userName={callData.userName}
+            onBack={handleBackFromCall}
+          />
         )}
 
         {currentScreen === 'chat' && currentUser && selectedUser && (
@@ -175,6 +199,7 @@ export default function App() {
             currentUser={currentUser}
             otherUser={selectedUser}
             onBack={handleBackFromChat}
+            onStartCall={handleStartCall}
           />
         )}
 

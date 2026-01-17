@@ -11,7 +11,10 @@ export const setupSocket = (io: Server) => {
     console.log('User connected:', socket.id);
 
     // User joins with their MongoDB user ID
-    socket.on('user:join', async (userId: string) => {
+    socket.on('user:join', async (_clientUserId?: string) => {
+      const userId = String((socket.data as any).userId || '');
+      if (!userId) return;
+
       connectedUsers.set(userId, socket.id);
       socket.join(userId);
       
@@ -37,7 +40,6 @@ export const setupSocket = (io: Server) => {
 
     // Send message
     socket.on('message:send', async (data: {
-      senderId: string;
       receiverId?: string;
       groupId?: string;
       content: string;
@@ -45,17 +47,29 @@ export const setupSocket = (io: Server) => {
       isPrivate?: boolean;
     }) => {
       try {
-        const { senderId, receiverId, groupId, content, messageType = 'text', isPrivate = false } = data;
+        const senderId = String((socket.data as any).userId || '');
+        if (!senderId) {
+          socket.emit('message:error', { error: 'Unauthorized' });
+          return;
+        }
+
+        const { receiverId, groupId, content, messageType = 'text', isPrivate = false } = data;
 
         // Save message to database
-        const message = await Message.create({
+        const messageData: any = {
           sender: senderId,
-          receiver: receiverId, // Can be null for group messages
-          groupId: groupId,     // New field for groups
           content,
           messageType,
           isPrivate,
-        });
+        };
+
+        if (groupId) {
+          messageData.groupId = groupId;
+        } else if (receiverId) {
+          messageData.receiver = receiverId;
+        }
+
+        const message = await Message.create(messageData);
 
         // Populate sender info
         await message.populate('sender', 'displayName photoURL');
@@ -94,9 +108,10 @@ export const setupSocket = (io: Server) => {
     });
 
     // Get chat history
-    socket.on('messages:get', async (data: { userId: string; otherUserId?: string; groupId?: string }) => {
+    socket.on('messages:get', async (data: { userId?: string; otherUserId?: string; groupId?: string }) => {
       try {
-        const { userId, otherUserId, groupId } = data;
+        const userId = String((socket.data as any).userId || '');
+        const { otherUserId, groupId } = data;
         let query;
 
         if (groupId) {
@@ -126,39 +141,45 @@ export const setupSocket = (io: Server) => {
     });
 
     // Typing indicator
-    socket.on('typing:start', (data: { senderId: string; receiverId?: string; groupId?: string }) => {
+    socket.on('typing:start', (data: { senderId?: string; receiverId?: string; groupId?: string }) => {
+      const senderId = String((socket.data as any).userId || '');
+      if (!senderId) return;
       if (data.groupId) {
          // Broadcast to group (simplified for now, ideally iterate members)
-         socket.broadcast.to(data.groupId).emit('typing:start', data.senderId);
+         socket.broadcast.to(data.groupId).emit('typing:start', senderId);
       } else if (data.receiverId) {
         const receiverSocketId = connectedUsers.get(data.receiverId);
         if (receiverSocketId) {
-          io.to(receiverSocketId).emit('typing:start', data.senderId);
+          io.to(receiverSocketId).emit('typing:start', senderId);
         }
       }
     });
 
-    socket.on('typing:stop', (data: { senderId: string; receiverId?: string; groupId?: string }) => {
+    socket.on('typing:stop', (data: { senderId?: string; receiverId?: string; groupId?: string }) => {
+       const senderId = String((socket.data as any).userId || '');
+       if (!senderId) return;
        if (data.groupId) {
-         socket.broadcast.to(data.groupId).emit('typing:stop', data.senderId);
+         socket.broadcast.to(data.groupId).emit('typing:stop', senderId);
       } else if (data.receiverId) {
         const receiverSocketId = connectedUsers.get(data.receiverId);
         if (receiverSocketId) {
-          io.to(receiverSocketId).emit('typing:stop', data.senderId);
+          io.to(receiverSocketId).emit('typing:stop', senderId);
         }
       }
     });
 
     // Mark messages as read
     socket.on('messages:read', async (data: { senderId: string; receiverId: string }) => {
+      const receiverId = String((socket.data as any).userId || '');
+      if (!receiverId) return;
       await Message.updateMany(
-        { sender: data.senderId, receiver: data.receiverId, isRead: false },
+        { sender: data.senderId, receiver: receiverId, isRead: false },
         { isRead: true }
       );
       
       const senderSocketId = connectedUsers.get(data.senderId);
       if (senderSocketId) {
-        io.to(senderSocketId).emit('messages:read', data.receiverId);
+        io.to(senderSocketId).emit('messages:read', receiverId);
       }
     });
 
@@ -186,41 +207,69 @@ export const setupSocket = (io: Server) => {
       });
     });
     
-    // Message reactions
-    socket.on('message:reaction:add', async (data: {
-      messageId: string;
-      userId: string;
-      reaction: string;
-      timestamp: string;
-      displayName: string;
-    }) => {
+    socket.on('message:reaction:add', async (data: { messageId: string; reaction: string }) => {
       try {
-        // Find the message in our system to determine recipients
-        // In a real implementation, we'd look up the message in the database
-        // For now, broadcast to both participants in the chat
-        
-        // Find all sockets in the user's room (they joined with their user ID)
-        const userRooms = Array.from(io.sockets.adapter.rooms.keys());
-        
-        // Broadcast to the message recipient
-        io.emit('message:reaction:add', data);
-        
-        console.log(`😊 Reaction added: ${data.reaction} to message ${data.messageId} by user ${data.userId}`);
+        const userId = String((socket.data as any).userId || '');
+        if (!userId) return;
+
+        const message = await Message.findById(data.messageId).select('sender receiver groupId');
+        if (!message) return;
+
+        const payload = {
+          messageId: data.messageId,
+          userId,
+          reaction: data.reaction,
+          timestamp: new Date().toISOString(),
+          displayName: String((socket.data as any).displayName || ''),
+        };
+
+        if (message.groupId) {
+          const group = await Group.findById(message.groupId);
+          if (group) {
+            group.members.forEach((memberId) => {
+              io.to(memberId.toString()).emit('message:reaction:add', payload);
+            });
+          }
+          return;
+        }
+
+        const senderId = message.sender?.toString();
+        const receiverId = message.receiver?.toString();
+        if (senderId) io.to(senderId).emit('message:reaction:add', payload);
+        if (receiverId) io.to(receiverId).emit('message:reaction:add', payload);
       } catch (error) {
         console.error('Error adding reaction:', error);
       }
     });
-    
-    socket.on('message:reaction:remove', async (data: {
-      messageId: string;
-      userId: string;
-      reaction: string;
-    }) => {
+
+    socket.on('message:reaction:remove', async (data: { messageId: string; reaction: string }) => {
       try {
-        // Broadcast reaction removal
-        io.emit('message:reaction:remove', data);
-        
-        console.log(`❌ Reaction removed: ${data.reaction} from message ${data.messageId} by user ${data.userId}`);
+        const userId = String((socket.data as any).userId || '');
+        if (!userId) return;
+
+        const message = await Message.findById(data.messageId).select('sender receiver groupId');
+        if (!message) return;
+
+        const payload = {
+          messageId: data.messageId,
+          userId,
+          reaction: data.reaction,
+        };
+
+        if (message.groupId) {
+          const group = await Group.findById(message.groupId);
+          if (group) {
+            group.members.forEach((memberId) => {
+              io.to(memberId.toString()).emit('message:reaction:remove', payload);
+            });
+          }
+          return;
+        }
+
+        const senderId = message.sender?.toString();
+        const receiverId = message.receiver?.toString();
+        if (senderId) io.to(senderId).emit('message:reaction:remove', payload);
+        if (receiverId) io.to(receiverId).emit('message:reaction:remove', payload);
       } catch (error) {
         console.error('Error removing reaction:', error);
       }

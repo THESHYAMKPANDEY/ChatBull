@@ -1,49 +1,42 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../config/theme';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-type AppHeaderProps = {
+export interface AppHeaderProps {
   title: string;
-  left?: React.ReactNode;
-  right?: React.ReactNode;
-};
+  rightIcon?: React.ReactNode;
+  onRightPress?: () => void;
+}
 
-export default function AppHeader({ title, left, right }: AppHeaderProps) {
-  const { colors } = useTheme();
-
+export default function AppHeader({ title, rightIcon, onRightPress }: AppHeaderProps) {
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-      <View style={styles.side}>{left}</View>
-      <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-        {title}
-      </Text>
-      <View style={styles.side}>{right}</View>
+    <View style={styles.container}>
+      <Text style={styles.title}>{title}</Text>
+      {rightIcon && (
+        <TouchableOpacity onPress={onRightPress} style={styles.rightIcon}>
+          {rightIcon}
+        </TouchableOpacity>
+      )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    height: 96,
-    paddingTop: 44,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  side: {
-    width: 72,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingTop: 10,
   },
   title: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  rightIcon: {
+    padding: 8,
   },
 });
-

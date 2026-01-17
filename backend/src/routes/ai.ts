@@ -103,7 +103,7 @@ router.post('/transcribe', verifyFirebaseToken, upload.single('audio'), async (r
       return;
     }
 
-    const fileBuffer = fs.readFileSync(req.file.path);
+    const fileBuffer = await fs.promises.readFile(req.file.path);
     const form = new FormData();
     const mimeType = req.file.mimetype || 'audio/mp4';
     form.append('file', new Blob([fileBuffer], { type: mimeType }), req.file.originalname || 'audio.m4a');
@@ -130,7 +130,7 @@ router.post('/transcribe', verifyFirebaseToken, upload.single('audio'), async (r
   } finally {
     if (req.file?.path) {
       try {
-        fs.unlinkSync(req.file.path);
+        await fs.promises.unlink(req.file.path);
       } catch {}
     }
   }

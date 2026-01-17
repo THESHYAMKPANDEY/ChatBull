@@ -1,17 +1,12 @@
-# ChatBull - Secure Social AI Chat
+# Social Chat App
 
-A secure, real-time chat application built with React Native (Expo) and Node.js/Express backend, featuring **JANEAI** (Voice-enabled AI Assistant).
+A secure, real-time chat application built with React Native (Expo) and Node.js/Express backend.
 
 ## Features
 
-### JANEAI (New!)
-- **Voice Interaction**: Speak to JANEAI and hear responses (Speech-to-Text & Text-to-Speech).
-- **AI Chat**: Powered by OpenAI for intelligent assistance.
-- **Smart Assistant**: Helps with app features, debugging, and general queries.
-
 ### Core Chat Features
 - Real-time messaging using Socket.IO
-- User authentication with Firebase (OTP/Email)
+- User authentication with Firebase
 - Private chat rooms
 - Media sharing (images, videos, documents)
 - Online/offline status indicators
@@ -33,12 +28,12 @@ A secure, real-time chat application built with React Native (Expo) and Node.js/
 ## Tech Stack
 
 ### Frontend (Mobile)
-- React Native with Expo (Managed Workflow)
+- React Native with Expo
 - TypeScript
 - Socket.IO Client
 - Firebase Authentication
-- Expo AV & Expo Speech (Voice)
 - React Navigation
+- Screenshot prevention library
 
 ### Backend
 - Node.js with Express
@@ -58,18 +53,17 @@ A secure, real-time chat application built with React Native (Expo) and Node.js/
 ## Installation & Setup
 
 ### Prerequisites
-- Node.js (v18 or higher)
+- Node.js (v16 or higher)
 - npm or yarn
 - MongoDB Atlas account
 - Firebase project
 - Cloudinary account (for media storage)
-- OpenAI API Key (for JANEAI)
 
 ### Backend Setup
 
 1. Navigate to the backend directory:
 ```bash
-cd backend
+cd social-chat-app/backend
 ```
 
 2. Install dependencies:
@@ -80,12 +74,11 @@ npm install
 3. Create a `.env` file based on `.env.example`:
 ```bash
 MONGODB_URI=your_mongodb_connection_string
-PORT=10000
+PORT=5000
 FIREBASE_SERVICE_ACCOUNT_JSON=your_firebase_service_account_json_as_single_line
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-OPENAI_API_KEY=your_openai_key
 ```
 
 4. Start the backend server:
@@ -97,7 +90,7 @@ npm run dev
 
 1. Navigate to the mobile directory:
 ```bash
-cd mobile
+cd social-chat-app/mobile
 ```
 
 2. Install dependencies:
@@ -105,7 +98,12 @@ cd mobile
 npm install
 ```
 
-3. Create a `.env` file with your configuration:
+3. Install additional required packages:
+```bash
+npx expo install @react-native-async-storage/async-storage
+```
+
+4. Create a `.env` file with your Firebase configuration:
 ```bash
 EXPO_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
@@ -114,26 +112,33 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
 EXPO_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 # For device access, use your computer's IP address instead of localhost
-EXPO_PUBLIC_API_BASE_URL=http://your_computer_ip_address:10000
+EXPO_PUBLIC_API_BASE_URL=http://your_computer_ip_address:5000
 ```
 
-4. Start the development server:
+5. Start the development server:
 ```bash
 npx expo start
 ```
-*Note: We use `newArchEnabled: false` in `app.json` for maximum compatibility.*
+
+### For Physical Device Testing
+
+To test on a physical device:
+1. Ensure both your computer and device are on the same WiFi network
+2. Replace `localhost` in `EXPO_PUBLIC_API_BASE_URL` with your computer's IP address
+3. Example: `http://192.168.1.xxx:5000`
+4. Scan the QR code with Expo Go app on your device
 
 ### Running Both Servers
 
 1. Terminal 1 - Backend:
 ```bash
-cd backend
+cd social-chat-app/backend
 npm run dev
 ```
 
 2. Terminal 2 - Mobile:
 ```bash
-cd mobile
+cd social-chat-app/mobile
 npx expo start
 ```
 
@@ -149,16 +154,12 @@ npx expo start
 - `src/utils/` - Utility functions (logging, helpers)
 
 ### Mobile Structure
-- `src/screens/` - UI screens (Login, Chat, Private Mode, JANEAI, etc.)
+- `src/screens/` - UI screens (Login, Chat, Private Mode, etc.)
 - `src/services/` - API clients and utilities (Firebase, Media, Security)
 - `src/config/` - Configuration files (Firebase setup)
 - `src/components/` - Reusable UI components
 
 ## API Endpoints
-
-### JANEAI
-- `POST /api/ai/chat` - Chat with JANEAI
-- `POST /api/ai/transcribe` - Speech-to-Text
 
 ### Authentication
 - `POST /api/auth/sync` - Sync user with backend
@@ -187,37 +188,31 @@ npx expo start
 5. **Security Headers**: Helmet adds various security headers
 6. **Data Deletion**: Complete data removal on account deletion
 
-## Privacy & Ephemeral Mode
-The new "Private Tab" features true ephemeral messaging:
-- **Session-Based**: Each private session generates a unique, temporary ID (`ephemeralUserId`) and session ID.
-- **Auto-Deletion (TTL)**: MongoDB TTL indexes automatically wipe sessions and messages after 6 hours.
-- **Secure Wipe**: Ending a session triggers an atomic deletion of all associated messages and media.
-- **Media**: Private media uploads are tagged as 'ephemeral' and wiped on session end.
-- **Audit Logs**: Deletion events are logged (metadata only) for compliance.
+## Privacy Controls
 
-**Note**: While we strive for privacy, we cannot prevent physical recording devices. Do not use this platform for illegal activities. We cooperate with lawful requests.
+- **Private Mode**: Anonymous chat with automatic message deletion
+- **Account Deletion**: Complete removal of user data from system
+- **Data Encryption**: Messages encrypted in transit
+- **Compliance**: Privacy policy outlining data practices
 
-## Premium Features
-- **Verified Badge**: Golden tick for premium users.
-- **Gated Features**: High-quality uploads, Story Highlights (coming soon).
+## Running Tests
 
-### Seeding Premium Users
-To seed the initial premium users (Amit & Shyam), run:
+Coming soon - unit and integration tests for all major functionality.
+
+## Deployment
+
+### Backend Deployment
+Deploy to platforms like Heroku, AWS, or DigitalOcean with:
+- MongoDB Atlas for database
+- Cloudinary for media storage
+- Firebase for authentication
+
+### Mobile Deployment
+Use Expo Application Services (EAS) for building and deploying:
 ```bash
-# In backend directory
-npx ts-node scripts/seedUsers.ts
+eas build --platform android
+eas build --platform ios
 ```
-Ensure `MONGODB_URI` is set in your `.env`.
-
-## 🔐 Security & Secrets
-- **NEVER commit .env files.**
-- Use `scrub_secrets.sh` if you accidentally commit keys.
-- **Rotation**: If a key is leaked, revoke it immediately in the provider dashboard (Firebase/MongoDB) and update Render env vars.
-
-## 📦 Deployment
-- **Backend**: See [DEPLOYMENT_GODADDY.md](docs/DEPLOYMENT_GODADDY.md) for detailed deployment instructions including GoDaddy custom domain setup.
-- **Mobile**: Use `eas build` or `npx expo publish`.
-
 
 ## Contributing
 

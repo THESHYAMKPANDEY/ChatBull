@@ -20,7 +20,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
 import AppHeader from '../components/AppHeader';
 
-interface PostAuthor {
+export interface PostAuthor {
   _id: string;
   displayName: string;
   photoURL?: string;
@@ -114,7 +114,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
       if (result.success && result.url) {
         setMediaUrl(result.url);
-        const mt: 'image' | 'video' | 'file' = picked.kind === 'image' ? 'image' : picked.kind === 'video' ? 'video' : 'file';
+        const mt: 'image' | 'video' | 'file' = picked.type === 'file' ? 'file' : picked.type;
         setMediaType(mt);
         Alert.alert('Success', 'Media attached to your post');
       } else {
@@ -212,9 +212,9 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
     return (
       <TouchableOpacity onPress={() => Linking.openURL(post.mediaUrl!)}>
-        <View style={styles.mediaRow}>
-          <Text style={styles.mediaRowIcon}>{icon}</Text>
-          <Text style={styles.mediaRowText}>{label}</Text>
+        <View style={[styles.mediaRow, { backgroundColor: colors.background }]}>
+          <Text style={[styles.mediaRowIcon, { color: colors.text }]}>{icon}</Text>
+          <Text style={[styles.mediaRowText, { color: colors.text }]}>{label}</Text>
           <Text style={styles.mediaRowOpen}>Open</Text>
         </View>
       </TouchableOpacity>

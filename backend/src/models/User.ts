@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
   firebaseUid: string;
-  email: string;
+  email?: string;
   displayName: string;
   username?: string;
   photoURL?: string;
@@ -26,8 +26,9 @@ const userSchema = new Schema<IUser>(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
     },
     displayName: {
       type: String,

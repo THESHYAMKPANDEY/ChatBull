@@ -15,22 +15,38 @@ import legalRoutes from './routes/legal';
 import postRoutes from './routes/post';
 import { setupSocket } from './socket/chatHandler';
 import { setupPrivateSocket } from './socket/privateHandler';
-import { initializeFirebaseAdmin } from './services/notifications';
+import { initializeFirebaseAdmin, isFirebaseAdminReady } from './services/notifications';
 import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
 import storyRoutes from './routes/story';
 import aiRoutes from './routes/ai';
-import groupRoutes from './routes/groups';
+import admin from 'firebase-admin';
+import User from './models/User';
 
 dotenv.config({ override: true });
 
 const app = express();
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((v) => v.trim())
+  .filter(Boolean);
+
+const isOriginAllowed = (origin?: string): boolean => {
+  if (!origin) return true;
+  if (allowedOrigins.length === 0) return true;
+  return allowedOrigins.includes(origin);
+};
+
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'), false);
+    },
     methods: ['GET', 'POST'],
+    credentials: false,
   },
 });
 
@@ -55,8 +71,11 @@ app.use(limiter);
 
 // Production-ready CORS configuration for mobile apps
 const corsOptions = {
-  origin: true, // Reflect the request origin, allowing all
-  credentials: true,
+  origin: (origin: any, callback: any) => {
+    if (isOriginAllowed(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  credentials: false,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
@@ -65,12 +84,11 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 
-// Error handling middleware
-app.use(errorHandler);
-
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/test', testRoutes);
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/test', testRoutes);
+}
 app.use('/api/media', mediaRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/legal', legalRoutes);
@@ -118,7 +136,7 @@ app.get('/health/extended', async (req, res) => {
       timestamp: new Date().toISOString(),
       services: {
         database: dbState === 'connected' ? 'healthy' : 'unhealthy',
-        firebase: require('./services/notifications').isFirebaseAdminReady() ? 'healthy' : 'unhealthy'
+        firebase: isFirebaseAdminReady() ? 'healthy' : 'unhealthy'
       },
       uptime: process.uptime(),
       memory: process.memoryUsage()
@@ -132,7 +150,34 @@ app.get('/health/extended', async (req, res) => {
   }
 });
 
+app.use(errorHandler);
+
 // Setup Socket.IO
+io.use(async (socket, next) => {
+  try {
+    const token =
+      (socket.handshake.auth as any)?.token ||
+      (typeof socket.handshake.headers.authorization === 'string'
+        ? socket.handshake.headers.authorization.replace(/^Bearer\s+/i, '').trim()
+        : '');
+
+    if (!token) return next(new Error('unauthorized'));
+    if (!isFirebaseAdminReady()) return next(new Error('auth_unavailable'));
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    const user = await User.findOne({ firebaseUid: decoded.uid });
+
+    if (!user) return next(new Error('user_not_found'));
+
+    (socket.data as any).userId = user._id.toString();
+    (socket.data as any).displayName = user.displayName;
+
+    return next();
+  } catch {
+    return next(new Error('unauthorized'));
+  }
+});
+
 setupSocket(io);
 setupPrivateSocket(io);
 

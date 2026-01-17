@@ -16,7 +16,8 @@ import { withScreenshotProtection } from '../services/security';
 import { appConfig } from '../config/appConfig';
 import { messageStatusManager, MessageStatus } from '../services/messageStatus';
 import { messageReactionManager, DEFAULT_REACTIONS } from '../services/messageReactions';
-// expo-clipboard will be imported inside the component
+import * as Clipboard from 'expo-clipboard';
+import { auth } from '../config/firebase';
 
 const SOCKET_URL = appConfig.SOCKET_BASE_URL;
 
@@ -40,9 +41,11 @@ interface ChatScreenProps {
   currentUser: any;
   otherUser: any;
   onBack: () => void;
+  onStartCall: (callID: string) => void;
 }
 
-export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScreenProps) {
+export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall }: ChatScreenProps) {
+  const callID = [currentUser.id, otherUser._id].sort().join('_');
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ messageId: string; senderName: string; content: string } | null>(null);
@@ -52,9 +55,6 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
   const screenshotCleanupRef = useRef<Function | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  
-  // Import clipboard inside the component
-  const Clipboard = require('expo-clipboard');
   
   const handleReactionPress = (messageId: string, reaction: string) => {
     // Toggle reaction on this message
@@ -92,8 +92,21 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
   };
 
   useEffect(() => {
-    // Connect to socket
-    socketRef.current = io(SOCKET_URL);
+    const socket = io(SOCKET_URL, {
+      autoConnect: false,
+      transports: ['websocket'],
+    });
+    socketRef.current = socket;
+
+    socket.on('connect_error', (err: any) => {
+      console.error('Socket connect error:', err?.message || err);
+    });
+
+    (async () => {
+      const token = await auth.currentUser?.getIdToken();
+      socket.auth = { token };
+      socket.connect();
+    })();
     
     // Initialize message status manager with socket
     messageStatusManager.initialize(socketRef.current);
@@ -122,7 +135,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
     });
 
     socketRef.current.on('message:receive', (message: Message) => {
-      setMessages((prev) => [
+      setMessages((prev: Message[]) => [
         ...prev,
         { ...message, status: 'delivered' as MessageStatus },
       ]);
@@ -135,7 +148,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
     });
 
     socketRef.current.on('message:sent', (message: Message) => {
-      setMessages((prev) => [
+      setMessages((prev: Message[]) => [
         ...prev,
         { ...message, status: 'sent' as MessageStatus },
       ]);
@@ -145,8 +158,8 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
       'messages:read',
       (receiverId: string) => {
         if (receiverId === otherUser._id) {
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages((prev: Message[]) =>
+            prev.map((msg: Message) =>
               msg.sender._id === currentUser.id
                 ? { ...msg, status: 'read' as MessageStatus }
                 : msg,
@@ -203,8 +216,8 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
         userId: string;
         reaction: string;
       }) => {
-        setMessages((prev) =>
-          prev.map((msg) => {
+        setMessages((prev: Message[]) =>
+          prev.map((msg: Message) => {
             if (msg._id !== data.messageId) {
               return msg;
             }
@@ -227,14 +240,14 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
         userId: string;
         reaction: string;
       }) => {
-        setMessages((prev) =>
-          prev.map((msg) => {
+        setMessages((prev: Message[]) =>
+          prev.map((msg: Message) => {
             if (msg._id !== data.messageId || !msg.reactions) {
               return msg;
             }
             const reactions = { ...msg.reactions };
             const users = (reactions[data.reaction] || []).filter(
-              (id) => id !== data.userId,
+              (id: string) => id !== data.userId,
             );
             if (users.length === 0) {
               delete reactions[data.reaction];
@@ -291,7 +304,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
       ...(replyingTo && { replyTo: replyingTo }) // Add reply info if replying
     };
     
-    setMessages(prev => [...prev, tempMessage]);
+    setMessages((prev: Message[]) => [...prev, tempMessage]);
     
     // Track message sending status
     messageStatusManager.trackMessageSending(tempId);
@@ -371,7 +384,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
 
       if (result.success && result.url) {
         // Send as media message
-        const mt = picked.kind === 'file' ? 'file' : picked.kind;
+        const mt = picked.type === 'file' ? 'file' : picked.type;
         sendMediaMessage(result.url, mt);
         Alert.alert('Success', 'File uploaded and sent successfully!');
       } else {
@@ -477,8 +490,8 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
                 },
                 {
                   text: 'Copy',
-                  onPress: () => {
-                    Clipboard.setString(item.content);
+                  onPress: async () => {
+                    await Clipboard.setStringAsync(item.content);
                     Alert.alert('Copied!', 'Message copied to clipboard');
                   }
                 },
@@ -561,14 +574,16 @@ export default function ChatScreen({ currentUser, otherUser, onBack }: ChatScree
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{otherUser.displayName}</Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity onPress={() => onStartCall(callID)}>
+          <Text style={styles.callButton}>📞</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item: Message) => item._id}
         renderItem={renderMessage}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
@@ -667,6 +682,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  callButton: {
+    color: '#fff',
+    fontSize: 20,
+    width: 50,
+    textAlign: 'right',
   },
   placeholder: {
     width: 50,

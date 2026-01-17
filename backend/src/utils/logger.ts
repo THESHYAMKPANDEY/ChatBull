@@ -9,6 +9,7 @@ if (!fs.existsSync(logsDir)) {
 }
 
 const logFilePath = path.join(logsDir, `server-${new Date().toISOString().split('T')[0]}.log`);
+const logStream = process.env.NODE_ENV === 'test' ? null : fs.createWriteStream(logFilePath, { flags: 'a' });
 
 // Log levels
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
@@ -25,11 +26,27 @@ const formatLog = (level: LogLevel, message: string, meta?: any): string => {
   return logEntry;
 };
 
+const sanitizeMeta = (meta: any): any => {
+  if (!meta || typeof meta !== 'object') return meta;
+  const copy: any = Array.isArray(meta) ? [...meta] : { ...meta };
+  if (copy.authorization) copy.authorization = '[REDACTED]';
+  if (copy.headers?.authorization) copy.headers = { ...copy.headers, authorization: '[REDACTED]' };
+  if (copy.body) {
+    if (typeof copy.body === 'object' && copy.body !== null) {
+      copy.bodyKeys = Object.keys(copy.body);
+    }
+    delete copy.body;
+  }
+  return copy;
+};
+
 // Write log to file
 const writeLog = (level: LogLevel, message: string, meta?: any): void => {
-  const logEntry = formatLog(level, message, meta);
-  fs.appendFileSync(logFilePath, logEntry + '\n');
-  console.log(logEntry); // Also log to console
+  const logEntry = formatLog(level, message, sanitizeMeta(meta));
+  logStream?.write(logEntry + '\n');
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(logEntry);
+  }
 };
 
 // Logger object
@@ -63,9 +80,8 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   logger.error(`Unhandled error: ${err.message}`, {
     url: req.url,
     method: req.method,
-    body: req.body,
     params: req.params,
-    stack: err.stack,
+    ...(process.env.NODE_ENV !== 'production' ? { stack: err.stack, body: req.body } : {}),
   });
   
   // Send generic error response
