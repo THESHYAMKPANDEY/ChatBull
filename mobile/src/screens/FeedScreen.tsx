@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -55,10 +55,34 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
   const [selectedMedia, setSelectedMedia] = useState<PickedMedia | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'file' | undefined>(undefined);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
+  const requestedImageSizesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     loadFeed();
   }, []);
+
+  useEffect(() => {
+    const imageUrls = posts
+      .filter((p) => p.mediaType === 'image' && typeof p.mediaUrl === 'string' && p.mediaUrl.length > 0)
+      .map((p) => p.mediaUrl as string);
+
+    for (const url of imageUrls) {
+      if (requestedImageSizesRef.current.has(url)) continue;
+      requestedImageSizesRef.current.add(url);
+
+      Image.getSize(
+        url,
+        (width, height) => {
+          const ratio = width > 0 && height > 0 ? width / height : 1;
+          setImageAspectRatios((prev) => (prev[url] ? prev : { ...prev, [url]: ratio }));
+        },
+        () => {
+          setImageAspectRatios((prev) => (prev[url] ? prev : { ...prev, [url]: 1 }));
+        }
+      );
+    }
+  }, [posts]);
 
   const loadFeed = async () => {
     try {
@@ -198,11 +222,12 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     if (!post.mediaUrl || !post.mediaType) return null;
 
     if (post.mediaType === 'image') {
+      const aspectRatio = imageAspectRatios[post.mediaUrl] || 1;
       return (
         <Image
           source={{ uri: post.mediaUrl }}
-          style={styles.postImage}
-          resizeMode="cover"
+          style={Platform.OS === 'web' ? [styles.postImageWeb, { aspectRatio }] : styles.postImageNative}
+          resizeMode={Platform.OS === 'web' ? 'contain' : 'cover'}
         />
       );
     }
@@ -570,9 +595,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 12,
   },
-  postImage: {
+  postImageNative: {
     width: '100%',
     height: 360,
+    backgroundColor: '#f0f0f0',
+  },
+  postImageWeb: {
+    width: '100%',
     backgroundColor: '#f0f0f0',
   },
   mediaRow: {

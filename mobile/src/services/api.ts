@@ -222,6 +222,20 @@ export const api = {
     throw lastError;
   },
 
+  getStories: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/stories', { headers });
+  },
+
+  createStory: async (storyData: { mediaUrl: string; mediaType: 'image' | 'video' }) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/stories', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(storyData),
+    });
+  },
+
   getUsers: async () => {
     const headers = await getAuthHeaders();
     

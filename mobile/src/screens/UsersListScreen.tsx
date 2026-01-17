@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { api } from '../services/api';
+import { pickImage, pickVideo, uploadFile } from '../services/media';
 
 import { VerifiedBadge } from '../components/VerifiedBadge';
 
@@ -29,6 +31,14 @@ interface UsersListScreenProps {
   onAI: () => void;
 }
 
+type Story = {
+  _id: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  author?: { _id: string; displayName: string; photoURL?: string } | null;
+  createdAt: string;
+};
+
 export default function UsersListScreen({
   currentUser,
   onSelectUser,
@@ -41,9 +51,12 @@ export default function UsersListScreen({
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStartingPrivate, setIsStartingPrivate] = useState(false);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [isPostingStory, setIsPostingStory] = useState(false);
 
   useEffect(() => {
     loadUsers();
+    loadStories();
   }, []);
 
   const loadUsers = async () => {
@@ -86,6 +99,55 @@ export default function UsersListScreen({
       alert(errorMessage);
     } finally {
       setIsStartingPrivate(false);
+    }
+  };
+
+  const loadStories = async () => {
+    try {
+      const result = await api.getStories();
+      setStories(result.stories || []);
+    } catch (error) {
+      console.error('Load stories error:', error);
+    }
+  };
+
+  const handleCreateStory = async () => {
+    if (isPostingStory) return;
+
+    const choice = await new Promise<'image' | 'video' | null>((resolve) => {
+      Alert.alert('Create Story', 'Choose media type', [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'Photo', onPress: () => resolve('image') },
+        { text: 'Video', onPress: () => resolve('video') },
+      ]);
+    });
+    if (!choice) return;
+
+    setIsPostingStory(true);
+    try {
+      const picked = choice === 'image' ? await pickImage() : await pickVideo();
+      if (!picked) return;
+
+      const upload = await uploadFile(picked);
+      if (!upload.success || !upload.url) {
+        throw new Error(upload.error || 'Upload failed');
+      }
+
+      const created = await api.createStory({
+        mediaUrl: upload.url,
+        mediaType: choice,
+      });
+
+      if (!created?.success) {
+        throw new Error(created?.error || 'Failed to create story');
+      }
+
+      await loadStories();
+      Alert.alert('Success', 'Story posted');
+    } catch (error: any) {
+      Alert.alert('Story Failed', error.message || 'Failed to create story');
+    } finally {
+      setIsPostingStory(false);
     }
   };
 
@@ -144,13 +206,25 @@ export default function UsersListScreen({
 
       {/* Stories/Active Section (Mock) */}
       <View style={styles.storiesContainer}>
-        <View style={styles.storyItem}>
+        <TouchableOpacity style={styles.storyItem} onPress={handleCreateStory} disabled={isPostingStory}>
           <View style={[styles.storyAvatar, styles.myStory]}>
-            <Text style={styles.storyAvatarText}>+</Text>
+            {isPostingStory ? <ActivityIndicator color="#000" /> : <Text style={styles.storyAvatarText}>+</Text>}
           </View>
           <Text style={styles.storyName}>Your Story</Text>
-        </View>
-        {/* We can map some active users here if we want */}
+        </TouchableOpacity>
+
+        {stories.slice(0, 10).map((s) => (
+          <View key={s._id} style={styles.storyItem}>
+            <View style={styles.storyAvatar}>
+              <Text style={styles.storyAvatarText}>
+                {s.author?.displayName?.charAt(0)?.toUpperCase() || 'S'}
+              </Text>
+            </View>
+            <Text style={styles.storyName} numberOfLines={1}>
+              {s.author?.displayName || 'Story'}
+            </Text>
+          </View>
+        ))}
       </View>
 
       <View style={styles.divider} />
