@@ -5,6 +5,9 @@ import fs from 'fs';
 import path from 'path';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { validate } from '../middleware/validation';
+import User from '../models/User';
+import AIMessage from '../models/AIMessage';
+import { generateChatbullReply } from '../services/chatbot';
 
 const router = Router();
 
@@ -45,43 +48,67 @@ const localReply = (message: string): string => {
   return 'I can help with features, bugs, and how-to. Ask me anything about ChatBull.';
 };
 
+router.get('/history', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const messages = await AIMessage.find({ userId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(50); // Last 50 messages
+
+    // Transform for frontend
+    const history = messages.map(m => ({
+      id: m._id,
+      role: m.role === 'assistant' ? 'ai' : m.role, // Map 'assistant' -> 'ai' for frontend
+      content: m.content,
+      createdAt: m.createdAt
+    }));
+
+    res.status(200).json(history);
+  } catch (error) {
+    console.error('Get AI history error:', error);
+    res.status(500).json({ success: false, error: 'Failed to load history' });
+  }
+});
+
 router.post('/chat', verifyFirebaseToken, chatValidationRules, validate, async (req: Request, res: Response) => {
   try {
     const { message } = req.body as { message: string };
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      res.status(200).json({ success: true, reply: localReply(message) });
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
       return;
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are JANEAI, a helpful assistant for a social chat app. Keep responses short and practical.',
-          },
-          { role: 'user', content: message },
-        ],
-        temperature: 0.7,
-      }),
+    await AIMessage.create({
+      userId: user._id,
+      role: 'user',
+      content: message
     });
 
-    const data = (await response.json()) as any;
-    const reply = data?.choices?.[0]?.message?.content?.trim();
+    const recentMessages = await AIMessage.find({ userId: user._id })
+      .sort({ createdAt: 1 })
+      .limit(20);
 
-    if (!response.ok || !reply) {
-      res.status(200).json({ success: true, reply: localReply(message) });
-      return;
-    }
+    const contextMessages = recentMessages.map((m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    }));
+
+    const { reply } = generateChatbullReply({ message, history: contextMessages });
+
+    await AIMessage.create({
+      userId: user._id,
+      role: 'assistant',
+      content: reply
+    });
 
     res.status(200).json({ success: true, reply });
   } catch (error) {
@@ -97,33 +124,7 @@ router.post('/transcribe', verifyFirebaseToken, upload.single('audio'), async (r
       return;
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      res.status(503).json({ success: false, error: 'Speech recognition not configured on server.' });
-      return;
-    }
-
-    const fileBuffer = await fs.promises.readFile(req.file.path);
-    const form = new FormData();
-    const mimeType = req.file.mimetype || 'audio/mp4';
-    form.append('file', new Blob([fileBuffer], { type: mimeType }), req.file.originalname || 'audio.m4a');
-    form.append('model', 'whisper-1');
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: form,
-    });
-
-    const data = (await response.json()) as any;
-    if (!response.ok) {
-      res.status(500).json({ success: false, error: data?.error?.message || 'Transcription failed' });
-      return;
-    }
-
-    res.status(200).json({ success: true, text: data?.text || '' });
+    res.status(503).json({ success: false, error: 'Speech recognition is disabled in local chatbot mode.' });
   } catch (error: any) {
     console.error('AI transcribe error:', error);
     res.status(500).json({ success: false, error: error.message || 'Transcription failed' });

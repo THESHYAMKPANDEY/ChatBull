@@ -355,12 +355,12 @@ export const api = {
   },
 
   // AI Chat
-  aiChat: async (prompt: string) => {
+  aiChat: async (message: string) => {
     const headers = await getAuthHeaders();
     return await apiRequest('/ai/chat', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ message }),
     });
   },
 
