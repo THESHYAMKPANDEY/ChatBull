@@ -358,4 +358,29 @@ export const api = {
         body: JSON.stringify({ email, otp })
     });
   },
+
+  // Contact Sync
+  syncContacts: async (phoneNumbers: string[]) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/contacts/sync', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ phoneNumbers }),
+    });
+  },
+
+  // Group Management
+  createGroup: async (groupData: { name: string; members: string[]; avatar?: string; description?: string }) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/groups', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(groupData),
+    });
+  },
+
+  getGroups: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/groups', { headers });
+  },
 };

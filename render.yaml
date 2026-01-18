@@ -3,8 +3,8 @@ services:
     name: chatbull-backend
     env: node
     plan: free
-    buildCommand: cd backend && npm install && npm run build
-    startCommand: cd backend && npm start
+    buildCommand: cd old_version/backend && npm install && npm run build
+    startCommand: cd old_version/backend && npm start
     envVars:
       - key: NODE_ENV
         value: production

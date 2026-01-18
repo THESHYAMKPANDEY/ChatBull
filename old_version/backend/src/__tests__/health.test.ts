@@ -16,5 +16,11 @@ describe('health endpoints', () => {
     expect(res.body).toHaveProperty('status', 'OK');
     expect(res.body).toHaveProperty('service');
   });
-});
 
+  it('GET /health is not rate limited', async () => {
+    for (let i = 0; i < 130; i++) {
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+    }
+  });
+});

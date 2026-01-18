@@ -37,3 +37,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Allow Firebase config upload (overrides .gitignore)
+!google-services.json
+!GoogleService-Info.plist

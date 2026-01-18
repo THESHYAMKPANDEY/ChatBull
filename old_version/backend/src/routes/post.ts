@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import Post from '../models/Post';
 import User from '../models/User';
+import Comment from '../models/Comment';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import { logger } from '../utils/logger';
@@ -173,6 +174,117 @@ router.post('/:postId/like', verifyFirebaseToken, async (req: Request, res: Resp
   } catch (error) {
     logger.error('Toggle like error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ success: false, error: 'Failed to toggle like' });
+  }
+});
+
+/**
+ * GET /api/posts/:postId/comments
+ * Get comments for a post
+ */
+router.get('/:postId/comments', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const comments = await Comment.find({ postId })
+      .sort({ createdAt: 1 })
+      .populate('author', 'displayName photoURL');
+
+    res.status(200).json({ success: true, comments });
+  } catch (error) {
+    logger.error('Get comments error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ success: false, error: 'Failed to load comments' });
+  }
+});
+
+/**
+ * POST /api/posts/:postId/comments
+ * Add a comment to a post
+ */
+router.post(
+  '/:postId/comments',
+  verifyFirebaseToken,
+  [
+    body('content').isString().trim().isLength({ min: 1, max: 500 }).withMessage('Comment must be 1-500 characters'),
+  ],
+  validate,
+  async (req: Request, res: Response) => {
+    try {
+      const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+      const { postId } = req.params;
+      const { content } = req.body;
+
+      const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+
+      const post = await Post.findById(postId);
+      if (!post) {
+        res.status(404).json({ success: false, error: 'Post not found' });
+        return;
+      }
+
+      const comment = await Comment.create({
+        postId,
+        author: user._id,
+        content,
+      });
+
+      await comment.populate('author', 'displayName photoURL');
+
+      res.status(201).json({ success: true, comment });
+    } catch (error) {
+      logger.error('Add comment error', { message: (error as any)?.message || String(error) });
+      res.status(500).json({ success: false, error: 'Failed to add comment' });
+    }
+  }
+);
+
+/**
+ * POST /api/posts/:postId/save
+ * Toggle save post
+ */
+router.post('/:postId/save', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
+    if (!post) {
+      res.status(404).json({ success: false, error: 'Post not found' });
+      return;
+    }
+
+    // Initialize savedPosts if undefined
+    if (!user.savedPosts) {
+      user.savedPosts = [];
+    }
+
+    const postIdObj = post._id as any; // Cast to avoid TS issues if needed
+    const savedIndex = user.savedPosts.findIndex((id) => String(id) === String(postIdObj));
+
+    let isSaved = false;
+    if (savedIndex > -1) {
+      // Unsave
+      user.savedPosts.splice(savedIndex, 1);
+      isSaved = false;
+    } else {
+      // Save
+      user.savedPosts.push(postIdObj);
+      isSaved = true;
+    }
+
+    await user.save();
+
+    res.status(200).json({ success: true, isSaved });
+  } catch (error) {
+    logger.error('Toggle save post error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ success: false, error: 'Failed to save post' });
   }
 });
 

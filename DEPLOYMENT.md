@@ -16,7 +16,7 @@ This guide provides step-by-step instructions for deploying the Chatbull applica
 The backend is an Express.js server with Socket.io.
 
 ### Environment Setup
-Create a `.env` file in the `backend/` directory:
+Create a `.env` file in the `old_version/backend/` directory:
 
 ```env
 PORT=5000
@@ -46,7 +46,7 @@ OLLAMA_MODEL=phi3:mini
 ### Build & Run
 1. **Install Dependencies**:
    ```bash
-   cd backend
+   cd old_version/backend
    npm install --production
    ```
 

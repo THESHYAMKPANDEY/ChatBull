@@ -2,24 +2,23 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../config/theme';
-import { useNavigation } from '@react-navigation/native';
 
 interface AppHeaderProps {
   title: string;
   rightIcon?: React.ReactNode;
   onRightPress?: () => void;
   showBack?: boolean;
+  onBack?: () => void;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ title, rightIcon, onRightPress, showBack }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ title, rightIcon, onRightPress, showBack, onBack }) => {
   const { colors } = useTheme();
-  const navigation = useNavigation();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
       <View style={styles.left}>
         {showBack && (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
         )}

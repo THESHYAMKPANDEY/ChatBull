@@ -25,6 +25,8 @@ interface LoginScreenProps {
   onLogin: (user: any) => void;
 }
 
+import i18n from '../i18n';
+
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [authMode, setAuthMode] = useState<'emailPassword' | 'emailOtp' | 'phoneOtp'>('emailPassword');
   const [email, setEmail] = useState('');
@@ -57,7 +59,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const handleBiometricAuth = async (savedEmail: string) => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Login to ChatBull',
+        promptMessage: i18n.t('loginTitle'),
         fallbackLabel: 'Use Passcode',
       });
 
@@ -67,7 +69,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         // For this demo, we'll auto-fill email and focus password
         setEmail(savedEmail);
         setAuthMode('emailPassword');
-        Alert.alert('Welcome Back', 'Please enter your password to continue.');
+        Alert.alert(i18n.t('welcomeBack'), 'Please enter your password to continue.');
       }
     } catch (error) {
       console.error(error);
@@ -80,7 +82,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       if (authMode === 'emailPassword') {
         if (!email || !password) {
-          Alert.alert('Error', 'Please enter email and password');
+          Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
           return;
         }
 
@@ -110,13 +112,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
       if (authMode === 'emailOtp') {
         if (!email) {
-          Alert.alert('Error', 'Please enter email');
+          Alert.alert(i18n.t('error'), i18n.t('enterEmail'));
           return;
         }
 
         if (!emailOtp) {
           await api.sendEmailOtp(email);
-          Alert.alert('OTP Sent', 'Check your email for the 6-digit code.');
+          Alert.alert(i18n.t('otpSent'), i18n.t('checkEmailOtp'));
           return;
         }
 
@@ -146,7 +148,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       if (authMode === 'phoneOtp') {
         if (!phoneConfirmation) {
           if (!phoneNumber || !phoneNumber.startsWith('+')) {
-            Alert.alert('Error', 'Enter phone number in international format (e.g. +15551234567)');
+            Alert.alert(i18n.t('error'), i18n.t('enterPhone'));
             return;
           }
 
@@ -155,18 +157,18 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               ? await (startPhoneOtp as any)(phoneNumber, recaptchaContainerId)
               : await (startPhoneOtp as any)(phoneNumber);
           setPhoneConfirmation(confirmation);
-          Alert.alert('OTP Sent', 'Check your SMS for the 6-digit code.');
+          Alert.alert(i18n.t('otpSent'), i18n.t('checkSmsOtp'));
           return;
         }
 
         if (!phoneOtp || phoneOtp.length !== 6) {
-          Alert.alert('Error', 'Please enter the 6-digit code');
+          Alert.alert(i18n.t('error'), i18n.t('enterCode'));
           return;
         }
 
         const userCredential = await confirmPhoneOtp(phoneConfirmation, phoneOtp);
         if (!userCredential?.user) {
-          throw new Error('Phone verification failed');
+          throw new Error(i18n.t('phoneVerifyFailed'));
         }
         const firebaseUser = userCredential.user;
 
@@ -187,37 +189,37 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       }
     } catch (error: any) {
       // Better error messages for users
-      let displayMessage = 'Authentication failed. Please try again.';
+      let displayMessage = i18n.t('authFailed');
       
       if (error.code) {
         switch(error.code) {
           case 'auth/invalid-credential':
           case 'auth/user-not-found':
           case 'auth/wrong-password':
-            displayMessage = 'Invalid email or password.';
+            displayMessage = i18n.t('invalidCreds');
             break;
           case 'auth/email-already-in-use':
-            displayMessage = 'This email is already registered. Please login instead.';
+            displayMessage = i18n.t('emailInUse');
             break;
           case 'auth/invalid-email':
-            displayMessage = 'Please enter a valid email address.';
+            displayMessage = i18n.t('invalidEmail');
             break;
           case 'auth/weak-password':
-            displayMessage = 'Password should be at least 6 characters.';
+            displayMessage = i18n.t('weakPassword');
             break;
           case 'auth/network-request-failed':
-            displayMessage = 'Network error. Please check your internet connection.';
+            displayMessage = i18n.t('networkError');
             break;
           default:
             displayMessage = error.message || displayMessage;
         }
       } else if (error.message?.includes('Network')) {
-        displayMessage = 'Cannot reach backend. Check WiFi and API URL.';
+        displayMessage = i18n.t('networkError');
       } else if (error.message?.includes('sync')) {
-        displayMessage = 'Login successful but failed to connect to server. Please try again.';
+        displayMessage = i18n.t('syncError');
       }
       
-      Alert.alert('Login Failed', displayMessage);
+      Alert.alert(i18n.t('error'), displayMessage);
     } finally {
       setIsLoading(false);
     }
@@ -229,18 +231,24 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         <View style={styles.logoContainer}>
           <Ionicons name="chatbubble-ellipses" size={40} color="#fff" />
         </View>
-        <Text style={styles.title}>ChatBull</Text>
-        <Text style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
+        <Text style={styles.title}>{i18n.t('loginTitle')}</Text>
+        <Text style={styles.subtitle}>{isSignUp ? i18n.t('createAccount') : i18n.t('welcomeBack')}</Text>
       </View>
 
       <View style={styles.formContainer}>
         {isBiometricSupported && (
           <TouchableOpacity 
             style={styles.bioButton} 
-            onPress={() => AsyncStorage.getItem('last_login_email').then(e => e && handleBiometricAuth(e))}
+            onPress={() => {
+              AsyncStorage.getItem('last_login_email').then(e => {
+                if (e) handleBiometricAuth(e);
+              });
+            }}
+            accessibilityLabel={i18n.t('tapToLogin')}
+            accessibilityRole="button"
           >
             <Ionicons name="finger-print" size={40} color="#007AFF" />
-            <Text style={styles.bioText}>Tap to Login</Text>
+            <Text style={styles.bioText}>{i18n.t('tapToLogin')}</Text>
           </TouchableOpacity>
         )}
 
@@ -253,9 +261,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               setPhoneOtp('');
               setPhoneConfirmation(null);
             }}
+            accessibilityLabel={i18n.t('switchEmail')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: authMode === 'emailPassword' }}
           >
             <Text style={[styles.modeButtonText, authMode === 'emailPassword' && styles.modeButtonTextActive]}>
-              Email
+              {i18n.t('switchEmail')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -266,9 +277,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               setPhoneOtp('');
               setPhoneConfirmation(null);
             }}
+            accessibilityLabel={i18n.t('switchEmailOtp')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: authMode === 'emailOtp' }}
           >
             <Text style={[styles.modeButtonText, authMode === 'emailOtp' && styles.modeButtonTextActive]}>
-              Email OTP
+              {i18n.t('switchEmailOtp')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -279,9 +293,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               setEmailOtp('');
               setPhoneConfirmation(null);
             }}
+            accessibilityLabel={i18n.t('switchPhoneOtp')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: authMode === 'phoneOtp' }}
           >
             <Text style={[styles.modeButtonText, authMode === 'phoneOtp' && styles.modeButtonTextActive]}>
-              Phone OTP
+              {i18n.t('switchPhoneOtp')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -289,34 +306,37 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         {authMode !== 'phoneOtp' && (
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={i18n.t('email')}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
           placeholderTextColor="#999"
+          accessibilityLabel={i18n.t('email')}
         />
         )}
 
         {authMode === 'emailPassword' && (
           <TextInput
             style={styles.input}
-            placeholder="Password"
+            placeholder={i18n.t('password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholderTextColor="#999"
+            accessibilityLabel={i18n.t('password')}
           />
         )}
 
         {authMode === 'emailOtp' && (
           <TextInput
             style={styles.input}
-            placeholder="6-digit code"
+            placeholder={i18n.t('sixDigitCode')}
             value={emailOtp}
             onChangeText={setEmailOtp}
             keyboardType="number-pad"
             placeholderTextColor="#999"
+            accessibilityLabel={i18n.t('sixDigitCode')}
           />
         )}
 
@@ -325,21 +345,23 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             {Platform.OS === 'web' ? React.createElement('div', { id: recaptchaContainerId }) : null}
             <TextInput
               style={styles.input}
-              placeholder="+15551234567"
+              placeholder={i18n.t('phoneNumber')}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               keyboardType="phone-pad"
               autoCapitalize="none"
               placeholderTextColor="#999"
+              accessibilityLabel={i18n.t('phoneNumber')}
             />
             {phoneConfirmation && (
               <TextInput
                 style={styles.input}
-                placeholder="6-digit code"
+                placeholder={i18n.t('sixDigitCode')}
                 value={phoneOtp}
                 onChangeText={setPhoneOtp}
                 keyboardType="number-pad"
                 placeholderTextColor="#999"
+                accessibilityLabel={i18n.t('sixDigitCode')}
               />
             )}
           </>
@@ -349,16 +371,18 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           style={styles.button}
           onPress={handleAuth}
           disabled={isLoading}
+          accessibilityRole="button"
+          accessibilityLabel={authMode === 'emailPassword' ? (isSignUp ? i18n.t('signUp') : i18n.t('login')) : (emailOtp || phoneConfirmation ? i18n.t('verifyCode') : i18n.t('sendCode'))}
         >
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.buttonText}>
               {authMode === 'emailPassword'
-                ? (isSignUp ? 'Sign Up' : 'Login')
+                ? (isSignUp ? i18n.t('signUp') : i18n.t('login'))
                 : authMode === 'emailOtp'
-                ? (emailOtp ? 'Verify Code' : 'Send Code')
-                : (phoneConfirmation ? 'Verify Code' : 'Send Code')}
+                ? (emailOtp ? i18n.t('verifyCode') : i18n.t('sendCode'))
+                : (phoneConfirmation ? i18n.t('verifyCode') : i18n.t('sendCode'))}
             </Text>
           )}
         </TouchableOpacity>
@@ -367,11 +391,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           <TouchableOpacity
             style={styles.switchButton}
             onPress={() => setIsSignUp(!isSignUp)}
+            accessibilityRole="button"
+            accessibilityLabel={isSignUp ? i18n.t('haveAccount') : i18n.t('noAccount')}
           >
             <Text style={styles.switchText}>
               {isSignUp
-                ? 'Already have an account? Login'
-                : "Don't have an account? Sign Up"}
+                ? i18n.t('haveAccount')
+                : i18n.t('noAccount')}
             </Text>
           </TouchableOpacity>
         )}

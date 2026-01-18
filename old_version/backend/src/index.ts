@@ -18,7 +18,10 @@ import { initializeFirebaseAdmin, isFirebaseAdminReady } from './services/notifi
 import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
 import storyRoutes from './routes/story';
+import contactRoutes from './routes/contact';
+import groupRoutes from './routes/group';
 import aiRoutes from './routes/ai';
+
 import { verifyFirebaseToken } from './middleware/auth';
 import admin from 'firebase-admin';
 import User from './models/User';
@@ -73,6 +76,11 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) =>
+    req.path === '/' ||
+    req.path === '/health' ||
+    req.path === '/api/health' ||
+    req.path === '/health/extended',
 });
 app.use(limiter);
 
@@ -120,6 +128,8 @@ app.use('/api/private', privateRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/story', storyRoutes); // Alias for mobile app compatibility
 app.use('/api/ai', aiRoutes);
+app.use('/api/contacts', contactRoutes);
+app.use('/api/groups', groupRoutes);
 
 // Production-ready health check endpoints
 app.get('/', (req, res) => {
