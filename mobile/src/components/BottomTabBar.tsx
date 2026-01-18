@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 export interface BottomTabBarProps {
   active: string;
@@ -13,11 +14,16 @@ export interface BottomTabBarProps {
 
 export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI, onProfile }: BottomTabBarProps) {
   const tabs = [
-    { key: 'chats', label: 'Chats', icon: 'chatbubble', onPress: onChats },
-    { key: 'feed', label: 'Feed', icon: 'compass', onPress: onFeed },
-    { key: 'ai', label: 'AI', icon: 'hardware-chip', onPress: onAI },
-    { key: 'profile', label: 'Profile', icon: 'person', onPress: onProfile },
+    { key: 'feed', icon: 'home', onPress: onFeed }, // Feed first like Insta
+    { key: 'chats', icon: 'chatbubble-ellipses', onPress: onChats }, // Messages
+    { key: 'ai', icon: 'sparkles', onPress: onAI }, // AI in center
+    { key: 'profile', icon: 'person-circle', onPress: onProfile }, // Profile
   ];
+
+  const handlePress = (onPress: () => void) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
 
   return (
     <View style={styles.container}>
@@ -25,17 +31,14 @@ export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI,
         <TouchableOpacity
           key={tab.key}
           style={styles.tab}
-          onPress={tab.onPress}
+          onPress={() => handlePress(tab.onPress)}
+          activeOpacity={0.7}
         >
           <Ionicons
             name={active === tab.key ? tab.icon : `${tab.icon}-outline` as any}
-            size={24}
-            color={active === tab.key ? '#007AFF' : '#000'}
-            style={{ opacity: active === tab.key ? 1 : 0.5, marginBottom: 4 }}
+            size={28}
+            color={active === tab.key ? '#000' : '#262626'} // Insta uses black/dark grey
           />
-          <Text style={[styles.label, active === tab.key && styles.activeLabel]}>
-            {tab.label}
-          </Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -46,23 +49,16 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingBottom: 20,
-    paddingTop: 10,
-    height: 80,
+    borderTopWidth: 0.5,
+    borderTopColor: '#dbdbdb', // Insta border color
+    paddingBottom: 25, // Adjust for safe area
+    paddingTop: 12,
+    height: 85,
+    justifyContent: 'space-around',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  label: {
-    fontSize: 10,
-    color: '#999',
-  },
-  activeLabel: {
-    color: '#007AFF',
-    fontWeight: 'bold',
   },
 });

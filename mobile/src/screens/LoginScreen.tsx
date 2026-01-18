@@ -10,6 +10,9 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   confirmPhoneOtp,
   signInCustomToken,
@@ -32,9 +35,47 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneOtp, setPhoneOtp] = useState('');
   const [phoneConfirmation, setPhoneConfirmation] = useState<any>(null);
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const recaptchaContainerId = 'recaptcha-container';
 
+  React.useEffect(() => {
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
+    setIsBiometricSupported(compatible && enrolled);
+    
+    // Auto-prompt if previously logged in
+    const lastLogin = await AsyncStorage.getItem('last_login_email');
+    if (lastLogin && compatible && enrolled) {
+      handleBiometricAuth(lastLogin);
+    }
+  };
+
+  const handleBiometricAuth = async (savedEmail: string) => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Login to ChatBull',
+        fallbackLabel: 'Use Passcode',
+      });
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // In a real app, we would securely retrieve the password from Keychain
+        // For this demo, we'll auto-fill email and focus password
+        setEmail(savedEmail);
+        setAuthMode('emailPassword');
+        Alert.alert('Welcome Back', 'Please enter your password to continue.');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleAuth = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
     try {
       if (authMode === 'emailPassword') {
@@ -56,6 +97,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         });
 
         if (result?.user) {
+          if (authMode === 'emailPassword') {
+            await AsyncStorage.setItem('last_login_email', email);
+          }
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           onLogin(result.user);
           return;
         }
@@ -189,6 +234,16 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       </View>
 
       <View style={styles.formContainer}>
+        {isBiometricSupported && (
+          <TouchableOpacity 
+            style={styles.bioButton} 
+            onPress={() => AsyncStorage.getItem('last_login_email').then(e => e && handleBiometricAuth(e))}
+          >
+            <Ionicons name="finger-print" size={40} color="#007AFF" />
+            <Text style={styles.bioText}>Tap to Login</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.modeSwitch}>
           <TouchableOpacity
             style={[styles.modeButton, authMode === 'emailPassword' && styles.modeButtonActive]}
@@ -344,6 +399,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
+  },
+  bioButton: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  bioText: {
+    color: '#007AFF',
+    marginTop: 5,
+    fontWeight: '600',
   },
   logoContainer: {
     width: 80,
