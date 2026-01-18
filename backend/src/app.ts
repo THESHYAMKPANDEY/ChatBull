@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
-import testRoutes from './routes/test';
+// import testRoutes from './routes/test';
 import mediaRoutes from './routes/media';
 import securityRoutes from './routes/security';
 import legalRoutes from './routes/legal';
@@ -60,7 +60,7 @@ export const createApp = () => {
 
   app.use('/api/auth', authRoutes);
   if (process.env.NODE_ENV !== 'production') {
-    app.use('/api/test', testRoutes);
+    // app.use('/api/test', testRoutes);
   }
   app.use('/api/media', verifyFirebaseToken, mediaRoutes);
   app.use('/api/security', securityRoutes);
