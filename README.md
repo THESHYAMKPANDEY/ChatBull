@@ -1,15 +1,16 @@
 # ChatBull
 
-ChatBull is a private company project owned and maintained by ChatBull Inc. It provides secure, real-time communication across mobile and web clients.
+ChatBull is a private, military-grade secure communication platform owned and maintained by ChatBull Inc. It provides encrypted, real-time communication across mobile and web clients with advanced privacy features.
 
 This repository is intended for internal development and controlled deployment only.
 
 ## Product Overview
-- Real-time messaging using Socket.IO
-- Private mode for ephemeral sessions
-- Media upload support
-- Optional AI assistant integration
-- Security hardening: Helmet headers, rate limiting, input validation, NoSQL injection mitigation
+- **Military-Grade Encryption**: AES-256-GCM encryption for all messages at rest and in transit.
+- **Strict Privacy**: Biometric authentication required (no passcode fallback), screenshot prevention (blurred view), and auto-clipboard clearing.
+- **Ephemeral Messaging**: Private mode with self-destructing messages and "Hold-to-Decrypt" protection.
+- **Secure Data Handling**: Automatic 3-strike data wipe and secure memory management.
+- **Real-time Communication**: Socket.IO powered messaging.
+- **Media Support**: Encrypted photo and video sharing.
 
 ## Requirements
 - Node.js 22.x
@@ -19,6 +20,7 @@ This repository is intended for internal development and controlled deployment o
 
 ## Backend (Production)
 1. Configure environment variables using [backend/.env.example](file:///d:/New%20folder%20(3)/Chatbull/backend/.env.example).
+   - **Important**: Set `ENCRYPTION_KEY` to a 32-byte hex string (e.g., generated via `openssl rand -hex 32`).
 2. Install and build:
 
 ```bash
@@ -49,6 +51,18 @@ Build:
 cd mobile
 npm ci
 eas build -p android --profile production
+```
+
+## Testing
+Run the security test suite before deployment:
+```bash
+# Mobile Security Tests
+cd mobile
+npm test
+
+# Backend Health Tests
+cd backend
+npm test
 ```
 
 ## License

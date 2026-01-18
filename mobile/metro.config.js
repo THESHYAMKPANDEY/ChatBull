@@ -2,7 +2,6 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
 const config = getSentryExpoConfig(__dirname);
 
-config.resolver.unstable_enableSymlinks = false;
 config.resolver.assetExts = [...config.resolver.assetExts, 'bin'];
 config.transformer.unstable_allowRequireContext = true;
 

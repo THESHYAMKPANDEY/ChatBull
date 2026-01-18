@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useTheme } from '../config/theme';
 
 export interface BottomTabBarProps {
   active: string;
@@ -13,6 +14,7 @@ export interface BottomTabBarProps {
 }
 
 export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI, onProfile }: BottomTabBarProps) {
+  const { colors } = useTheme();
   const tabs = [
     { key: 'feed', icon: 'home', onPress: onFeed }, // Feed first like Insta
     { key: 'chats', icon: 'chatbubble-ellipses', onPress: onChats }, // Messages
@@ -21,12 +23,16 @@ export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI,
   ];
 
   const handlePress = (onPress: () => void) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch (e) {
+      // Ignore haptics error on unsupported platforms
+    }
     onPress();
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
       {tabs.map((tab) => (
         <TouchableOpacity
           key={tab.key}
@@ -37,7 +43,7 @@ export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI,
           <Ionicons
             name={active === tab.key ? tab.icon : `${tab.icon}-outline` as any}
             size={28}
-            color={active === tab.key ? '#000' : '#262626'} // Insta uses black/dark grey
+            color={active === tab.key ? colors.text : colors.mutedText}
           />
         </TouchableOpacity>
       ))}
@@ -48,9 +54,7 @@ export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI,
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderTopWidth: 0.5,
-    borderTopColor: '#dbdbdb', // Insta border color
     paddingBottom: 25, // Adjust for safe area
     paddingTop: 12,
     height: 85,

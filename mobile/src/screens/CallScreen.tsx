@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity } from 'react-native';
 import { ZegoUIKitPrebuiltCall, ONE_ON_ONE_VIDEO_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn';
+import i18n from '../i18n';
 
 type CallScreenProps = {
   callID: string;
@@ -18,9 +19,14 @@ export default function CallScreen({ callID, userID, userName, onBack }: CallScr
   if (!appId || !appSign) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <Text style={styles.errorText}>Missing ZegoCloud Configuration.</Text>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Go Back</Text>
+        <Text style={styles.errorText}>{i18n.t('missingConfig')}</Text>
+        <TouchableOpacity 
+          onPress={onBack} 
+          style={styles.backButton}
+          accessibilityLabel={i18n.t('goBack')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.backButtonText}>{i18n.t('goBack')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );

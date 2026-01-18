@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import User from '../models/User';
+import EmailOtp from '../models/EmailOtp';
 import { validate } from '../middleware/validation';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import nodemailer from 'nodemailer';
+import { getAuth } from 'firebase-admin/auth';
 
 const router = Router();
 
@@ -220,6 +223,107 @@ router.post('/logout', verifyFirebaseToken, async (req: Request, res: Response) 
   } catch (error) {
     logger.error('Logout error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Email OTP - Send
+router.post('/email-otp/send', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save to DB
+    await EmailOtp.create({
+      email,
+      otp,
+    });
+
+    // Send Email
+    // Note: In production, configure these env vars
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await transporter.sendMail({
+        from: '"ChatBull" <noreply@chatbull.com>',
+        to: email,
+        subject: 'Your Login Code',
+        text: `Your verification code is: ${otp}`,
+        html: `<b>Your verification code is: ${otp}</b>`,
+      });
+      logger.info(`OTP sent to ${email}`);
+    } else {
+      logger.warn(`SMTP not configured. OTP for ${email} is ${otp}`);
+    }
+
+    res.status(200).json({ message: 'OTP sent' });
+  } catch (error) {
+    logger.error('Send OTP error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// Email OTP - Verify
+router.post('/email-otp/verify', async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      res.status(400).json({ error: 'Email and OTP are required' });
+      return;
+    }
+
+    const record = await EmailOtp.findOne({ email, otp }).sort({ createdAt: -1 });
+    
+    if (!record) {
+      res.status(400).json({ error: 'Invalid OTP' });
+      return;
+    }
+
+    if (record.expiresAt < new Date()) {
+      res.status(400).json({ error: 'OTP expired' });
+      return;
+    }
+
+    // OTP is valid. Generate Firebase Custom Token
+    let firebaseUid = '';
+    
+    try {
+        const userRecord = await getAuth().getUserByEmail(email);
+        firebaseUid = userRecord.uid;
+    } catch (e) {
+        // User doesn't exist in Firebase, create them
+        const userRecord = await getAuth().createUser({
+            email,
+            emailVerified: true,
+        });
+        firebaseUid = userRecord.uid;
+    }
+
+    const customToken = await getAuth().createCustomToken(firebaseUid);
+
+    // Clean up used OTP
+    await EmailOtp.deleteOne({ _id: record._id });
+
+    res.status(200).json({ 
+        message: 'OTP verified',
+        token: customToken
+    });
+
+  } catch (error) {
+    logger.error('Verify OTP error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ error: 'Failed to verify OTP' });
   }
 });
 

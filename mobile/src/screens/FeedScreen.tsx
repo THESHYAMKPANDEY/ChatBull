@@ -23,6 +23,8 @@ import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
 import AppHeader from '../components/AppHeader';
 
+import i18n from '../i18n';
+
 export interface PostAuthor {
   _id: string;
   displayName: string;
@@ -48,9 +50,10 @@ interface FeedScreenProps {
   onPrivate: () => void;
   onAI: () => void;
   onProfile: () => void;
+  showTabBar?: boolean;
 }
 
-export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onProfile }: FeedScreenProps) {
+export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onProfile, showTabBar = true }: FeedScreenProps) {
   const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +107,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       setPosts(result.posts || []);
     } catch (error) {
       console.error('Load feed error:', error);
-      Alert.alert('Error', 'Failed to load feed');
+      Alert.alert(i18n.t('error'), 'Failed to load feed');
     } finally {
       setIsLoading(false);
     }
@@ -119,20 +122,20 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
       if (type === 'image') {
         const source = await new Promise<'camera' | 'library' | null>((resolve) => {
-          Alert.alert('Add Photo', 'Choose source', [
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
-            { text: 'Camera', onPress: () => resolve('camera') },
-            { text: 'Library', onPress: () => resolve('library') },
+          Alert.alert(i18n.t('addPhoto'), i18n.t('chooseSource'), [
+            { text: i18n.t('cancel'), style: 'cancel', onPress: () => resolve(null) },
+            { text: i18n.t('camera'), onPress: () => resolve('camera') },
+            { text: i18n.t('library'), onPress: () => resolve('library') },
           ]);
         });
         if (!source) return;
         picked = source === 'camera' ? await takePhoto() : await pickImage();
       } else if (type === 'video') {
         const source = await new Promise<'camera' | 'library' | null>((resolve) => {
-          Alert.alert('Add Video', 'Choose source', [
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
-            { text: 'Camera', onPress: () => resolve('camera') },
-            { text: 'Library', onPress: () => resolve('library') },
+          Alert.alert(i18n.t('addVideo'), i18n.t('chooseSource'), [
+            { text: i18n.t('cancel'), style: 'cancel', onPress: () => resolve(null) },
+            { text: i18n.t('camera'), onPress: () => resolve('camera') },
+            { text: i18n.t('library'), onPress: () => resolve('library') },
           ]);
         });
         if (!source) return;
@@ -153,13 +156,13 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
         setMediaUrl(result.url);
         const mt: 'image' | 'video' | 'file' = picked.type === 'file' ? 'file' : picked.type;
         setMediaType(mt);
-        Alert.alert('Success', 'Media attached to your post');
+        Alert.alert(i18n.t('success'), i18n.t('mediaAttached'));
       } else {
-        Alert.alert('Upload Failed', result.error || 'Could not upload file');
+        Alert.alert(i18n.t('uploadFailed'), result.error || 'Could not upload file');
       }
     } catch (error) {
       console.error('Media upload error:', error);
-      Alert.alert('Error', 'Failed to upload media');
+      Alert.alert(i18n.t('error'), 'Failed to upload media');
     } finally {
       setUploading(false);
     }
@@ -167,7 +170,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
   const handleCreatePost = async () => {
     if (!content.trim() && !mediaUrl) {
-      Alert.alert('Error', 'Please enter some text or attach media');
+      Alert.alert(i18n.t('error'), 'Please enter some text or attach media');
       return;
     }
 
@@ -186,11 +189,11 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
         setMediaUrl(undefined);
         setMediaType(undefined);
       } else {
-        Alert.alert('Error', result.error || 'Failed to create post');
+        Alert.alert(i18n.t('error'), result.error || i18n.t('createPostFailed'));
       }
     } catch (error) {
       console.error('Create post error:', error);
-      Alert.alert('Error', 'Failed to create post');
+      Alert.alert(i18n.t('error'), i18n.t('createPostFailed'));
     } finally {
       setIsPosting(false);
     }
@@ -237,7 +240,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       await api.toggleSavePost(postId);
     } catch (error) {
       console.error('Save error:', error);
-      Alert.alert('Error', 'Failed to save post');
+      Alert.alert(i18n.t('error'), 'Failed to save post');
     }
   };
 
@@ -292,13 +295,14 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       );
     } catch (error) {
       console.error('Post comment error:', error);
-      Alert.alert('Error', 'Failed to post comment');
+      Alert.alert(i18n.t('error'), 'Failed to post comment');
       // Revert
       setComments(prev => prev.filter(c => c._id !== mockComment._id));
+      setCommentText(text);
     }
   };
 
-  const handleSharePost = async (post: Post) => {
+  const handleSharePost = React.useCallback(async (post: Post) => {
     try {
       const authorName = post.author?.displayName || 'User';
       const text = post.content ? `${authorName}: ${post.content}` : `${authorName} posted`;
@@ -307,7 +311,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     } catch (error) {
       console.error('Share error:', error);
     }
-  };
+  }, []);
 
   const renderMedia = (post: Post) => {
     if (!post.mediaUrl || !post.mediaType) return null;
@@ -316,7 +320,12 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       const naturalAspectRatio = imageAspectRatios[post.mediaUrl] || 1;
       const displayAspectRatio = Math.max(0.8, Math.min(1.91, naturalAspectRatio));
       return (
-        <TouchableOpacity activeOpacity={0.9} onPress={() => setImageViewerUrl(post.mediaUrl!)}>
+        <TouchableOpacity 
+          activeOpacity={0.9} 
+          onPress={() => setImageViewerUrl(post.mediaUrl!)}
+          accessibilityLabel={i18n.t('photo')}
+          accessibilityRole="imagebutton"
+        >
           <Image
             source={{ uri: post.mediaUrl }}
             style={[styles.postImage, { aspectRatio: displayAspectRatio }]}
@@ -326,10 +335,14 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       );
     }
 
-    const label = post.mediaType === 'video' ? 'Video' : 'File';
+    const label = post.mediaType === 'video' ? i18n.t('video') : i18n.t('file');
 
     return (
-      <TouchableOpacity onPress={() => Linking.openURL(post.mediaUrl!)}>
+      <TouchableOpacity 
+        onPress={() => Linking.openURL(post.mediaUrl!)}
+        accessibilityLabel={`${i18n.t('open')} ${label}`}
+        accessibilityRole="link"
+      >
         <View style={[styles.mediaRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons
             name={post.mediaType === 'video' ? 'play-circle-outline' : 'attach-outline'}
@@ -338,7 +351,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
             style={styles.mediaRowIcon}
           />
           <Text style={[styles.mediaRowText, { color: colors.text }]}>{label}</Text>
-          <Text style={[styles.mediaRowOpen, { color: colors.primary }]}>Open</Text>
+          <Text style={[styles.mediaRowOpen, { color: colors.primary }]}>{i18n.t('open')}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -370,24 +383,44 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
         <View style={styles.postActions}>
           <View style={styles.actionsLeft}>
-            <TouchableOpacity onPress={() => toggleLike(item._id)} style={styles.actionButton}>
+            <TouchableOpacity 
+              onPress={() => toggleLike(item._id)} 
+              style={styles.actionButton}
+              accessibilityLabel={isLiked ? "Unlike" : i18n.t('like')}
+              accessibilityRole="button"
+            >
               <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={24} color={isLiked ? '#ed4956' : colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => openComments(item._id)} style={styles.actionButton}>
+            <TouchableOpacity 
+              onPress={() => openComments(item._id)} 
+              style={styles.actionButton}
+              accessibilityLabel={i18n.t('comments')}
+              accessibilityRole="button"
+            >
               <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSharePost(item)} style={styles.actionButton}>
+            <TouchableOpacity 
+              onPress={() => handleSharePost(item)} 
+              style={styles.actionButton}
+              accessibilityLabel={i18n.t('share')}
+              accessibilityRole="button"
+            >
               <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => handleSave(item._id)} style={styles.actionButton}>
+          <TouchableOpacity 
+            onPress={() => handleSave(item._id)} 
+            style={styles.actionButton}
+            accessibilityLabel="Save post"
+            accessibilityRole="button"
+          >
             <Ionicons name={item.savedByMe ? 'bookmark' : 'bookmark-outline'} size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
         {typeof item.likeCount === 'number' && item.likeCount > 0 ? (
           <Text style={[styles.likesText, { color: colors.text }]}>
-            {item.likeCount} {item.likeCount === 1 ? 'like' : 'likes'}
+            {item.likeCount} {item.likeCount === 1 ? i18n.t('like') : i18n.t('likes')}
           </Text>
         ) : (
           <View style={styles.likesSpacer} />
@@ -411,7 +444,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <AppHeader title="ChatBull" />
+      <AppHeader title={i18n.t('appName')} />
 
       <View style={[styles.screenContent, Platform.OS === 'web' && styles.screenContentWeb]}>
         <View
@@ -427,11 +460,12 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
             </View>
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Write a caption..."
+              placeholder={i18n.t('writeCaption')}
               placeholderTextColor={colors.mutedText}
               value={content}
               onChangeText={setContent}
               multiline
+              accessibilityLabel={i18n.t('writeCaption')}
             />
           </View>
 
@@ -445,7 +479,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
                     <Ionicons name={mediaType === 'video' ? 'play' : 'attach'} size={18} color={colors.text} />
                   </View>
                 )}
-                <Text style={[styles.attachedText, { color: colors.primary }]}>Attached: {mediaType.toUpperCase()}</Text>
+                <Text style={[styles.attachedText, { color: colors.primary }]}>{i18n.t('mediaAttached')}: {mediaType.toUpperCase()}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => {
@@ -453,6 +487,8 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
                   setMediaUrl(undefined);
                   setMediaType(undefined);
                 }}
+                accessibilityLabel={i18n.t('cancel')}
+                accessibilityRole="button"
               >
                 <Ionicons name="close" size={18} color={colors.mutedText} />
               </TouchableOpacity>
@@ -461,13 +497,25 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
 
           <View style={styles.actionsRow}>
             <View style={styles.mediaButtons}>
-              <TouchableOpacity onPress={() => handleMediaPick('image')}>
+              <TouchableOpacity 
+                onPress={() => handleMediaPick('image')}
+                accessibilityLabel={i18n.t('addPhoto')}
+                accessibilityRole="button"
+              >
                 <Ionicons name="image-outline" size={22} color={colors.text} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMediaPick('video')}>
+              <TouchableOpacity 
+                onPress={() => handleMediaPick('video')}
+                accessibilityLabel={i18n.t('addVideo')}
+                accessibilityRole="button"
+              >
                 <Ionicons name="videocam-outline" size={22} color={colors.text} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMediaPick('document')}>
+              <TouchableOpacity 
+                onPress={() => handleMediaPick('document')}
+                accessibilityLabel="Add document"
+                accessibilityRole="button"
+              >
                 <Ionicons name="attach-outline" size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
@@ -476,11 +524,13 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
               style={[styles.postButton, (!content.trim() && !mediaUrl) && styles.postButtonDisabled]}
               onPress={handleCreatePost}
               disabled={isPosting || uploading || (!content.trim() && !mediaUrl)}
+              accessibilityLabel={i18n.t('post')}
+              accessibilityRole="button"
             >
               {isPosting || uploading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.postButtonText}>Share</Text>
+                <Text style={styles.postButtonText}>{i18n.t('post')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -493,6 +543,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
         ) : (
           <FlatList
             data={posts}
+            extraData={posts}
             keyExtractor={(item) => item._id}
             renderItem={renderPost}
             contentContainerStyle={styles.feedList}
@@ -501,16 +552,18 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
         )}
       </View>
 
-      <View style={styles.tabBar}>
-        <BottomTabBar
-          active="feed"
-          onChats={onChats}
-          onFeed={() => {}}
-          onPrivate={onPrivate}
-          onAI={onAI}
-          onProfile={onProfile}
-        />
-      </View>
+      {showTabBar && (
+        <View style={styles.tabBar}>
+          <BottomTabBar
+            active="feed"
+            onChats={onChats}
+            onFeed={() => {}}
+            onPrivate={onPrivate}
+            onAI={onAI}
+            onProfile={onProfile}
+          />
+        </View>
+      )}
 
       <Modal
         visible={commentsVisible}
@@ -523,10 +576,10 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
           style={{ flex: 1, backgroundColor: colors.background }}
         >
           <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => setCommentsVisible(false)}>
+            <TouchableOpacity onPress={() => setCommentsVisible(false)} accessibilityLabel={i18n.t('close')} accessibilityRole="button">
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 16, color: colors.text }}>Comments</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 16, color: colors.text }}>{i18n.t('comments')}</Text>
           </View>
 
           {loadingComments ? (
@@ -535,9 +588,10 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
             <FlatList
               data={comments}
               keyExtractor={(item) => item._id}
+              style={{ flex: 1 }}
               contentContainerStyle={{ padding: 16 }}
               ListEmptyComponent={
-                <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>No comments yet. Be the first!</Text>
+                <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>{i18n.t('noComments')}</Text>
               }
               renderItem={({ item }) => (
                 <View style={{ flexDirection: 'row', marginBottom: 16 }}>
@@ -582,17 +636,20 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
                 color: colors.text,
                 marginRight: 12
               }}
-              placeholder="Add a comment..."
+              placeholder={i18n.t('addComment')}
               placeholderTextColor="#666"
               value={commentText}
               onChangeText={setCommentText}
               onSubmitEditing={submitComment}
+              accessibilityLabel={i18n.t('addComment')}
             />
             <TouchableOpacity 
               disabled={!commentText.trim()} 
               onPress={submitComment}
+              accessibilityLabel={i18n.t('post')}
+              accessibilityRole="button"
             >
-              <Text style={{ color: !commentText.trim() ? '#666' : colors.primary, fontWeight: 'bold' }}>Post</Text>
+              <Text style={{ color: !commentText.trim() ? '#666' : colors.primary, fontWeight: 'bold' }}>{i18n.t('post')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -605,7 +662,7 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
         onRequestClose={() => setImageViewerUrl(null)}
       >
         <View style={styles.viewerBackdrop}>
-          <Pressable style={styles.viewerCloseHitbox} onPress={() => setImageViewerUrl(null)}>
+          <Pressable style={styles.viewerCloseHitbox} onPress={() => setImageViewerUrl(null)} accessibilityLabel={i18n.t('close')} accessibilityRole="button">
             <Ionicons name="close" size={20} color="#fff" />
           </Pressable>
           {imageViewerUrl ? (

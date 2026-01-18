@@ -8,6 +8,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import VerifiedBadge from '../components/VerifiedBadge';
 import { api } from '../services/api';
 import { pickImage, uploadFile, PickedMedia } from '../services/media';
+import i18n from '../i18n';
 
 interface ProfileScreenProps {
   currentUser: any;
@@ -17,6 +18,7 @@ interface ProfileScreenProps {
   onAI: () => void;
   onDeleteAccount: () => void;
   onUserUpdated: (user: any) => void;
+  showTabBar?: boolean;
 }
 
 type Post = {
@@ -25,7 +27,7 @@ type Post = {
   mediaType?: 'image' | 'video' | 'file';
 };
 
-export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onAI, onDeleteAccount, onUserUpdated }: ProfileScreenProps) {
+export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onAI, onDeleteAccount, onUserUpdated, showTabBar = true }: ProfileScreenProps) {
   const { colors, theme, toggleTheme } = useTheme();
 
   const displayName = currentUser?.displayName || 'User';
@@ -58,11 +60,11 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete Account',
-      'This action is permanent and cannot be undone. All your data will be deleted. Are you sure?',
+      i18n.t('deleteConfirmTitle'),
+      i18n.t('deleteConfirmMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDeleteAccount },
+        { text: i18n.t('cancel'), style: 'cancel' },
+        { text: i18n.t('delete'), style: 'destructive', onPress: onDeleteAccount },
       ]
     );
   };
@@ -71,7 +73,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
     try {
       await Linking.openURL(appConfig.LEGAL_PRIVACY_URL);
     } catch {
-      Alert.alert('Error', 'Could not open privacy policy.');
+      Alert.alert(i18n.t('error'), 'Could not open privacy policy.');
     }
   };
 
@@ -111,7 +113,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
       setPickedAvatar(picked);
       setAvatarPreviewUri(picked.uri);
     } catch {
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert(i18n.t('error'), 'Failed to pick image');
     }
   };
 
@@ -124,7 +126,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
       if (pickedAvatar) {
         const upload = await uploadFile(pickedAvatar);
         if (!upload.success || !upload.url) {
-          throw new Error(upload.error || 'Failed to upload photo');
+          throw new Error(upload.error || i18n.t('uploadFailed'));
         }
         nextPhotoURL = upload.url;
       }
@@ -140,14 +142,14 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
 
       const result = await api.updateProfile(payload);
       if (!result?.user) {
-        throw new Error(result?.error || 'Failed to update profile');
+        throw new Error(result?.error || i18n.t('updateFailed'));
       }
 
       onUserUpdated(result.user);
       setEditOpen(false);
       await loadMyPosts();
     } catch (error: any) {
-      Alert.alert('Update Failed', error?.message || 'Failed to update profile');
+      Alert.alert(i18n.t('updateFailed'), error?.message || i18n.t('updateFailed'));
     } finally {
       setSaving(false);
     }
@@ -157,13 +159,13 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
     const url = currentUser?.website || '';
     const text = username ? `@${username}` : displayName;
     if (!url) {
-      Alert.alert('Share', 'Add a website to share your profile link.');
+      Alert.alert(i18n.t('share'), 'Add a website to share your profile link.');
       return;
     }
     try {
       await Share.share({ message: `${text}\n${url}`, url });
     } catch {
-      Alert.alert('Error', 'Failed to share');
+      Alert.alert(i18n.t('error'), 'Failed to share');
     }
   };
 
@@ -174,7 +176,13 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
       <View style={styles.headerWrapper}>
         <View style={[styles.topCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.topRow}>
-            <TouchableOpacity style={[styles.avatarRing, { borderColor: colors.border }]} onPress={openEditProfile} activeOpacity={0.9}>
+            <TouchableOpacity 
+              style={[styles.avatarRing, { borderColor: colors.border }]} 
+              onPress={openEditProfile} 
+              activeOpacity={0.9}
+              accessibilityLabel={i18n.t('editProfile')}
+              accessibilityRole="button"
+            >
               <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
                 {avatarUri ? (
                   <Image source={{ uri: avatarUri }} style={styles.avatarImage} resizeMode="cover" />
@@ -188,17 +196,17 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
             </TouchableOpacity>
 
             <View style={styles.statsRow}>
-              <View style={styles.stat}>
+              <View style={styles.stat} accessibilityLabel={`${postsTotal} ${i18n.t('posts')}`}>
                 <Text style={[styles.statNumber, { color: colors.text }]}>{postsTotal}</Text>
-                <Text style={[styles.statLabel, { color: colors.mutedText }]}>posts</Text>
+                <Text style={[styles.statLabel, { color: colors.mutedText }]}>{i18n.t('posts')}</Text>
               </View>
-              <View style={styles.stat}>
+              <View style={styles.stat} accessibilityLabel={`${stats.followers} ${i18n.t('followers')}`}>
                 <Text style={[styles.statNumber, { color: colors.text }]}>{stats.followers}</Text>
-                <Text style={[styles.statLabel, { color: colors.mutedText }]}>followers</Text>
+                <Text style={[styles.statLabel, { color: colors.mutedText }]}>{i18n.t('followers')}</Text>
               </View>
-              <View style={styles.stat}>
+              <View style={styles.stat} accessibilityLabel={`${stats.following} ${i18n.t('following')}`}>
                 <Text style={[styles.statNumber, { color: colors.text }]}>{stats.following}</Text>
-                <Text style={[styles.statLabel, { color: colors.mutedText }]}>following</Text>
+                <Text style={[styles.statLabel, { color: colors.mutedText }]}>{i18n.t('following')}</Text>
               </View>
             </View>
           </View>
@@ -211,7 +219,12 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
           {username ? <Text style={[styles.username, { color: colors.text }]}>@{username}</Text> : null}
           {bio ? <Text style={[styles.bio, { color: colors.text }]}>{bio}</Text> : null}
           {website ? (
-            <TouchableOpacity onPress={() => Linking.openURL(website)} activeOpacity={0.8}>
+            <TouchableOpacity 
+              onPress={() => Linking.openURL(website)} 
+              activeOpacity={0.8}
+              accessibilityLabel={`${i18n.t('website')}: ${website}`}
+              accessibilityRole="link"
+            >
               <Text style={[styles.website, { color: colors.primary }]} numberOfLines={1}>
                 {website}
               </Text>
@@ -220,11 +233,21 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
           {email ? <Text style={[styles.email, { color: colors.mutedText }]}>{email}</Text> : null}
 
           <View style={styles.actions}>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={openEditProfile}>
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>Edit profile</Text>
+            <TouchableOpacity 
+              style={[styles.actionBtn, { borderColor: colors.border }]} 
+              onPress={openEditProfile}
+              accessibilityLabel={i18n.t('editProfile')}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.actionBtnText, { color: colors.text }]}>{i18n.t('editProfile')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={shareProfile}>
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>Share profile</Text>
+            <TouchableOpacity 
+              style={[styles.actionBtn, { borderColor: colors.border }]} 
+              onPress={shareProfile}
+              accessibilityLabel={i18n.t('shareProfile')}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.actionBtnText, { color: colors.text }]}>{i18n.t('shareProfile')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -233,28 +256,41 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
               <Ionicons name="moon-outline" size={18} color={colors.text} />
-              <Text style={[styles.settingText, { color: colors.text }]}>Dark mode</Text>
+              <Text style={[styles.settingText, { color: colors.text }]}>{i18n.t('darkMode')}</Text>
             </View>
             <Switch
               value={theme === 'dark'}
               onValueChange={toggleTheme}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+              accessibilityLabel={i18n.t('darkMode')}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: theme === 'dark' }}
             />
           </View>
 
-          <TouchableOpacity style={styles.settingRow} onPress={openPrivacyPolicy}>
+          <TouchableOpacity 
+            style={styles.settingRow} 
+            onPress={openPrivacyPolicy}
+            accessibilityLabel={i18n.t('privacyPolicy')}
+            accessibilityRole="button"
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="document-text-outline" size={18} color={colors.text} />
-              <Text style={[styles.settingText, { color: colors.text }]}>Privacy policy</Text>
+              <Text style={[styles.settingText, { color: colors.text }]}>{i18n.t('privacyPolicy')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingRow} onPress={handleDeleteAccount}>
+          <TouchableOpacity 
+            style={styles.settingRow} 
+            onPress={handleDeleteAccount}
+            accessibilityLabel={i18n.t('deleteAccount')}
+            accessibilityRole="button"
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="trash-outline" size={18} color={colors.danger} />
-              <Text style={[styles.settingText, { color: colors.danger }]}>Delete account</Text>
+              <Text style={[styles.settingText, { color: colors.danger }]}>{i18n.t('deleteAccount')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
           </TouchableOpacity>
@@ -263,16 +299,34 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
         <View style={[styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.gridHeader, { borderBottomColor: colors.border }]}>
             <Ionicons name="grid-outline" size={18} color={colors.text} />
-            <Text style={[styles.gridTitle, { color: colors.text }]}>Posts</Text>
+            <Text style={[styles.gridTitle, { color: colors.text }]}>{i18n.t('posts')}</Text>
           </View>
           <View style={[styles.profileTabs, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={styles.profileTab} onPress={() => setActiveTab('posts')}>
+            <TouchableOpacity 
+              style={styles.profileTab} 
+              onPress={() => setActiveTab('posts')}
+              accessibilityLabel={i18n.t('posts')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'posts' }}
+            >
               <Ionicons name={activeTab === 'posts' ? 'grid' : 'grid-outline'} size={18} color={activeTab === 'posts' ? colors.text : colors.mutedText} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileTab} onPress={() => setActiveTab('saved')}>
+            <TouchableOpacity 
+              style={styles.profileTab} 
+              onPress={() => setActiveTab('saved')}
+              accessibilityLabel="Saved posts"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'saved' }}
+            >
               <Ionicons name={activeTab === 'saved' ? 'bookmark' : 'bookmark-outline'} size={18} color={activeTab === 'saved' ? colors.text : colors.mutedText} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileTab} onPress={() => setActiveTab('tagged')}>
+            <TouchableOpacity 
+              style={styles.profileTab} 
+              onPress={() => setActiveTab('tagged')}
+              accessibilityLabel="Tagged posts"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'tagged' }}
+            >
               <Ionicons name={activeTab === 'tagged' ? 'person' : 'person-outline'} size={18} color={activeTab === 'tagged' ? colors.text : colors.mutedText} />
             </TouchableOpacity>
           </View>
@@ -284,7 +338,13 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const renderGridItem = ({ item }: { item: Post }) => {
     const uri = item.mediaType === 'image' ? item.mediaUrl : undefined;
     return (
-      <TouchableOpacity style={styles.gridItem} activeOpacity={0.9} onPress={() => uri && setImageViewerUrl(uri)}>
+      <TouchableOpacity 
+        style={styles.gridItem} 
+        activeOpacity={0.9} 
+        onPress={() => uri && setImageViewerUrl(uri)}
+        accessibilityLabel={i18n.t('photo')}
+        accessibilityRole="imagebutton"
+      >
         {uri ? (
           <Image source={{ uri }} style={styles.gridImage} resizeMode="cover" />
         ) : (
@@ -318,13 +378,13 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
             loadingPosts ? null : (
               <View style={styles.gridEmpty}>
                 <Ionicons name="images-outline" size={28} color={colors.mutedText} />
-                <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>No posts yet</Text>
+                <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>{i18n.t('noPosts')}</Text>
               </View>
             )
           ) : (
             <View style={styles.gridEmpty}>
               <Ionicons name="lock-closed-outline" size={28} color={colors.mutedText} />
-              <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>Coming soon</Text>
+              <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>{i18n.t('comingSoon')}</Text>
             </View>
           )
         }
@@ -335,20 +395,28 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
         onRefresh={loadMyPosts}
       />
 
-      <View style={styles.tabBar}>
-        <BottomTabBar
-          active="profile"
-          onChats={onChats}
-          onFeed={onFeed}
-          onPrivate={onPrivate}
-          onAI={onAI}
-          onProfile={() => {}}
-        />
-      </View>
+      {showTabBar && (
+        <View style={styles.tabBar}>
+          <BottomTabBar
+            active="profile"
+            onChats={onChats}
+            onFeed={onFeed}
+            onPrivate={onPrivate}
+            onAI={onAI}
+            onProfile={() => {}}
+          />
+        </View>
+      )}
 
       <Modal visible={!!imageViewerUrl} transparent animationType="fade" onRequestClose={() => setImageViewerUrl(null)}>
         <View style={styles.viewerBackdrop}>
-          <TouchableOpacity style={styles.viewerCloseHitbox} onPress={() => setImageViewerUrl(null)} activeOpacity={0.8}>
+          <TouchableOpacity 
+            style={styles.viewerCloseHitbox} 
+            onPress={() => setImageViewerUrl(null)} 
+            activeOpacity={0.8}
+            accessibilityLabel={i18n.t('close')}
+            accessibilityRole="button"
+          >
             <Ionicons name="close" size={20} color="#fff" />
           </TouchableOpacity>
           {imageViewerUrl ? <Image source={{ uri: imageViewerUrl }} style={styles.viewerImage} resizeMode="contain" /> : null}
@@ -359,17 +427,24 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
         <View style={styles.editBackdrop}>
           <View style={[styles.editCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.editHeader, { borderBottomColor: colors.border }]}>
-              <TouchableOpacity onPress={() => setEditOpen(false)} disabled={saving}>
-                <Text style={[styles.editHeaderBtn, { color: colors.mutedText }]}>Cancel</Text>
+              <TouchableOpacity onPress={() => setEditOpen(false)} disabled={saving} accessibilityLabel={i18n.t('cancel')} accessibilityRole="button">
+                <Text style={[styles.editHeaderBtn, { color: colors.mutedText }]}>{i18n.t('cancel')}</Text>
               </TouchableOpacity>
-              <Text style={[styles.editTitle, { color: colors.text }]}>Edit profile</Text>
-              <TouchableOpacity onPress={saveProfile} disabled={saving}>
-                <Text style={[styles.editHeaderBtn, { color: saving ? colors.mutedText : colors.primary }]}>{saving ? 'Saving…' : 'Done'}</Text>
+              <Text style={[styles.editTitle, { color: colors.text }]}>{i18n.t('editProfile')}</Text>
+              <TouchableOpacity onPress={saveProfile} disabled={saving} accessibilityLabel={i18n.t('save')} accessibilityRole="button">
+                <Text style={[styles.editHeaderBtn, { color: saving ? colors.mutedText : colors.primary }]}>{saving ? i18n.t('saving') : i18n.t('done')}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.editContent}>
-              <TouchableOpacity style={styles.editAvatarRow} onPress={pickNewAvatar} disabled={saving} activeOpacity={0.9}>
+              <TouchableOpacity 
+                style={styles.editAvatarRow} 
+                onPress={pickNewAvatar} 
+                disabled={saving} 
+                activeOpacity={0.9}
+                accessibilityLabel={i18n.t('changePhoto')}
+                accessibilityRole="button"
+              >
                 <View style={[styles.editAvatar, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
                   {avatarPreviewUri || photoURL ? (
                     <Image source={{ uri: avatarPreviewUri || photoURL }} style={styles.editAvatarImage} resizeMode="cover" />
@@ -378,48 +453,51 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                   )}
                 </View>
                 <View style={styles.editAvatarMeta}>
-                  <Text style={[styles.editAvatarTitle, { color: colors.text }]}>Profile photo</Text>
-                  <Text style={[styles.editAvatarSub, { color: colors.primary }]}>Change</Text>
+                  <Text style={[styles.editAvatarTitle, { color: colors.text }]}>{i18n.t('profilePhoto')}</Text>
+                  <Text style={[styles.editAvatarSub, { color: colors.primary }]}>{i18n.t('changePhoto')}</Text>
                 </View>
               </TouchableOpacity>
 
               <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Name</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('name')}</Text>
                 <TextInput
                   style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
                   value={editDisplayName}
                   onChangeText={setEditDisplayName}
-                  placeholder="Name"
+                  placeholder={i18n.t('name')}
                   placeholderTextColor={colors.mutedText}
+                  accessibilityLabel={i18n.t('name')}
                 />
               </View>
 
               <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Username</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('username')}</Text>
                 <TextInput
                   style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
                   value={editUsername}
                   onChangeText={setEditUsername}
                   autoCapitalize="none"
-                  placeholder="username"
+                  placeholder={i18n.t('username')}
                   placeholderTextColor={colors.mutedText}
+                  accessibilityLabel={i18n.t('username')}
                 />
               </View>
 
               <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Bio</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('bio')}</Text>
                 <TextInput
                   style={[styles.fieldInput, styles.fieldInputMultiline, { color: colors.text, borderColor: colors.border }]}
                   value={editBio}
                   onChangeText={setEditBio}
-                  placeholder="Bio"
+                  placeholder={i18n.t('bio')}
                   placeholderTextColor={colors.mutedText}
                   multiline
+                  accessibilityLabel={i18n.t('bio')}
                 />
               </View>
 
               <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Website</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('website')}</Text>
                 <TextInput
                   style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
                   value={editWebsite}
@@ -427,11 +505,12 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                   autoCapitalize="none"
                   placeholder="https://example.com"
                   placeholderTextColor={colors.mutedText}
+                  accessibilityLabel={i18n.t('website')}
                 />
               </View>
 
               <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Phone</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('phone')}</Text>
                 <TextInput
                   style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
                   value={editPhoneNumber}
@@ -439,6 +518,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                   autoCapitalize="none"
                   placeholder="+1234567890"
                   placeholderTextColor={colors.mutedText}
+                  accessibilityLabel={i18n.t('phone')}
                 />
               </View>
             </View>

@@ -19,6 +19,7 @@ import * as Speech from 'expo-speech';
 import { auth } from '../config/firebase';
 import { appConfig } from '../config/appConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { t } from '../i18n';
 
 type ChatItem = {
   id: string;
@@ -31,9 +32,10 @@ type AIChatScreenProps = {
   onFeed: () => void;
   onPrivate: () => void;
   onProfile: () => void;
+  showTabBar?: boolean;
 };
 
-export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: AIChatScreenProps) {
+export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile, showTabBar = true }: AIChatScreenProps) {
   const { colors } = useTheme();
   const [items, setItems] = useState<ChatItem[]>([]);
   const [text, setText] = useState('');
@@ -210,7 +212,7 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <AppHeader 
-        title="JANEAI" 
+        title={t('aiTitle')} 
         rightIcon={
           <Ionicons 
             name={voiceMode ? "mic" : "mic-outline"} 
@@ -234,13 +236,14 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
           </View>
           
           <Text style={[styles.voiceStatus, { color: colors.text }]}>
-            {isSpeaking ? "Speaking..." : !!recording ? "Listening..." : "Tap to talk"}
+            {isSpeaking ? t('speaking') : !!recording ? t('listening') : t('tapToTalk')}
           </Text>
 
           <TouchableOpacity 
              style={[styles.voiceButton, { backgroundColor: !!recording ? colors.danger : colors.primary }]}
              onPress={!!recording ? stopRecordingAndSend : startRecording}
              disabled={isSpeaking || sending}
+             accessibilityLabel={t('aiTitle')}
           >
              <Ionicons name={!!recording ? "stop" : "mic"} size={32} color="#fff" />
           </TouchableOpacity>
@@ -259,7 +262,7 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
           <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Ask JANEAI…"
+              placeholder={t('askJaneAiPlaceholder')}
               placeholderTextColor={colors.mutedText}
               value={text}
               onChangeText={setText}
@@ -290,22 +293,24 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
             </TouchableOpacity>
     
             <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || !!recording}>
-              {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
+              {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>{t('send')}</Text>}
             </TouchableOpacity>
           </View>
         </>
       )}
 
-      <View style={styles.tabBar}>
-        <BottomTabBar
-          active="ai"
-          onChats={onChats}
-          onFeed={onFeed}
-          onPrivate={onPrivate}
-          onAI={() => {}}
-          onProfile={onProfile}
-        />
-      </View>
+      {showTabBar && (
+        <View style={styles.tabBar}>
+          <BottomTabBar
+            active="ai"
+            onChats={onChats}
+            onFeed={onFeed}
+            onPrivate={onPrivate}
+            onAI={() => {}}
+            onProfile={onProfile}
+          />
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }

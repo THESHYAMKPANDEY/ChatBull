@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: ./old_version/backend
 
     steps:
     - uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
       with:
         node-version: '22.x'
         cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
+        cache-dependency-path: old_version/backend/package-lock.json
 
     - name: Install dependencies
       run: npm ci
@@ -35,7 +35,7 @@ jobs:
     - name: Secret Scan
       run: |
         echo "Checking for tracked secret/config artifacts..."
-        forbidden=$(git ls-files "**/.env" "**/google-services.json" "**/GoogleService-Info.plist" "**/coverage/**" "**/dist/**")
+        forbidden=$(git ls-files "**/.env" "**/google-services.json" "**/GoogleService-Info.plist" "**/coverage/**" "**/dist/**" "**/logs/**")
         if [ -n "$forbidden" ]; then
           echo "CRITICAL: Forbidden files are tracked in git:"
           echo "$forbidden"

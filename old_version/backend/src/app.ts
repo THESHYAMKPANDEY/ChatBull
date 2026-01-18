@@ -39,6 +39,11 @@ export const createApp = () => {
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) =>
+      req.path === '/' ||
+      req.path === '/health' ||
+      req.path === '/api/health' ||
+      req.path === '/health/extended',
   });
   app.use(limiter);
 
@@ -81,14 +86,6 @@ export const createApp = () => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-    });
-  });
-
-  app.get('/api/health', (req, res) => {
-    res.status(200).json({
-      status: 'OK',
-      service: 'ChatBull Backend',
-      timestamp: new Date().toISOString(),
     });
   });
 

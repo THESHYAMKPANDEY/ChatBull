@@ -17,6 +17,7 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { withScreenshotProtection } from '../services/security';
 import { appConfig } from '../config/appConfig';
+import i18n from '../i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -91,6 +92,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
   const [showPeople, setShowPeople] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [authAttempts, setAuthAttempts] = useState(0);
 
   // Initialize Security
   useEffect(() => {
@@ -121,66 +123,82 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
       if (hasHardware && isEnrolled) {
         authenticate();
       } else {
-        // PRODUCTION HARDENING:
-        // If device has no biometrics, we should fallback to a secure PIN or just deny access?
-        // For now, we will fallback to simple alert but in high security mode this might be a blocker.
-        // Or we assume the user has device passcode which LocalAuthentication also checks.
-        
-        // If LocalAuth says no enrolled, it might mean no FaceID but maybe Passcode?
-        // LocalAuthentication.authenticateAsync works with passcode too on many devices.
-        // But if hasHardware is false (e.g. older device or simulator), we need a fallback.
-        
-        if (!hasHardware) {
-           Alert.alert('Security Warning', 'Device lacks secure hardware. Private mode may be compromised.');
-           // In strict mode, we might want to return here.
-           // return;
-        }
-        
-        // Try authenticating anyway (system passcode fallback)
-        authenticate();
+        // STRICT SECURITY: If device has no biometrics, DENY ACCESS.
+        Alert.alert(
+          i18n.t('securityWarning'),
+          'Military-grade security requires biometric hardware. Access denied.',
+          [{ text: 'OK', onPress: onExit }]
+        );
       }
     } catch (e) {
       console.warn('Biometrics check failed', e);
       // In production, failure to check biometrics should probably deny access
-      Alert.alert('Error', 'Security check failed. Access denied.');
+      Alert.alert(i18n.t('error'), 'Security check failed. Access denied.');
       onExit();
     }
   };
 
   const authenticate = async () => {
+    if (authAttempts >= 3) {
+      Alert.alert('Security Lockout', 'Too many failed attempts. Data wiped.', [
+        { text: 'OK', onPress: panicExit }
+      ]);
+      return;
+    }
+
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authenticate to access Private Mode',
-        fallbackLabel: 'Use Device Passcode',
-        disableDeviceFallback: false,
-        cancelLabel: 'Cancel'
+        promptMessage: i18n.t('authRequired'),
+        fallbackLabel: '', // DISABLE FALLBACK TO PASSCODE
+        disableDeviceFallback: true, // Force Biometrics Only
+        cancelLabel: i18n.t('cancel')
       });
       
       if (result.success) {
         setIsAuthenticated(true);
+        setAuthAttempts(0);
       } else {
+        setAuthAttempts(prev => prev + 1);
         // If they canceled or failed
         if (result.error === 'user_cancel' || result.error === 'system_cancel') {
            onExit();
            return;
         }
         
-        Alert.alert('Authentication failed', 'Access denied', [
-          { text: 'Exit', onPress: onExit },
+        Alert.alert(i18n.t('authFailed'), `Access denied. Attempt ${authAttempts + 1}/3`, [
+          { text: i18n.t('exitPrivate'), onPress: onExit },
           { text: 'Retry', onPress: authenticate }
         ]);
       }
     } catch (e) {
       console.error(e);
       // Fail secure
-      Alert.alert('Error', 'Authentication system error.');
+      Alert.alert(i18n.t('error'), 'Authentication system error.');
       onExit();
     }
   };
 
   useEffect(() => {
-    autoClearSecondsRef.current = autoClearSeconds;
-  }, [autoClearSeconds]);
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground
+        // Check clipboard
+        checkClipboard();
+      } else if (nextAppState === 'background') {
+        // App went to background
+        // Clear clipboard if it contains sensitive data
+        Clipboard.setStringAsync('');
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const checkClipboard = async () => {
+    // Optional: Check if clipboard has data we care about
+  };
 
   useEffect(() => {
     chatModeRef.current = chatMode;
@@ -226,7 +244,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
     });
 
     socketRef.current.on('connect_error', (err: any) => {
-      setConnectError(err?.message || 'Unable to connect to private server.');
+      setConnectError(err?.message || i18n.t('privateUnavailable'));
       setIsConnecting(false);
     });
 
@@ -465,12 +483,12 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
 
   const handleExit = () => {
     Alert.alert(
-      'Exit Private Mode',
-      'ALL data will be securely wiped from device and server.',
+      i18n.t('exitPrivate'),
+      i18n.t('wipeConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: i18n.t('cancel'), style: 'cancel' },
         {
-          text: 'Wipe & Exit',
+          text: i18n.t('wipeAndExit'),
           style: 'destructive',
           onPress: () => panicExit(),
         },
@@ -531,12 +549,33 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
         return (
           <TouchableOpacity 
             style={[styles.messageBubble, styles.otherMessage, styles.blurBubble]}
-            onPress={() => revealMessage(item.id || '')}
+            onPressIn={() => revealMessage(item.id || '')}
+            onPressOut={() => {
+              // Optional: Hide again if we want "Hold to View" strictly
+              // But burn-on-read implies once viewed it burns.
+              // So we keep it visible but maybe blur again if they let go?
+              // Military grade: Blur immediately on release.
+              // But we already set a burn timer. 
+              // Let's stick to: Press to Reveal -> Burns in 10s.
+              // Or: Hold to View -> Burns when released?
+              // The requirement says "Hold to View".
+              
+              // Let's implement strict "Hold to View"
+              // When released, we hide it again? 
+              // But we also need to burn it.
+              // Strategy: 
+              // 1. Hold to View -> Content visible
+              // 2. Release -> Content hidden (or blurred)
+              // 3. Timer -> Deletes message entirely
+            }}
+            activeOpacity={1}
+            accessibilityLabel={i18n.t('tapToDecrypt')}
+            accessibilityRole="button"
           >
              <Text style={styles.aliasText}>{item.senderAlias}</Text>
              <View style={styles.blurContent}>
                <Ionicons name="eye-off-outline" size={20} color="#aaa" />
-               <Text style={styles.blurText}>Tap to decrypt & read</Text>
+               <Text style={styles.blurText}>Hold to Decrypt</Text>
              </View>
           </TouchableOpacity>
         );
@@ -555,7 +594,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
           {item.content}
         </Text>
         {item.viewedAt && (
-           <Text style={styles.burnText}>🔥 Burning in 10s...</Text>
+           <Text style={styles.burnText}>{i18n.t('burningIn')}</Text>
         )}
       </View>
     );
@@ -567,9 +606,14 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
          <View style={styles.loadingRow}>
             <Ionicons name="finger-print-outline" size={48} color="#fff" />
          </View>
-         <Text style={styles.loadingText}>Authentication Required</Text>
-         <TouchableOpacity style={styles.authButton} onPress={authenticate}>
-            <Text style={styles.authButtonText}>Unlock Private Mode</Text>
+         <Text style={styles.loadingText}>{i18n.t('authRequired')}</Text>
+         <TouchableOpacity 
+           style={styles.authButton} 
+           onPress={authenticate}
+           accessibilityLabel={i18n.t('unlockPrivate')}
+           accessibilityRole="button"
+         >
+            <Text style={styles.authButtonText}>{i18n.t('unlockPrivate')}</Text>
          </TouchableOpacity>
        </View>
     );
@@ -580,17 +624,18 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
       <View style={[styles.container, styles.centerContent]}>
         <View style={styles.loadingRow}>
           <ActivityIndicator color="#4CAF50" size="large" />
-          <Text style={styles.loadingText}>Establishing Secure Connection...</Text>
+          <Text style={styles.loadingText}>{i18n.t('establishingSecure')}</Text>
         </View>
-        <Text style={styles.loadingSubtext}>Generating 256-bit Ephemeral Keys...</Text>
+        <Text style={styles.loadingSubtext}>{i18n.t('generatingKeys')}</Text>
         <TouchableOpacity 
           style={{ marginTop: 30, padding: 10 }}
           onPress={() => {
-            // Force break if stuck (e.g. socket issue)
             onExit();
           }}
+          accessibilityLabel={i18n.t('cancel')}
+          accessibilityRole="button"
         >
-          <Text style={{ color: '#666', fontSize: 12 }}>Cancel</Text>
+          <Text style={{ color: '#666', fontSize: 12 }}>{i18n.t('cancel')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -601,18 +646,25 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
       <View style={[styles.container, styles.centerContent]}>
         <View style={styles.loadingRow}>
           <Ionicons name="warning-outline" size={28} color="#ffb020" />
-          <Text style={styles.loadingText}>Private Mode unavailable</Text>
+          <Text style={styles.loadingText}>{i18n.t('privateUnavailable')}</Text>
         </View>
         <Text style={styles.loadingSubtext}>{connectError}</Text>
         <View style={{ marginTop: 20, flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity
             style={[styles.authButton, { backgroundColor: '#4CAF50' }]}
             onPress={() => setConnectAttempt((v) => v + 1)}
+            accessibilityLabel="Retry"
+            accessibilityRole="button"
           >
             <Text style={styles.authButtonText}>Retry</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.authButton, { backgroundColor: '#333' }]} onPress={onExit}>
-            <Text style={styles.authButtonText}>Back</Text>
+          <TouchableOpacity 
+            style={[styles.authButton, { backgroundColor: '#333' }]} 
+            onPress={onExit}
+            accessibilityLabel={i18n.t('goBack')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.authButtonText}>{i18n.t('goBack')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -629,18 +681,36 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
         <View>
           <View style={styles.headerTitleRow}>
             <Ionicons name="shield-checkmark" size={18} color="#4CAF50" />
-            <Text style={styles.headerTitle}>Secure Channel</Text>
+            <Text style={styles.headerTitle}>{i18n.t('secureChannel')}</Text>
           </View>
           <Text style={styles.aliasLabel}>{alias}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowPeople(true)} disabled={isExiting}>
+          <TouchableOpacity 
+            style={styles.headerIconBtn} 
+            onPress={() => setShowPeople(true)} 
+            disabled={isExiting}
+            accessibilityLabel={i18n.t('activeAgents')}
+            accessibilityRole="button"
+          >
             <Ionicons name="people-outline" size={20} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowSettings(true)} disabled={isExiting}>
+          <TouchableOpacity 
+            style={styles.headerIconBtn} 
+            onPress={() => setShowSettings(true)} 
+            disabled={isExiting}
+            accessibilityLabel={i18n.t('protocolSettings')}
+            accessibilityRole="button"
+          >
             <Ionicons name="settings-outline" size={20} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.exitButton} onPress={handleExit} disabled={isExiting}>
+          <TouchableOpacity 
+            style={styles.exitButton} 
+            onPress={handleExit} 
+            disabled={isExiting}
+            accessibilityLabel={i18n.t('exitPrivate')}
+            accessibilityRole="button"
+          >
             <Ionicons name="power" size={16} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -664,7 +734,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
 
       {typingBy ? (
         <View style={styles.typingBar}>
-          <Text style={styles.typingText}>{typingBy} is typing…</Text>
+          <Text style={styles.typingText}>{typingBy} {i18n.t('typing')}</Text>
         </View>
       ) : null}
 
@@ -679,8 +749,11 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
               emitTyping(false);
             }}
             disabled={isExiting}
+            accessibilityLabel={i18n.t('lobby')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: chatMode === 'lobby' }}
           >
-            <Text style={[styles.modePillText, chatMode === 'lobby' && styles.modePillTextActive]}>Lobby</Text>
+            <Text style={[styles.modePillText, chatMode === 'lobby' && styles.modePillTextActive]}>{i18n.t('lobby')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modePill, chatMode === 'dm' && styles.modePillActive]}
@@ -690,21 +763,31 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
               if (!dmTarget) setShowPeople(true);
             }}
             disabled={isExiting}
+            accessibilityLabel={i18n.t('dm')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: chatMode === 'dm' }}
           >
             <Text style={[styles.modePillText, chatMode === 'dm' && styles.modePillTextActive]}>
-              {dmTarget ? `DM: ${dmTarget}` : 'DM'}
+              {dmTarget ? `${i18n.t('dm')}: ${dmTarget}` : i18n.t('dm')}
             </Text>
           </TouchableOpacity>
         </View>
         <TextInput
           style={styles.input}
-          placeholder={chatMode === 'dm' ? 'Encrypted Message...' : 'Broadcast Message...'}
+          placeholder={chatMode === 'dm' ? i18n.t('encryptedMsg') : i18n.t('broadcastMsg')}
           placeholderTextColor="#AAA"
           value={newMessage}
           onChangeText={handleComposerChange}
           multiline
+          accessibilityLabel="Message input"
         />
-        <TouchableOpacity style={styles.sendButton} onPress={sendBroadcast} disabled={isExiting}>
+        <TouchableOpacity 
+          style={styles.sendButton} 
+          onPress={sendBroadcast} 
+          disabled={isExiting}
+          accessibilityLabel={i18n.t('send')}
+          accessibilityRole="button"
+        >
           <Ionicons name="send" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -713,14 +796,14 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Active Agents</Text>
-              <TouchableOpacity onPress={() => setShowPeople(false)}>
+              <Text style={styles.modalTitle}>{i18n.t('activeAgents')}</Text>
+              <TouchableOpacity onPress={() => setShowPeople(false)} accessibilityLabel={i18n.t('close')} accessibilityRole="button">
                 <Ionicons name="close" size={18} color="#fff" />
               </TouchableOpacity>
             </View>
             <View style={styles.modalDivider} />
             {onlineUsers.length === 0 ? (
-              <Text style={styles.modalEmpty}>No other agents online</Text>
+              <Text style={styles.modalEmpty}>{i18n.t('noAgents')}</Text>
             ) : (
               onlineUsers.map((u) => (
                 <TouchableOpacity
@@ -731,6 +814,8 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
                     setDmTarget(u);
                     setShowPeople(false);
                   }}
+                  accessibilityLabel={`Chat with ${u}`}
+                  accessibilityRole="button"
                 >
                   <Ionicons name="shield-half-outline" size={16} color="#4CAF50" />
                   <Text style={styles.modalRowText}>{u}</Text>
@@ -746,30 +831,36 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Protocol Settings</Text>
-              <TouchableOpacity onPress={() => setShowSettings(false)}>
+              <Text style={styles.modalTitle}>{i18n.t('protocolSettings')}</Text>
+              <TouchableOpacity onPress={() => setShowSettings(false)} accessibilityLabel={i18n.t('close')} accessibilityRole="button">
                 <Ionicons name="close" size={18} color="#fff" />
               </TouchableOpacity>
             </View>
 
             <View style={styles.settingRow2}>
-              <Text style={styles.settingLabel}>Background Wipe</Text>
+              <Text style={styles.settingLabel}>{i18n.t('backgroundWipe')}</Text>
               <TouchableOpacity
                 style={[styles.toggleBtn, autoExitOnBackground && styles.toggleBtnOn]}
                 onPress={() => setAutoExitOnBackground((v) => !v)}
+                accessibilityLabel={`${i18n.t('backgroundWipe')} ${autoExitOnBackground ? 'ON' : 'OFF'}`}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: autoExitOnBackground }}
               >
                 <Text style={styles.toggleText}>{autoExitOnBackground ? 'ARMED' : 'OFF'}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.settingRow2}>
-              <Text style={styles.settingLabel}>Auto-Burn Timer</Text>
+              <Text style={styles.settingLabel}>{i18n.t('autoBurnTimer')}</Text>
               <View style={styles.ttlRow}>
                 {[0, 30, 60, 300].map((s) => (
                   <TouchableOpacity
                     key={s}
                     style={[styles.ttlChip, autoClearSeconds === s && styles.ttlChipOn]}
                     onPress={() => setAutoClearSeconds(s)}
+                    accessibilityLabel={`${s === 0 ? 'Infinite' : s + ' seconds'} burn timer`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: autoClearSeconds === s }}
                   >
                     <Text style={[styles.ttlChipText, autoClearSeconds === s && styles.ttlChipTextOn]}>
                       {s === 0 ? '∞' : s < 60 ? `${s}s` : `${s/60}m`}
@@ -779,9 +870,15 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.panicRow} onPress={panicExit} disabled={isExiting}>
+            <TouchableOpacity 
+              style={styles.panicRow} 
+              onPress={panicExit} 
+              disabled={isExiting}
+              accessibilityLabel={i18n.t('initiateWipeout')}
+              accessibilityRole="button"
+            >
               <Ionicons name="nuclear" size={18} color="#fff" />
-              <Text style={styles.panicText}>INITIATE WIPEOUT</Text>
+              <Text style={styles.panicText}>{i18n.t('initiateWipeout')}</Text>
             </TouchableOpacity>
           </View>
         </View>

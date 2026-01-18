@@ -15,6 +15,12 @@ backend/coverage/
 backend/.env
 backend/.env.local
 
+old_version/backend/.env
+old_version/backend/.env.local
+old_version/backend/logs/
+old_version/backend/coverage/
+old_version/backend/dist/
+
 mobile/.env
 mobile/.env.production
 mobile/.env.local

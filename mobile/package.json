@@ -6,7 +6,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "build:web": "expo export -p web",
+    "android:build": "expo run:android"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -21,18 +24,23 @@
     "expo": "~54.0.31",
     "expo-av": "^16.0.8",
     "expo-clipboard": "^8.0.8",
+    "expo-contacts": "~15.0.11",
     "expo-crypto": "~15.0.8",
     "expo-dev-client": "~6.0.20",
     "expo-device": "~8.0.10",
     "expo-document-picker": "~14.0.8",
+    "expo-font": "~14.0.10",
     "expo-haptics": "^15.0.8",
     "expo-image-picker": "~17.0.10",
+    "expo-linear-gradient": "~15.0.8",
     "expo-local-authentication": "~17.0.8",
+    "expo-localization": "~17.0.8",
     "expo-notifications": "^0.32.16",
     "expo-speech": "^14.0.8",
     "expo-status-bar": "~3.0.9",
     "expo-updates": "^29.0.16",
     "firebase": "^12.7.0",
+    "i18n-js": "^4.5.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -47,9 +55,28 @@
     "tweetnacl-util": "^0.15.1"
   },
   "devDependencies": {
+    "@nestjs/typeorm": "^11.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/react": "~19.1.0",
+    "jest": "^30.2.0",
     "metro-config": "^0.83.3",
+    "typeorm": "^0.3.28",
     "typescript": "~5.9.2"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-encrypted-storage",
+          "react-native-keep-awake",
+          "@zegocloud/zego-uikit-prebuilt-call-rn",
+          "@zegocloud/zego-uikit-rn",
+          "zego-express-engine-reactnative",
+          "zego-zim-react-native"
+        ]
+      }
+    }
   },
   "private": true
 }
