@@ -28,8 +28,7 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.12",
     "socket.io": "^4.8.3",
-    "ts-node": "^10.9.2",
-    "xss-clean": "^0.1.4"
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

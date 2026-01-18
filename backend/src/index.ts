@@ -88,6 +88,8 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 
+app.use(mongoSanitize()); // Prevent MongoDB Operator Injection
+
 // Routes
 app.use('/api/auth', authRoutes);
 if (process.env.NODE_ENV !== 'production') {
