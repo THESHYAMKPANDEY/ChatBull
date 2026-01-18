@@ -3,10 +3,9 @@
     "appVersionSource": "local"
   },
   "build": {
-    "debug": {
+    "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "debug",
       "android": {
         "buildType": "apk"
       },
