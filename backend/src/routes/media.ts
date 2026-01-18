@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { uploadToCloudinary, isCloudinaryConfigured } from '../services/cloudinary';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -87,7 +88,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       }
     });
   } catch (error: any) {
-    console.error('Media upload error:', error);
+    logger.error('Media upload error', { message: error?.message || String(error) });
     
     // Clean up temp file if exists
     if (req.file) {
@@ -159,7 +160,7 @@ router.post('/upload-multiple', upload.array('files', 10), async (req: Request, 
       files: urls,
     });
   } catch (error: any) {
-    console.error('Multiple media upload error:', error);
+    logger.error('Multiple media upload error', { message: error?.message || String(error) });
     
     // Clean up temp files if any exist
     if (req.files) {

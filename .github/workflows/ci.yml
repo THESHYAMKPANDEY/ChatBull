@@ -19,7 +19,7 @@ jobs:
     - name: Use Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '22.x'
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
@@ -29,10 +29,22 @@ jobs:
     - name: Build
       run: npm run build
 
+    - name: Test
+      run: npm run test:ci
+
     - name: Secret Scan
       run: |
-        if grep -r "BEGIN PRIVATE KEY" . --include="*.json" --include="*.env" --exclude-dir="node_modules" --exclude-dir="dist"; then
-          echo "CRITICAL: Potential secret key found in codebase!"
+        echo "Checking for tracked secret/config artifacts..."
+        forbidden=$(git ls-files "**/.env" "**/google-services.json" "**/GoogleService-Info.plist" "**/coverage/**" "**/dist/**")
+        if [ -n "$forbidden" ]; then
+          echo "CRITICAL: Forbidden files are tracked in git:"
+          echo "$forbidden"
+          exit 1
+        fi
+
+        echo "Grepping for common secret markers..."
+        if grep -R -n -E "BEGIN (RSA )?PRIVATE KEY|\"private_key\"\\s*:" . --exclude-dir="node_modules" --exclude-dir="dist"; then
+          echo "CRITICAL: Potential secret material found in codebase!"
           exit 1
         fi
 
@@ -48,12 +60,12 @@ jobs:
     - name: Use Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '22.x'
         cache: 'npm'
         cache-dependency-path: mobile/package-lock.json
 
     - name: Install dependencies
-      run: npm install
+      run: npm ci
 
     - name: Type Check
       run: npx tsc --noEmit

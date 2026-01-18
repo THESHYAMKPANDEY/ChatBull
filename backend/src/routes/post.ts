@@ -4,6 +4,7 @@ import Post from '../models/Post';
 import User from '../models/User';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { validate } from '../middleware/validation';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -73,7 +74,7 @@ router.post(
         post,
       });
     } catch (error) {
-      console.error('Create post error:', error);
+      logger.error('Create post error', { message: (error as any)?.message || String(error) });
       res.status(500).json({ success: false, error: 'Failed to create post' });
     }
   }
@@ -123,7 +124,7 @@ router.get('/feed', verifyFirebaseToken, async (req: Request, res: Response) => 
       posts: mappedPosts,
     });
   } catch (error) {
-    console.error('Get feed error:', error);
+    logger.error('Get feed error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ success: false, error: 'Failed to load feed' });
   }
 });
@@ -170,7 +171,7 @@ router.post('/:postId/like', verifyFirebaseToken, async (req: Request, res: Resp
       },
     });
   } catch (error) {
-    console.error('Toggle like error:', error);
+    logger.error('Toggle like error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ success: false, error: 'Failed to toggle like' });
   }
 });

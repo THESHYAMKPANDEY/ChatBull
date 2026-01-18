@@ -2,14 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import { Request, Response, NextFunction } from 'express';
 
-// Create logs directory if it doesn't exist
-const logsDir = path.join(__dirname, '../../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
+const enableFileLogging = process.env.NODE_ENV === 'development';
+let logStream: fs.WriteStream | null = null;
 
-const logFilePath = path.join(logsDir, `server-${new Date().toISOString().split('T')[0]}.log`);
-const logStream = process.env.NODE_ENV === 'test' ? null : fs.createWriteStream(logFilePath, { flags: 'a' });
+if (enableFileLogging) {
+  const logsDir = path.join(__dirname, '../../logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  const logFilePath = path.join(logsDir, `server-${new Date().toISOString().split('T')[0]}.log`);
+  logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+}
 
 // Log levels
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';

@@ -9,6 +9,7 @@ import User from '../models/User';
 import AIMessage from '../models/AIMessage';
 import { generateChatbullReply } from '../services/chatbot';
 import { ollamaChat } from '../services/localLLM';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -72,7 +73,7 @@ router.get('/history', verifyFirebaseToken, async (req: Request, res: Response) 
 
     res.status(200).json(history);
   } catch (error) {
-    console.error('Get AI history error:', error);
+    logger.error('Get AI history error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ success: false, error: 'Failed to load history' });
   }
 });
@@ -146,7 +147,7 @@ router.post('/chat', verifyFirebaseToken, chatValidationRules, validate, async (
 
     res.status(200).json({ success: true, reply });
   } catch (error) {
-    console.error('AI chat error:', error);
+    logger.error('AI chat error', { message: (error as any)?.message || String(error) });
     res.status(200).json({ success: true, reply: 'I had trouble responding. Try again.' });
   }
 });
@@ -160,7 +161,7 @@ router.post('/transcribe', verifyFirebaseToken, upload.single('audio'), async (r
 
     res.status(503).json({ success: false, error: 'Speech recognition is disabled in local chatbot mode.' });
   } catch (error: any) {
-    console.error('AI transcribe error:', error);
+    logger.error('AI transcribe error', { message: error?.message || String(error) });
     res.status(500).json({ success: false, error: error.message || 'Transcription failed' });
   } finally {
     if (req.file?.path) {

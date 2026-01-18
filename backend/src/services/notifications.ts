@@ -1,9 +1,5 @@
 import admin from 'firebase-admin';
-
-// Remove top-level check that runs before initialization
-// if (!admin.apps.length) {
-//   console.warn("⚠️ FCM not configured (Firebase not initialized)");
-// }
+import { logger } from '../utils/logger';
 
 let firebaseInitialized = false;
 
@@ -21,9 +17,7 @@ export const initializeFirebaseAdmin = (): boolean => {
   
   try {
     if (!serviceAccountJson) {
-      console.warn(
-        '⚠️  Firebase Admin not configured. For cloud deployments (Render, Heroku, etc.), set FIREBASE_SERVICE_ACCOUNT_JSON environment variable with the full JSON content as a single-line string. Push notifications will be disabled until configured.'
-      );
+      logger.warn('Firebase Admin not configured');
       return false;
     }
 
@@ -34,10 +28,10 @@ export const initializeFirebaseAdmin = (): boolean => {
     });
 
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin SDK initialized successfully');
+    logger.info('Firebase Admin SDK initialized successfully');
     return true;
   } catch (error) {
-    console.error('❌ Failed to initialize Firebase Admin:', error);
+    logger.error('Failed to initialize Firebase Admin', { message: (error as any)?.message || String(error) });
     return false;
   }
 };
@@ -81,10 +75,10 @@ export const sendPushNotification = async (
     };
 
     const response = await admin.messaging().send(message);
-    console.log(`✅ Push notification sent: ${response}`);
+    logger.info('Push notification sent', { messageId: response });
     return { success: true, messageId: response };
   } catch (error: any) {
-    console.error('❌ Push notification failed:', error);
+    logger.error('Push notification failed', { message: error?.message || String(error) });
     return { success: false, error: error.message || 'Unknown error' };
   }
 };
@@ -117,13 +111,13 @@ export const sendPushNotificationToMultiple = async (
     };
 
     const response = await admin.messaging().sendEachForMulticast(message);
-    console.log(`✅ Multicast sent: ${response.successCount} success, ${response.failureCount} failed`);
+    logger.info('Multicast sent', { successCount: response.successCount, failureCount: response.failureCount });
     return {
       successCount: response.successCount,
       failureCount: response.failureCount,
     };
   } catch (error) {
-    console.error('❌ Multicast notification failed:', error);
+    logger.error('Multicast notification failed', { message: (error as any)?.message || String(error) });
     return { successCount: 0, failureCount: deviceTokens.length };
   }
 };

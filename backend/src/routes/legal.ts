@@ -4,6 +4,7 @@ import Message from '../models/Message';
 import PrivateMessage from '../models/PrivateMessage';
 import { profileUpdateValidationRules, validate } from '../middleware/validation';
 import { verifyFirebaseToken } from '../middleware/auth';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -113,7 +114,7 @@ router.delete('/me', verifyFirebaseToken, async (req: Request, res: Response) =>
       deletedAt: new Date(),
     });
   } catch (error) {
-    console.error('Delete account error:', error);
+    logger.error('Delete account error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Failed to delete account' });
   }
 });
@@ -157,7 +158,7 @@ router.put(
         },
       });
     } catch (error) {
-      console.error('Update profile error:', error);
+      logger.error('Update profile error', { message: (error as any)?.message || String(error) });
       res.status(500).json({ error: 'Failed to update profile' });
     }
   }

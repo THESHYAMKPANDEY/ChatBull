@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { UploadApiOptions } from 'cloudinary';
+import { logger } from '../utils/logger';
 
 // Configure Cloudinary from environment variables
 cloudinary.config({
@@ -29,7 +30,7 @@ export const uploadToCloudinary = async (
     const result = await cloudinary.uploader.upload(filePath, uploadOptions);
     return result;
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    logger.error('Cloudinary upload error', { message: (error as any)?.message || String(error) });
     throw error;
   }
 };
@@ -53,7 +54,7 @@ export const uploadMultipleToCloudinary = async (
     const results = await Promise.all(uploadPromises);
     return results;
   } catch (error) {
-    console.error('Cloudinary multiple upload error:', error);
+    logger.error('Cloudinary multiple upload error', { message: (error as any)?.message || String(error) });
     throw error;
   }
 };
@@ -68,7 +69,7 @@ export const deleteFromCloudinary = async (publicId: string) => {
     const result = await cloudinary.uploader.destroy(publicId);
     return result;
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
+    logger.error('Cloudinary delete error', { message: (error as any)?.message || String(error) });
     throw error;
   }
 };
