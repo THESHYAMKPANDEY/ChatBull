@@ -18,6 +18,7 @@ import { messageStatusManager, MessageStatus } from '../services/messageStatus';
 import { messageReactionManager, DEFAULT_REACTIONS } from '../services/messageReactions';
 import * as Clipboard from 'expo-clipboard';
 import { auth } from '../config/firebase';
+import { Ionicons } from '@expo/vector-icons';
 
 const SOCKET_URL = appConfig.SOCKET_BASE_URL;
 
@@ -575,7 +576,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{otherUser.displayName}</Text>
         <TouchableOpacity onPress={() => onStartCall(callID)}>
-          <Text style={styles.callButton}>📞</Text>
+          <Ionicons name="call-outline" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -620,10 +621,10 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       {/* Input */}
       <View style={styles.inputContainer}>
         <TouchableOpacity style={styles.mediaButton} onPress={() => handleMediaUpload('image')} disabled={isUploading}>
-          <Text style={styles.mediaButtonText}>📷</Text>
+          <Ionicons name="camera-outline" size={22} color="#111" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.mediaButton} onPress={() => handleMediaUpload('document')} disabled={isUploading}>
-          <Text style={styles.mediaButtonText}>📄</Text>
+          <Ionicons name="attach-outline" size={22} color="#111" />
         </TouchableOpacity>
         <TextInput
           style={styles.input}
@@ -643,17 +644,17 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
   const getStatusIcon = (status: MessageStatus) => {
     switch (status) {
       case 'sending':
-        return <Text style={styles.statusText}>⏳</Text>; // Sending
+        return <Ionicons name="time-outline" size={14} color="#8e8e8e" />;
       case 'sent':
-        return <Text style={styles.statusText}>✓</Text>; // Sent
+        return <Ionicons name="checkmark" size={14} color="#8e8e8e" />;
       case 'delivered':
-        return <Text style={styles.statusText}>✓✓</Text>; // Delivered
+        return <Ionicons name="checkmark-done" size={14} color="#8e8e8e" />;
       case 'read':
-        return <Text style={[styles.statusText, styles.readStatus]}>✓✓</Text>; // Read
+        return <Ionicons name="checkmark-done" size={14} color="#3897f0" />;
       case 'failed':
-        return <Text style={[styles.statusText, styles.failedStatus]}>⚠️</Text>; // Failed
+        return <Ionicons name="alert-circle" size={14} color="#ff3b30" />;
       default:
-        return <Text style={styles.statusText}>✓</Text>;
+        return <Ionicons name="checkmark" size={14} color="#8e8e8e" />;
     }
   };
   

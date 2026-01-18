@@ -68,7 +68,7 @@ router.put(
     try {
       const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
       const firebaseUid = firebaseUser.uid;
-      const { displayName, photoURL, phoneNumber } = req.body;
+      const { displayName, username, bio, website, photoURL, phoneNumber } = req.body;
 
       const user = await User.findOne({ firebaseUid });
       if (!user) {
@@ -78,6 +78,9 @@ router.put(
 
       // Update fields if provided
       if (displayName) user.displayName = displayName;
+      if (typeof username === 'string') user.username = username;
+      if (typeof bio === 'string') user.bio = bio;
+      if (typeof website === 'string') user.website = website;
       if (photoURL) user.photoURL = photoURL;
       if (phoneNumber) user.phoneNumber = phoneNumber;
 
@@ -89,8 +92,12 @@ router.put(
           id: user._id,
           email: user.email,
           displayName: user.displayName,
+          username: user.username,
+          bio: user.bio,
+          website: user.website,
           photoURL: user.photoURL,
           phoneNumber: user.phoneNumber,
+          isPremium: user.isPremium,
         },
       });
     } catch (error) {

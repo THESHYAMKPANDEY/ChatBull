@@ -28,13 +28,13 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const colors = {
-    primary: '#007AFF',
-    background: theme === 'light' ? '#ffffff' : '#000000',
-    text: theme === 'light' ? '#000000' : '#ffffff',
-    secondary: theme === 'light' ? '#f0f0f0' : '#333333',
-    border: theme === 'light' ? '#e0e0e0' : '#444444',
+    primary: '#0095f6',
+    background: theme === 'light' ? '#fafafa' : '#000000',
+    text: theme === 'light' ? '#111111' : '#f5f5f5',
+    secondary: theme === 'light' ? '#efefef' : '#1a1a1a',
+    border: theme === 'light' ? '#dbdbdb' : '#262626',
     error: '#ff3b30',
-    card: theme === 'light' ? '#ffffff' : '#1c1c1e',
+    card: theme === 'light' ? '#ffffff' : '#121212',
     mutedText: theme === 'light' ? '#8e8e8e' : '#8e8e8e',
     danger: '#ff3b30',
   };

@@ -266,6 +266,9 @@ export const api = {
 
   updateProfile: async (userData: {
     displayName?: string;
+    username?: string;
+    bio?: string;
+    website?: string;
     photoURL?: string;
     phoneNumber?: string;
   }) => {
@@ -285,6 +288,14 @@ export const api = {
     return await apiRequest('/posts/feed', {
       headers,
     });
+  },
+
+  getMyPosts: async (params?: { page?: number; limit?: number }) => {
+    const headers = await getAuthHeaders();
+    const page = params?.page ? `page=${encodeURIComponent(String(params.page))}` : '';
+    const limit = params?.limit ? `limit=${encodeURIComponent(String(params.limit))}` : '';
+    const qs = [page, limit].filter(Boolean).join('&');
+    return await apiRequest(`/posts/me${qs ? `?${qs}` : ''}`, { headers });
   },
 
   createPost: async (postData: {
@@ -310,14 +321,61 @@ export const api = {
     });
   },
 
-  // AI Chat
-  aiChat: async (message: string) => {
+  toggleSavePost: async (postId: string) => {
     const headers = await getAuthHeaders();
-    
+    return await apiRequest(`/posts/${postId}/save`, {
+      method: 'POST',
+      headers,
+    });
+  },
+
+  getSavedPosts: async (params?: { page?: number; limit?: number }) => {
+    const headers = await getAuthHeaders();
+    const page = params?.page ? `page=${encodeURIComponent(String(params.page))}` : '';
+    const limit = params?.limit ? `limit=${encodeURIComponent(String(params.limit))}` : '';
+    const qs = [page, limit].filter(Boolean).join('&');
+    return await apiRequest(`/posts/saved${qs ? `?${qs}` : ''}`, { headers });
+  },
+
+  addComment: async (postId: string, content: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/posts/${postId}/comments`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  getComments: async (postId: string, params?: { page?: number; limit?: number }) => {
+    const headers = await getAuthHeaders();
+    const page = params?.page ? `page=${encodeURIComponent(String(params.page))}` : '';
+    const limit = params?.limit ? `limit=${encodeURIComponent(String(params.limit))}` : '';
+    const qs = [page, limit].filter(Boolean).join('&');
+    return await apiRequest(`/posts/${postId}/comments${qs ? `?${qs}` : ''}`, { headers });
+  },
+
+  // AI Chat
+  aiChat: async (prompt: string) => {
+    const headers = await getAuthHeaders();
     return await apiRequest('/ai/chat', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ prompt }),
+    });
+  },
+
+  getAIHistory: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/ai/history', { headers });
+  },
+
+  // Groups
+  createGroup: async (data: { name: string; memberIds: string[]; description?: string; photoURL?: string }) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/groups', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
     });
   },
 

@@ -181,7 +181,12 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
         firebaseUid: user.firebaseUid,
         email: user.email,
         displayName: user.displayName,
+        username: user.username,
+        bio: user.bio,
+        website: user.website,
         photoURL: user.photoURL,
+        phoneNumber: user.phoneNumber,
+        isPremium: user.isPremium,
         isOnline: user.isOnline,
       },
     });

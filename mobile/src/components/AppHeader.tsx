@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '../config/theme';
 
 export interface AppHeaderProps {
   title: string;
@@ -8,9 +9,10 @@ export interface AppHeaderProps {
 }
 
 export default function AppHeader({ title, rightIcon, onRightPress }: AppHeaderProps) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+    <View style={[styles.container, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       {rightIcon && (
         <TouchableOpacity onPress={onRightPress} style={styles.rightIcon}>
           {rightIcon}
@@ -27,14 +29,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     paddingTop: 10,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
   },
   rightIcon: {
     padding: 8,

@@ -76,6 +76,28 @@ describe('post routes', () => {
     expect(res.body.posts[0]).toHaveProperty('likedByMe', true);
   });
 
+  it('GET /api/posts/me returns user posts', async () => {
+    UserMock.findOne.mockResolvedValueOnce({ _id: 'u1' });
+    const postObj = {
+      toObject: () => ({ _id: 'p1', likes: ['u1'] }),
+      likes: ['u1'],
+    };
+    PostMock.find.mockReturnValueOnce({
+      sort: () => ({
+        skip: () => ({
+          limit: () => ({
+            populate: jest.fn().mockResolvedValueOnce([postObj]),
+          }),
+        }),
+      }),
+    });
+    PostMock.countDocuments.mockResolvedValueOnce(1);
+
+    const res = await request(app).get('/api/posts/me');
+    expect(res.status).toBe(200);
+    expect(res.body.posts[0]).toHaveProperty('likedByMe', true);
+  });
+
   it('POST /api/posts/:postId/like toggles like', async () => {
     UserMock.findOne.mockResolvedValueOnce({ _id: 'u1' });
     const updatedDoc = { toObject: () => ({ _id: 'p1', likes: ['u1'] }), likes: ['u1'] };

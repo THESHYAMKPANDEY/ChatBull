@@ -18,6 +18,7 @@ import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
 import { auth } from '../config/firebase';
 import { appConfig } from '../config/appConfig';
+import { Ionicons } from '@expo/vector-icons';
 
 type ChatItem = {
   id: string;
@@ -34,16 +35,41 @@ type AIChatScreenProps = {
 
 export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: AIChatScreenProps) {
   const { colors } = useTheme();
-  const [items, setItems] = useState<ChatItem[]>([
-    { id: 'welcome', role: 'ai', text: 'Hi, I’m JANEAI. Ask me anything.' },
-  ]);
+  const [items, setItems] = useState<ChatItem[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-
+  
   const data = useMemo(() => items, [items]);
+
+  // Load history on mount
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
+    try {
+      const history = await api.getAIHistory();
+      if (history && history.length > 0) {
+        setItems(history.map((h: any) => ({
+          id: h._id || h.id,
+          role: h.role,
+          text: h.content,
+          createdAt: h.createdAt
+        })).reverse()); // Reverse because list is inverted
+      } else {
+        setItems([{ id: 'welcome', role: 'ai', text: 'Hi, I’m JANEAI. Ask me anything.' }]);
+      }
+    } catch (error) {
+      console.error('Failed to load AI history', error);
+      setItems([{ id: 'welcome', role: 'ai', text: 'Hi, I’m JANEAI. Ask me anything.' }]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const sendMessage = async (message: string) => {
     if (!message.trim() || sending) return;
@@ -53,10 +79,15 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
 
     try {
       setSending(true);
+      // Send full context if needed, but currently API might only take prompt.
+      // Ideally, backend should handle context management or we send 'messages' array.
+      // Assuming api.aiChat is updated or we just send prompt and backend stores it.
+      
       const result = await api.aiChat(message.trim());
       const replyText = result?.reply || 'Okay.';
       const aiItem: ChatItem = { id: `a_${Date.now()}`, role: 'ai', text: replyText };
       setItems((prev) => [aiItem, ...prev]);
+      
       if (ttsEnabled) {
         Speech.stop();
         Speech.speak(replyText, { rate: 1.0 });
@@ -197,7 +228,11 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
           onPress={() => setTtsEnabled((v) => !v)}
           disabled={sending}
         >
-          <Text style={[styles.iconText, { color: ttsEnabled ? colors.primary : colors.mutedText }]}>🔊</Text>
+          <Ionicons
+            name={ttsEnabled ? 'volume-high-outline' : 'volume-mute-outline'}
+            size={18}
+            color={ttsEnabled ? colors.primary : colors.mutedText}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -205,9 +240,11 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
           onPress={isRecording ? stopRecordingAndSend : startRecording}
           disabled={sending}
         >
-          <Text style={[styles.iconText, { color: isRecording ? colors.danger : colors.text }]}>
-            {isRecording ? '■' : '🎙️'}
-          </Text>
+          <Ionicons
+            name={isRecording ? 'stop-circle-outline' : 'mic-outline'}
+            size={18}
+            color={isRecording ? colors.danger : colors.text}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || isRecording}>

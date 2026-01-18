@@ -13,7 +13,10 @@ import {
   Share,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../services/api';
 import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadFile, PickedMedia } from '../services/media';
 import BottomTabBar from '../components/BottomTabBar';
@@ -35,6 +38,8 @@ interface Post {
   createdAt: string;
   likeCount?: number;
   likedByMe?: boolean;
+  commentCount?: number;
+  savedByMe?: boolean;
 }
 
 interface FeedScreenProps {
@@ -57,6 +62,14 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'file' | undefined>(undefined);
   const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
   const requestedImageSizesRef = useRef<Set<string>>(new Set());
+  const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
+  
+  // Comments state
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [commentsVisible, setCommentsVisible] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
     loadFeed();
@@ -184,26 +197,104 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
   };
 
   const toggleLike = async (postId: string) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p._id !== postId
-          ? p
-          : {
+    try {
+      // Optimistic update
+      setPosts((current) =>
+        current.map((p) => {
+          if (p._id === postId) {
+            return {
               ...p,
               likedByMe: !p.likedByMe,
-              likeCount: Math.max(0, (p.likeCount || 0) + (p.likedByMe ? -1 : 1)),
-            }
-      )
-    );
+              likeCount: (p.likeCount || 0) + (p.likedByMe ? -1 : 1),
+            };
+          }
+          return p;
+        })
+      );
 
-    try {
-      const result = await api.togglePostLike(postId);
-      if (result?.success && result?.post) {
-        setPosts((prev) => prev.map((p) => (p._id === postId ? result.post : p)));
-      }
+      await api.togglePostLike(postId);
     } catch (error) {
-      console.error('Toggle like error:', error);
-      await loadFeed();
+      console.error('Like error:', error);
+      // Revert on error could be implemented here
+    }
+  };
+
+  const handleSave = async (postId: string) => {
+    try {
+      // Optimistic update
+      setPosts((current) =>
+        current.map((p) => {
+          if (p._id === postId) {
+            return {
+              ...p,
+              savedByMe: !p.savedByMe,
+            };
+          }
+          return p;
+        })
+      );
+
+      await api.toggleSavePost(postId);
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert('Error', 'Failed to save post');
+    }
+  };
+
+  const openComments = async (postId: string) => {
+    setActivePostId(postId);
+    setCommentsVisible(true);
+    setComments([]);
+    setLoadingComments(true);
+    try {
+      const result = await api.getComments(postId);
+      setComments(result.comments || []);
+    } catch (error) {
+      console.error('Load comments error:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const submitComment = async () => {
+    if (!activePostId || !commentText.trim()) return;
+    const text = commentText.trim();
+    setCommentText('');
+    
+    // Optimistic add (mock ID until refresh)
+    const mockComment = {
+      _id: `temp-${Date.now()}`,
+      content: text,
+      author: {
+        _id: currentUser.id || currentUser._id,
+        displayName: currentUser.displayName || 'Me',
+        photoURL: currentUser.photoURL
+      },
+      createdAt: new Date().toISOString()
+    };
+    
+    setComments(prev => [mockComment, ...prev]);
+    
+    try {
+      await api.addComment(activePostId, text);
+      // Refresh to get real ID and server timestamp
+      const result = await api.getComments(activePostId);
+      setComments(result.comments || []);
+      
+      // Update comment count in feed
+      setPosts(current => 
+        current.map(p => {
+          if (p._id === activePostId) {
+            return { ...p, commentCount: (p.commentCount || 0) + 1 };
+          }
+          return p;
+        })
+      );
+    } catch (error) {
+      console.error('Post comment error:', error);
+      Alert.alert('Error', 'Failed to post comment');
+      // Revert
+      setComments(prev => prev.filter(c => c._id !== mockComment._id));
     }
   };
 
@@ -222,25 +313,32 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     if (!post.mediaUrl || !post.mediaType) return null;
 
     if (post.mediaType === 'image') {
-      const aspectRatio = imageAspectRatios[post.mediaUrl] || 1;
+      const naturalAspectRatio = imageAspectRatios[post.mediaUrl] || 1;
+      const displayAspectRatio = Math.max(0.8, Math.min(1.91, naturalAspectRatio));
       return (
-        <Image
-          source={{ uri: post.mediaUrl }}
-          style={Platform.OS === 'web' ? [styles.postImageWeb, { aspectRatio }] : styles.postImageNative}
-          resizeMode={Platform.OS === 'web' ? 'contain' : 'cover'}
-        />
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setImageViewerUrl(post.mediaUrl!)}>
+          <Image
+            source={{ uri: post.mediaUrl }}
+            style={[styles.postImage, { aspectRatio: displayAspectRatio }]}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
       );
     }
 
     const label = post.mediaType === 'video' ? 'Video' : 'File';
-    const icon = post.mediaType === 'video' ? '▶' : '📎';
 
     return (
       <TouchableOpacity onPress={() => Linking.openURL(post.mediaUrl!)}>
-        <View style={[styles.mediaRow, { backgroundColor: colors.background }]}>
-          <Text style={[styles.mediaRowIcon, { color: colors.text }]}>{icon}</Text>
+        <View style={[styles.mediaRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons
+            name={post.mediaType === 'video' ? 'play-circle-outline' : 'attach-outline'}
+            size={18}
+            color={colors.text}
+            style={styles.mediaRowIcon}
+          />
           <Text style={[styles.mediaRowText, { color: colors.text }]}>{label}</Text>
-          <Text style={styles.mediaRowOpen}>Open</Text>
+          <Text style={[styles.mediaRowOpen, { color: colors.primary }]}>Open</Text>
         </View>
       </TouchableOpacity>
     );
@@ -251,18 +349,20 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     const isLiked = !!item.likedByMe;
 
     return (
-      <View style={[styles.postCard, { backgroundColor: colors.card }]}>
+      <View style={[styles.postCard, Platform.OS === 'web' && styles.postCardWeb, { backgroundColor: colors.card }]}>
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {authorName.charAt(0)?.toUpperCase() || '?'}
-            </Text>
+            {item.author?.photoURL ? (
+              <Image source={{ uri: item.author.photoURL }} style={styles.avatarImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.avatarText}>{authorName.charAt(0)?.toUpperCase() || '?'}</Text>
+            )}
           </View>
           <View style={styles.postHeaderText}>
             <Text style={[styles.authorName, { color: colors.text }]}>{authorName}</Text>
           </View>
           <View style={styles.postHeaderRight}>
-            <Text style={[styles.moreIcon, { color: colors.text }]}>⋯</Text>
+            <Ionicons name="ellipsis-horizontal" size={18} color={colors.text} />
           </View>
         </View>
 
@@ -271,17 +371,17 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
         <View style={styles.postActions}>
           <View style={styles.actionsLeft}>
             <TouchableOpacity onPress={() => toggleLike(item._id)} style={styles.actionButton}>
-              <Text style={[styles.actionIcon, { color: isLiked ? '#ed4956' : colors.text }]}>{isLiked ? '♥' : '♡'}</Text>
+              <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={24} color={isLiked ? '#ed4956' : colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => Alert.alert('Coming soon', 'Comments are not implemented yet')} style={styles.actionButton}>
-              <Text style={[styles.actionIcon, { color: colors.text }]}>💬</Text>
+            <TouchableOpacity onPress={() => openComments(item._id)} style={styles.actionButton}>
+              <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleSharePost(item)} style={styles.actionButton}>
-              <Text style={[styles.actionIcon, { color: colors.text }]}>↗</Text>
+              <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => Alert.alert('Saved', 'Post saved (UI only)')} style={styles.actionButton}>
-            <Text style={[styles.actionIcon, { color: colors.text }]}>🔖</Text>
+          <TouchableOpacity onPress={() => handleSave(item._id)} style={styles.actionButton}>
+            <Ionicons name={item.savedByMe ? 'bookmark' : 'bookmark-outline'} size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -313,85 +413,93 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     >
       <AppHeader title="ChatBull" />
 
-      {/* Create Post */}
-      <View style={styles.createContainer}>
-        <View style={styles.createHeader}>
-          <View style={styles.userAvatarSmall}>
-             <Text style={styles.userAvatarText}>
-               {currentUser?.displayName?.charAt(0).toUpperCase() || 'U'}
-             </Text>
-          </View>
-          <TextInput
-            style={[styles.input, { color: colors.text }]}
-            placeholder="What's happening?"
-            placeholderTextColor={colors.mutedText}
-            value={content}
-            onChangeText={setContent}
-            multiline
-          />
-        </View>
-        
-        {mediaUrl && mediaType && (
-          <View style={styles.mediaPreview}>
-            <View style={styles.mediaPreviewLeft}>
-              {mediaType === 'image' ? (
-                <Image source={{ uri: selectedMedia?.uri || mediaUrl }} style={styles.mediaPreviewThumb} />
-              ) : (
-                <Text style={styles.mediaPreviewIcon}>{mediaType === 'video' ? '▶' : '📎'}</Text>
-              )}
-              <Text style={styles.attachedText}>Attached: {mediaType.toUpperCase()}</Text>
+      <View style={[styles.screenContent, Platform.OS === 'web' && styles.screenContentWeb]}>
+        <View
+          style={[
+            styles.createContainer,
+            Platform.OS === 'web' && styles.createContainerWeb,
+            { backgroundColor: colors.card, borderBottomColor: colors.border, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.createHeader}>
+            <View style={[styles.userAvatarSmall, { backgroundColor: colors.secondary }]}>
+              <Text style={[styles.userAvatarText, { color: colors.text }]}>{currentUser?.displayName?.charAt(0).toUpperCase() || 'U'}</Text>
             </View>
-            <TouchableOpacity onPress={() => {
-              setSelectedMedia(null);
-              setMediaUrl(undefined);
-              setMediaType(undefined);
-            }}>
-              <Text style={styles.removeMedia}>✕</Text>
-            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Write a caption..."
+              placeholderTextColor={colors.mutedText}
+              value={content}
+              onChangeText={setContent}
+              multiline
+            />
           </View>
-        )}
-        
-        <View style={styles.actionsRow}>
-          <View style={styles.mediaButtons}>
-            <TouchableOpacity onPress={() => handleMediaPick('image')}>
-              <Text style={styles.mediaIcon}>🖼️</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleMediaPick('video')}>
-              <Text style={styles.mediaIcon}>🎥</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleMediaPick('document')}>
-              <Text style={styles.mediaIcon}>📄</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <TouchableOpacity
-            style={[styles.postButton, (!content.trim() && !mediaUrl) && styles.postButtonDisabled]}
-            onPress={handleCreatePost}
-            disabled={isPosting || uploading || (!content.trim() && !mediaUrl)}
-          >
-            {isPosting || uploading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.postButtonText}>Post</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {/* Feed */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          {mediaUrl && mediaType && (
+            <View style={[styles.mediaPreview, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+              <View style={styles.mediaPreviewLeft}>
+                {mediaType === 'image' ? (
+                  <Image source={{ uri: selectedMedia?.uri || mediaUrl }} style={styles.mediaPreviewThumb} />
+                ) : (
+                  <View style={[styles.mediaPreviewIcon, { backgroundColor: colors.secondary }]}>
+                    <Ionicons name={mediaType === 'video' ? 'play' : 'attach'} size={18} color={colors.text} />
+                  </View>
+                )}
+                <Text style={[styles.attachedText, { color: colors.primary }]}>Attached: {mediaType.toUpperCase()}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedMedia(null);
+                  setMediaUrl(undefined);
+                  setMediaType(undefined);
+                }}
+              >
+                <Ionicons name="close" size={18} color={colors.mutedText} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.actionsRow}>
+            <View style={styles.mediaButtons}>
+              <TouchableOpacity onPress={() => handleMediaPick('image')}>
+                <Ionicons name="image-outline" size={22} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleMediaPick('video')}>
+                <Ionicons name="videocam-outline" size={22} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleMediaPick('document')}>
+                <Ionicons name="attach-outline" size={22} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.postButton, (!content.trim() && !mediaUrl) && styles.postButtonDisabled]}
+              onPress={handleCreatePost}
+              disabled={isPosting || uploading || (!content.trim() && !mediaUrl)}
+            >
+              {isPosting || uploading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.postButtonText}>Share</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => item._id}
-          renderItem={renderPost}
-          contentContainerStyle={styles.feedList}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={posts}
+            keyExtractor={(item) => item._id}
+            renderItem={renderPost}
+            contentContainerStyle={styles.feedList}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
 
       <View style={styles.tabBar}>
         <BottomTabBar
@@ -403,6 +511,108 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
           onProfile={onProfile}
         />
       </View>
+
+      <Modal
+        visible={commentsVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCommentsVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, backgroundColor: colors.background }}
+        >
+          <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => setCommentsVisible(false)}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 16, color: colors.text }}>Comments</Text>
+          </View>
+
+          {loadingComments ? (
+            <ActivityIndicator style={{ marginTop: 20 }} color={colors.primary} />
+          ) : (
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={{ padding: 16 }}
+              ListEmptyComponent={
+                <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>No comments yet. Be the first!</Text>
+              }
+              renderItem={({ item }) => (
+                <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+                  <Image
+                    source={{ uri: item.author?.photoURL || 'https://via.placeholder.com/32' }}
+                    style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                      <Text style={{ fontWeight: 'bold', marginRight: 8, color: colors.text }}>
+                        {item.author?.displayName || 'User'}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#666' }}>
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <Text style={{ marginTop: 2, color: colors.text }}>{item.content}</Text>
+                  </View>
+                </View>
+              )}
+            />
+          )}
+
+          <View style={{ 
+            padding: 12, 
+            borderTopWidth: 1, 
+            borderTopColor: colors.border,
+            flexDirection: 'row', 
+            alignItems: 'center'
+          }}>
+            <Image
+              source={{ uri: currentUser.photoURL || 'https://via.placeholder.com/32' }}
+              style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }}
+            />
+            <TextInput
+              style={{ 
+                flex: 1, 
+                backgroundColor: colors.card, 
+                borderRadius: 20, 
+                paddingHorizontal: 16, 
+                paddingVertical: 8,
+                color: colors.text,
+                marginRight: 12
+              }}
+              placeholder="Add a comment..."
+              placeholderTextColor="#666"
+              value={commentText}
+              onChangeText={setCommentText}
+              onSubmitEditing={submitComment}
+            />
+            <TouchableOpacity 
+              disabled={!commentText.trim()} 
+              onPress={submitComment}
+            >
+              <Text style={{ color: !commentText.trim() ? '#666' : colors.primary, fontWeight: 'bold' }}>Post</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={!!imageViewerUrl}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageViewerUrl(null)}
+      >
+        <View style={styles.viewerBackdrop}>
+          <Pressable style={styles.viewerCloseHitbox} onPress={() => setImageViewerUrl(null)}>
+            <Ionicons name="close" size={20} color="#fff" />
+          </Pressable>
+          {imageViewerUrl ? (
+            <Image source={{ uri: imageViewerUrl }} style={styles.viewerImage} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -412,6 +622,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     paddingBottom: 56,
+  },
+  screenContent: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
+    maxWidth: 520,
+  },
+  screenContentWeb: {
+    marginHorizontal: 'auto' as any,
   },
   header: {
     flexDirection: 'row',
@@ -443,7 +662,15 @@ const styles = StyleSheet.create({
   createContainer: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#efefef',
+    borderBottomColor: '#dbdbdb',
+    backgroundColor: '#fff',
+  },
+  createContainerWeb: {
+    borderWidth: 1,
+    borderColor: '#dbdbdb',
+    borderRadius: 8,
+    marginTop: 16,
+    overflow: 'hidden',
   },
   createHeader: {
     flexDirection: 'row',
@@ -496,13 +723,11 @@ const styles = StyleSheet.create({
   mediaPreviewIcon: {
     width: 36,
     height: 36,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    fontSize: 18,
-    color: '#262626',
     backgroundColor: '#e9ecef',
     borderRadius: 6,
     overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   attachedText: {
     fontSize: 13,
@@ -524,9 +749,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 20,
   },
-  mediaIcon: {
-    fontSize: 20,
-  },
   postButton: {
     backgroundColor: '#0095f6',
     paddingHorizontal: 20,
@@ -547,25 +769,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   feedList: {
-    paddingBottom: 20,
+    paddingBottom: 96,
   },
   postCard: {
-    marginBottom: 1,
     backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#dbdbdb',
+  },
+  postCardWeb: {
+    borderWidth: 1,
+    borderColor: '#dbdbdb',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 16,
+    marginBottom: 16,
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#dbdbdb',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 14,
@@ -579,10 +818,6 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
     paddingHorizontal: 6,
   },
-  moreIcon: {
-    fontSize: 20,
-    color: '#262626',
-  },
   authorName: {
     fontSize: 14,
     fontWeight: '600',
@@ -595,14 +830,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 12,
   },
-  postImageNative: {
+  postImage: {
     width: '100%',
-    height: 360,
     backgroundColor: '#f0f0f0',
+    maxHeight: 520,
   },
-  postImageWeb: {
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerImage: {
     width: '100%',
-    backgroundColor: '#f0f0f0',
+    height: '100%',
+    maxWidth: 980,
+  },
+  viewerCloseHitbox: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  viewerCloseText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
   },
   mediaRow: {
     flexDirection: 'row',
@@ -610,10 +869,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     marginTop: 4,
-    backgroundColor: '#f8f9fa',
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dbdbdb',
   },
   mediaRowIcon: {
     fontSize: 16,
@@ -634,20 +894,17 @@ const styles = StyleSheet.create({
   postActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingTop: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
   actionsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionButton: {
-    paddingRight: 12,
-    paddingVertical: 4,
-  },
-  actionIcon: {
-    fontSize: 22,
-    color: '#262626',
+    paddingRight: 16,
+    paddingVertical: 6,
   },
   likedIcon: {
     color: '#ed4956',

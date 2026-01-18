@@ -5,6 +5,8 @@ export interface IUser extends Document {
   email?: string;
   displayName: string;
   username?: string;
+  bio?: string;
+  website?: string;
   photoURL?: string;
   phoneNumber?: string;
   deviceToken?: string;
@@ -13,6 +15,7 @@ export interface IUser extends Document {
   deletedAt?: Date;
   isOnline: boolean;
   lastSeen: Date;
+  savedPosts: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +42,16 @@ const userSchema = new Schema<IUser>(
       unique: false,  // Set to false to avoid the constraint issue
       sparse: true,   // Only enforce uniqueness where the field exists
       lowercase: true,
+      trim: true,
+    },
+    bio: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    website: {
+      type: String,
+      default: '',
       trim: true,
     },
     photoURL: {
@@ -73,6 +86,11 @@ const userSchema = new Schema<IUser>(
       type: Date,
       default: Date.now,
     },
+    savedPosts: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Post',
+      default: [],
+    }],
   },
   {
     timestamps: true,
