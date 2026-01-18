@@ -12,6 +12,7 @@ import { api } from '../services/api';
 import { pickImage, pickVideo, uploadFile } from '../services/media';
 
 import VerifiedBadge from '../components/VerifiedBadge';
+import { Ionicons } from '@expo/vector-icons';
 
 export interface User {
   _id: string;
@@ -186,17 +187,17 @@ export default function UsersListScreen({
         <Text style={styles.headerTitle}>ChatBull</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={onFeed} style={styles.headerIcon}>
-            <Text style={styles.iconText}>🏠</Text>
+            <Ionicons name="compass-outline" size={24} color="black" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handlePrivateMode} disabled={isStartingPrivate} style={styles.headerIcon}>
             {isStartingPrivate ? (
               <ActivityIndicator color="#000" size="small" />
             ) : (
-              <Text style={styles.iconText}>🔒</Text>
+              <Ionicons name="lock-closed-outline" size={24} color="black" />
             )}
           </TouchableOpacity>
           <TouchableOpacity onPress={onProfile} style={styles.headerIcon}>
-            <Text style={styles.iconText}>👤</Text>
+            <Ionicons name="person-outline" size={24} color="black" />
           </TouchableOpacity>
         </View>
       </View>
@@ -205,7 +206,7 @@ export default function UsersListScreen({
       <View style={styles.storiesContainer}>
         <TouchableOpacity style={styles.storyItem} onPress={handleCreateStory} disabled={isPostingStory}>
           <View style={[styles.storyAvatar, styles.myStory]}>
-            {isPostingStory ? <ActivityIndicator color="#000" /> : <Text style={styles.storyAvatarText}>+</Text>}
+            {isPostingStory ? <ActivityIndicator color="#000" /> : <Ionicons name="add" size={24} color="#007AFF" />}
           </View>
           <Text style={styles.storyName}>Your Story</Text>
         </TouchableOpacity>

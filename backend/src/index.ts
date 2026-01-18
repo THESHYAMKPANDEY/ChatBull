@@ -118,6 +118,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/private', privateRoutes);
 app.use('/api/stories', storyRoutes);
+app.use('/api/story', storyRoutes); // Alias for mobile app compatibility
 app.use('/api/ai', aiRoutes);
 
 // Production-ready health check endpoints
