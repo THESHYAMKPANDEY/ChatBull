@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-const mongoSanitize = require('express-mongo-sanitize');
 import dotenv from 'dotenv';
 import { requestLogger, errorHandler, logger } from './utils/logger';
 import { createServer } from 'http';
@@ -24,6 +23,7 @@ import { verifyFirebaseToken } from './middleware/auth';
 import admin from 'firebase-admin';
 import User from './models/User';
 import Sentry, { initSentry } from './services/sentry';
+import { noSqlSanitize } from './middleware/noSqlSanitize';
 
 dotenv.config({ override: true });
 initSentry();
@@ -107,7 +107,7 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 
-app.use(mongoSanitize()); // Prevent MongoDB Operator Injection
+app.use(noSqlSanitize);
 
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);
