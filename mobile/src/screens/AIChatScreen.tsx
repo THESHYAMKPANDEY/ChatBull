@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { api } from '../services/api';
 import BottomTabBar from '../components/BottomTabBar';
@@ -42,7 +43,9 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
   const data = useMemo(() => items, [items]);
 
   // Load history on mount
@@ -79,18 +82,22 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
 
     try {
       setSending(true);
-      // Send full context if needed, but currently API might only take prompt.
-      // Ideally, backend should handle context management or we send 'messages' array.
-      // Assuming api.aiChat is updated or we just send prompt and backend stores it.
       
       const result = await api.aiChat(message.trim());
       const replyText = result?.reply || 'Okay.';
       const aiItem: ChatItem = { id: `a_${Date.now()}`, role: 'ai', text: replyText };
       setItems((prev) => [aiItem, ...prev]);
       
-      if (ttsEnabled) {
+      if (ttsEnabled || voiceMode) {
+        setIsSpeaking(true);
         Speech.stop();
-        Speech.speak(replyText, { rate: 1.0 });
+        Speech.speak(replyText, { 
+          rate: 0.9, 
+          pitch: 1.1,
+          onDone: () => setIsSpeaking(false),
+          onStopped: () => setIsSpeaking(false),
+          onError: () => setIsSpeaking(false)
+        });
       }
     } catch (error: any) {
       const aiItem: ChatItem = { id: `a_${Date.now()}`, role: 'ai', text: error.message || 'Failed to reply.' };
@@ -141,18 +148,23 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      setSending(true);
       const token = await currentUser.getIdToken();
       const form = new FormData();
-      form.append(
-        'audio',
-        {
+
+      // On web, we need to handle Blob properly if URI is a blob URL
+      if (Platform.OS === 'web') {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        form.append('audio', blob, 'audio.webm');
+      } else {
+        form.append('audio', {
           uri,
           name: 'audio.m4a',
           type: 'audio/mp4',
-        } as any
-      );
+        } as any);
+      }
 
-      setSending(true);
       const response = await fetch(`${appConfig.API_BASE_URL}/api/ai/transcribe`, {
         method: 'POST',
         headers: {
@@ -164,18 +176,19 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
 
       const data = (await response.json()) as any;
       if (!response.ok || !data?.success) {
-        setSending(false);
+        Alert.alert('Voice input unavailable', data?.error || 'Speech recognition is not available right now.');
         return;
       }
 
       const transcript = String(data.text || '').trim();
-      setSending(false);
       if (transcript) {
         await sendMessage(transcript);
       }
     } catch (error) {
       setRecording(null);
       setIsRecording(false);
+      Alert.alert('Error', 'Failed to process voice input.');
+    } finally {
       setSending(false);
     }
   };
@@ -203,54 +216,92 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <AppHeader title="JANEAI" />
-
-      <FlatList
-        data={data}
-        keyExtractor={(i) => i.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        inverted
-        showsVerticalScrollIndicator={false}
+      <AppHeader 
+        title="JANEAI" 
+        rightIcon={
+          <Ionicons 
+            name={voiceMode ? "mic" : "mic-outline"} 
+            size={24} 
+            color={voiceMode ? colors.primary : colors.text} 
+          />
+        }
+        onRightPress={() => setVoiceMode(!voiceMode)}
       />
 
-      <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
-        <TextInput
-          style={[styles.input, { color: colors.text }]}
-          placeholder="Ask JANEAI…"
-          placeholderTextColor={colors.mutedText}
-          value={text}
-          onChangeText={setText}
-          multiline
-        />
-        <TouchableOpacity
-          style={[styles.iconBtn, { borderColor: colors.border }]}
-          onPress={() => setTtsEnabled((v) => !v)}
-          disabled={sending}
-        >
-          <Ionicons
-            name={ttsEnabled ? 'volume-high-outline' : 'volume-mute-outline'}
-            size={18}
-            color={ttsEnabled ? colors.primary : colors.mutedText}
-          />
-        </TouchableOpacity>
+      {voiceMode ? (
+        <View style={[styles.voiceContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.orbContainer, isSpeaking && styles.orbSpeaking, isRecording && styles.orbListening]}>
+             <View style={[styles.orb, { backgroundColor: isRecording ? colors.danger : isSpeaking ? colors.primary : colors.card }]}>
+                <Ionicons 
+                  name={isSpeaking ? "volume-high" : isRecording ? "mic" : "mic-outline"} 
+                  size={64} 
+                  color="#fff" 
+                />
+             </View>
+          </View>
+          
+          <Text style={[styles.voiceStatus, { color: colors.text }]}>
+            {isSpeaking ? "Speaking..." : isRecording ? "Listening..." : "Tap to talk"}
+          </Text>
 
-        <TouchableOpacity
-          style={[styles.iconBtn, { borderColor: colors.border }]}
-          onPress={isRecording ? stopRecordingAndSend : startRecording}
-          disabled={sending}
-        >
-          <Ionicons
-            name={isRecording ? 'stop-circle-outline' : 'mic-outline'}
-            size={18}
-            color={isRecording ? colors.danger : colors.text}
+          <TouchableOpacity 
+             style={[styles.voiceButton, { backgroundColor: isRecording ? colors.danger : colors.primary }]}
+             onPress={isRecording ? stopRecordingAndSend : startRecording}
+             disabled={isSpeaking || sending}
+          >
+             <Ionicons name={isRecording ? "stop" : "mic"} size={32} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <FlatList
+            data={data}
+            keyExtractor={(i) => i.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.list}
+            inverted
+            showsVerticalScrollIndicator={false}
           />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || isRecording}>
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
-        </TouchableOpacity>
-      </View>
+    
+          <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Ask JANEAI…"
+              placeholderTextColor={colors.mutedText}
+              value={text}
+              onChangeText={setText}
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.iconBtn, { borderColor: colors.border }]}
+              onPress={() => setTtsEnabled((v) => !v)}
+              disabled={sending}
+            >
+              <Ionicons
+                name={ttsEnabled ? 'volume-high-outline' : 'volume-mute-outline'}
+                size={18}
+                color={ttsEnabled ? colors.primary : colors.mutedText}
+              />
+            </TouchableOpacity>
+    
+            <TouchableOpacity
+              style={[styles.iconBtn, { borderColor: colors.border }]}
+              onPress={isRecording ? stopRecordingAndSend : startRecording}
+              disabled={sending}
+            >
+              <Ionicons
+                name={isRecording ? 'stop-circle-outline' : 'mic-outline'}
+                size={18}
+                color={isRecording ? colors.danger : colors.text}
+              />
+            </TouchableOpacity>
+    
+            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || isRecording}>
+              {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <View style={styles.tabBar}>
         <BottomTabBar
@@ -353,5 +404,54 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  voiceContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 100,
+  },
+  orbContainer: {
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 100,
+    marginBottom: 40,
+  },
+  orb: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.30,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  orbSpeaking: {
+    transform: [{ scale: 1.1 }],
+    opacity: 0.9,
+  },
+  orbListening: {
+    transform: [{ scale: 1.05 }],
+  },
+  voiceStatus: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 40,
+  },
+  voiceButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
   },
 });
