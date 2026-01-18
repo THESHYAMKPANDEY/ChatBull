@@ -1,5 +1,7 @@
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, initializeAuth, getReactNativePersistence, Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, Auth } from 'firebase/auth';
+// @ts-ignore - This import path is valid for React Native but TS might not resolve it without specific config
+import { getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appConfig } from './appConfig';
 

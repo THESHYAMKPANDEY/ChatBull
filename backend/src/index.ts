@@ -10,7 +10,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import connectDB from './config/database';
 import authRoutes from './routes/auth';
-import testRoutes from './routes/test';
+// import testRoutes from './routes/test';
 import mediaRoutes from './routes/media';
 import securityRoutes from './routes/security';
 import legalRoutes from './routes/legal';
