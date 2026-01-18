@@ -147,7 +147,7 @@ const intents: Intent[] = [
     id: 'about_app',
     keywords: ['chatbull', 'app', 'platform'],
     phrases: ['what is chatbull', 'about chatbull'],
-    handler: () => 'ChatBull is a social chat app with a feed, comments, saved posts, groups, and a private mode for secure conversations.',
+    handler: () => 'ChatBull is a secure communication app with chat, groups, and private mode for sensitive conversations.',
   },
   {
     id: 'help',

@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
-// import testRoutes from './routes/test';
 import mediaRoutes from './routes/media';
 import securityRoutes from './routes/security';
 import legalRoutes from './routes/legal';
@@ -59,9 +58,6 @@ export const createApp = () => {
   app.use(express.json());
 
   app.use('/api/auth', authRoutes);
-  if (process.env.NODE_ENV !== 'production') {
-    // app.use('/api/test', testRoutes);
-  }
   app.use('/api/media', verifyFirebaseToken, mediaRoutes);
   app.use('/api/security', securityRoutes);
   app.use('/api/legal', legalRoutes);
@@ -73,7 +69,7 @@ export const createApp = () => {
 
   app.get('/', (req, res) => {
     res.json({
-      message: 'Social Chat API is running!',
+      message: 'ChatBull API is running!',
       status: 'healthy',
       timestamp: new Date().toISOString(),
     });
@@ -123,4 +119,3 @@ export const createApp = () => {
 
   return app;
 };
-

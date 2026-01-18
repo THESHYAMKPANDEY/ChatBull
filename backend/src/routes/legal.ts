@@ -15,7 +15,7 @@ router.get('/privacy', (req: Request, res: Response) => {
   res.status(200).json({
     title: 'Privacy Policy',
     content: `
-# Privacy Policy for Social Chat App
+# Privacy Policy for ChatBull
 
 **Last updated:** January 14, 2026
 
@@ -64,7 +64,7 @@ You have the right to:
 
 If you have questions about this privacy policy, please contact us at:
 
-Email: privacy@socialchatapp.com
+Email: privacy@chatbull.com
     `,
     lastUpdated: '2026-01-14',
   });

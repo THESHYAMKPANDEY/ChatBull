@@ -21,7 +21,7 @@ export const uploadToCloudinary = async (
   try {
     // Set default options
     const uploadOptions: UploadApiOptions = {
-      folder: 'social-chat-app', // Organize uploads in a folder
+      folder: 'chatbull', // Organize uploads in a folder
       resource_type: 'auto', // Automatically detect image/video/raw
       ...options,
     };
@@ -44,7 +44,7 @@ export const uploadMultipleToCloudinary = async (
   try {
     const uploadPromises = filePaths.map(filePath => 
       cloudinary.uploader.upload(filePath, {
-        folder: 'social-chat-app',
+        folder: 'chatbull',
         resource_type: 'auto',
         ...options,
       })

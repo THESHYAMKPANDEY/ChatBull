@@ -3,14 +3,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
 import dotenv from 'dotenv';
 import { requestLogger, errorHandler } from './utils/logger';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import connectDB from './config/database';
 import authRoutes from './routes/auth';
-// import testRoutes from './routes/test';
 import mediaRoutes from './routes/media';
 import securityRoutes from './routes/security';
 import legalRoutes from './routes/legal';
@@ -57,8 +55,6 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // Security middleware
 app.use(helmet()); // Sets security headers
-app.use(mongoSanitize()); // Prevent MongoDB Operator Injection
-app.use(xss()); // Sanitize user input
 
 // Request logging
 app.use(requestLogger);
@@ -72,6 +68,14 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use(limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many authentication attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Production-ready CORS configuration for mobile apps
 const corsOptions = {
@@ -91,10 +95,7 @@ app.use(express.json());
 app.use(mongoSanitize()); // Prevent MongoDB Operator Injection
 
 // Routes
-app.use('/api/auth', authRoutes);
-// if (process.env.NODE_ENV !== 'production') {
-//   app.use('/api/test', testRoutes);
-// }
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/legal', legalRoutes);
@@ -107,7 +108,7 @@ app.use('/api/ai', aiRoutes);
 // Production-ready health check endpoints
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Social Chat API is running!',
+    message: 'ChatBull API is running!',
     status: 'healthy',
     timestamp: new Date().toISOString()
   });

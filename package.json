@@ -1,4 +1,6 @@
 {
+  "name": "chatbull",
+  "private": true,
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
     "@types/express-rate-limit": "^5.1.3",
