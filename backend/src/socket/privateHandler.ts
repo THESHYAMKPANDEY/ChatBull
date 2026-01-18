@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import PrivateMessage from '../models/PrivateMessage';
 import { logger } from '../utils/logger';
+import crypto from 'crypto';
 
 // Store private sessions: sessionId -> { alias, socketId, publicKey }
 const privateSessions: Map<string, { alias: string; socketId: string; publicKey?: string }> = new Map();
@@ -17,17 +18,44 @@ const generateAlias = (): string => {
 
 // Generate random session ID
 const generateSessionId = (): string => {
-  return 'priv_' + Math.random().toString(36).substring(2, 15);
+  return `priv_${crypto.randomBytes(12).toString('hex')}`;
+};
+
+type SocketEventBudget = { windowStart: number; count: number };
+const socketEventBudgets: Map<string, Map<string, SocketEventBudget>> = new Map();
+
+const allowEvent = (socketId: string, event: string, max: number, windowMs: number): boolean => {
+  const now = Date.now();
+  const perSocket = socketEventBudgets.get(socketId) || new Map<string, SocketEventBudget>();
+  const current = perSocket.get(event);
+
+  if (!current || now - current.windowStart >= windowMs) {
+    perSocket.set(event, { windowStart: now, count: 1 });
+    socketEventBudgets.set(socketId, perSocket);
+    return true;
+  }
+
+  if (current.count >= max) return false;
+  current.count += 1;
+  return true;
+};
+
+const asTrimmedString = (value: unknown, maxLen: number): string | null => {
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!s) return null;
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
 };
 
 export const setupPrivateSocket = (io: Server) => {
   const privateNamespace = io.of('/private');
 
   privateNamespace.on('connection', (socket: Socket) => {
-    logger.info(`Private user connected: ${socket.id}`);
+    logger.info('Private user connected', { socketId: socket.id });
 
     // User enters private mode
     socket.on('private:join', (data: { publicKey?: string } | ((res: any) => void), callback?: (data: any) => void) => {
+      if (!allowEvent(socket.id, 'private:join', 5, 60_000)) return;
       // Handle legacy case or just callback
       let publicKey: string | undefined;
       let cb = callback;
@@ -35,7 +63,7 @@ export const setupPrivateSocket = (io: Server) => {
       if (typeof data === 'function') {
         cb = data;
       } else if (data && typeof data === 'object') {
-        publicKey = data.publicKey;
+        publicKey = asTrimmedString((data as any).publicKey, 4096) || undefined;
       }
 
       if (!cb) return;
@@ -60,7 +88,7 @@ export const setupPrivateSocket = (io: Server) => {
         message: `${alias} joined the private chat`,
       });
 
-      logger.info(`Private session created: ${alias}`);
+      logger.info('Private session created', { socketId: socket.id });
     });
 
     // Send private message
@@ -70,7 +98,20 @@ export const setupPrivateSocket = (io: Server) => {
       content: string;
     }) => {
       try {
-        const session = privateSessions.get(data.sessionId);
+        if (!allowEvent(socket.id, 'private:send', 60, 60_000)) {
+          socket.emit('private:error', { error: 'Rate limit exceeded' });
+          return;
+        }
+
+        const sessionId = typeof data.sessionId === 'string' ? data.sessionId : '';
+        const receiverAlias = asTrimmedString(data.receiverAlias, 64);
+        const content = asTrimmedString(data.content, 4000);
+        if (!sessionId || !receiverAlias || !content) {
+          socket.emit('private:error', { error: 'Invalid message' });
+          return;
+        }
+
+        const session = privateSessions.get(sessionId);
         if (!session) {
           socket.emit('private:error', { error: 'Invalid session' });
           return;
@@ -87,10 +128,10 @@ export const setupPrivateSocket = (io: Server) => {
 
         // Save message (will auto-delete after 24h)
         const message = await PrivateMessage.create({
-          sessionId: data.sessionId,
+          sessionId,
           senderAlias: session.alias,
-          receiverAlias: data.receiverAlias,
-          content: data.content,
+          receiverAlias,
+          content,
         });
 
         // Send to receiver if online
@@ -98,7 +139,7 @@ export const setupPrivateSocket = (io: Server) => {
           privateNamespace.to(receiverSocketId).emit('private:receive', {
             id: message._id,
             senderAlias: session.alias,
-            content: data.content,
+            content,
             createdAt: message.createdAt,
           });
         }
@@ -106,13 +147,13 @@ export const setupPrivateSocket = (io: Server) => {
         // Confirm to sender
         socket.emit('private:sent', {
           id: message._id,
-          receiverAlias: data.receiverAlias,
-          content: data.content,
+          receiverAlias,
+          content,
           createdAt: message.createdAt,
         });
 
       } catch (error: any) {
-        logger.error(`Private send error: ${error.message}`);
+        logger.error('Private send error', { socketId: socket.id });
         socket.emit('private:error', { error: 'Failed to send message' });
       }
     });
@@ -122,7 +163,19 @@ export const setupPrivateSocket = (io: Server) => {
       sessionId: string;
       content: string;
     }) => {
-      const session = privateSessions.get(data.sessionId);
+      if (!allowEvent(socket.id, 'private:broadcast', 60, 60_000)) {
+        socket.emit('private:error', { error: 'Rate limit exceeded' });
+        return;
+      }
+
+      const sessionId = typeof data.sessionId === 'string' ? data.sessionId : '';
+      const content = asTrimmedString(data.content, 4000);
+      if (!sessionId || !content) {
+        socket.emit('private:error', { error: 'Invalid message' });
+        return;
+      }
+
+      const session = privateSessions.get(sessionId);
       if (!session) {
         socket.emit('private:error', { error: 'Invalid session' });
         return;
@@ -130,14 +183,14 @@ export const setupPrivateSocket = (io: Server) => {
 
       socket.to('private-lobby').emit('private:broadcast', {
         senderAlias: session.alias,
-        content: data.content,
+        content,
         createdAt: new Date(),
       });
 
       // Also send back to sender for confirmation
       socket.emit('private:broadcast', {
         senderAlias: session.alias,
-        content: data.content,
+        content,
         createdAt: new Date(),
         isSelf: true,
       });
@@ -145,7 +198,9 @@ export const setupPrivateSocket = (io: Server) => {
 
     // Get online users in private mode
     socket.on('private:users', (data: { sessionId: string }, callback: (users: any[]) => void) => {
-      const session = privateSessions.get(data.sessionId);
+      if (!allowEvent(socket.id, 'private:users', 30, 60_000)) return;
+      const sessionId = typeof data.sessionId === 'string' ? data.sessionId : '';
+      const session = privateSessions.get(sessionId);
       if (!session) return;
 
       const users = Array.from(privateSessions.values())
@@ -157,13 +212,14 @@ export const setupPrivateSocket = (io: Server) => {
 
     // Exit private mode - DELETE ALL DATA
     socket.on('private:exit', async (data: { sessionId: string }) => {
-      const session = privateSessions.get(data.sessionId);
+      const sessionId = typeof data.sessionId === 'string' ? data.sessionId : '';
+      const session = privateSessions.get(sessionId);
       if (session) {
         // Delete all messages for this session
-        await PrivateMessage.deleteMany({ sessionId: data.sessionId });
+        await PrivateMessage.deleteMany({ sessionId });
         
         // Remove from sessions
-        privateSessions.delete(data.sessionId);
+        privateSessions.delete(sessionId);
         
         // Leave room
         socket.leave('private-lobby');
@@ -174,7 +230,7 @@ export const setupPrivateSocket = (io: Server) => {
           message: `${session.alias} left the private chat`,
         });
 
-        logger.info(`Private session destroyed: ${session.alias}`);
+        logger.info('Private session destroyed', { socketId: socket.id });
       }
 
       socket.emit('private:exited', { message: 'All your private data has been deleted.' });
@@ -182,6 +238,7 @@ export const setupPrivateSocket = (io: Server) => {
 
     // Handle disconnect
     socket.on('disconnect', async () => {
+      socketEventBudgets.delete(socket.id);
       // Find and clean up session
       for (const [sessionId, session] of privateSessions.entries()) {
         if (session.socketId === socket.id) {
@@ -195,7 +252,7 @@ export const setupPrivateSocket = (io: Server) => {
             message: `${session.alias} left the private chat`,
           });
           
-          logger.info(`Private session cleaned up on disconnect: ${session.alias}`);
+          logger.info('Private session cleaned up on disconnect', { socketId: socket.id });
           break;
         }
       }

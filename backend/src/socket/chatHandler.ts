@@ -2,13 +2,40 @@ import { Server, Socket } from 'socket.io';
 import Message from '../models/Message';
 import User from '../models/User';
 import Group from '../models/Group';
+import { logger } from '../utils/logger';
 
 // Store connected users: userId -> socketId
 const connectedUsers: Map<string, string> = new Map();
 
+type SocketEventBudget = { windowStart: number; count: number };
+const socketEventBudgets: Map<string, Map<string, SocketEventBudget>> = new Map();
+
+const allowEvent = (socketId: string, event: string, max: number, windowMs: number): boolean => {
+  const now = Date.now();
+  const perSocket = socketEventBudgets.get(socketId) || new Map<string, SocketEventBudget>();
+  const current = perSocket.get(event);
+
+  if (!current || now - current.windowStart >= windowMs) {
+    perSocket.set(event, { windowStart: now, count: 1 });
+    socketEventBudgets.set(socketId, perSocket);
+    return true;
+  }
+
+  if (current.count >= max) return false;
+  current.count += 1;
+  return true;
+};
+
+const asTrimmedString = (value: unknown, maxLen: number): string | null => {
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!s) return null;
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
+};
+
 export const setupSocket = (io: Server) => {
   io.on('connection', (socket: Socket) => {
-    console.log('User connected:', socket.id);
+    logger.info('User connected', { socketId: socket.id });
 
     // User joins with their MongoDB user ID
     socket.on('user:join', async (_clientUserId?: string) => {
@@ -23,7 +50,7 @@ export const setupSocket = (io: Server) => {
       
       // Broadcast user online status
       socket.broadcast.emit('user:online', userId);
-      console.log(`User ${userId} joined`);
+      logger.info('User joined', { userId });
     });
     
     // Subscribe to another user's status
@@ -47,13 +74,31 @@ export const setupSocket = (io: Server) => {
       isPrivate?: boolean;
     }) => {
       try {
+        if (!allowEvent(socket.id, 'message:send', 60, 60_000)) {
+          socket.emit('message:error', { error: 'Rate limit exceeded' });
+          return;
+        }
+
         const senderId = String((socket.data as any).userId || '');
         if (!senderId) {
           socket.emit('message:error', { error: 'Unauthorized' });
           return;
         }
 
-        const { receiverId, groupId, content, messageType = 'text', isPrivate = false } = data;
+        const receiverId = typeof data.receiverId === 'string' ? data.receiverId : undefined;
+        const groupId = typeof data.groupId === 'string' ? data.groupId : undefined;
+        const content = asTrimmedString(data.content, 4000);
+        const messageType = typeof data.messageType === 'string' ? data.messageType : 'text';
+        const isPrivate = typeof data.isPrivate === 'boolean' ? data.isPrivate : false;
+
+        if (!content) {
+          socket.emit('message:error', { error: 'Invalid message content' });
+          return;
+        }
+        if (!groupId && !receiverId) {
+          socket.emit('message:error', { error: 'Missing receiverId or groupId' });
+          return;
+        }
 
         // Save message to database
         const messageData: any = {
@@ -100,9 +145,8 @@ export const setupSocket = (io: Server) => {
         // Confirm to sender
         socket.emit('message:sent', message);
 
-        console.log(`Message sent from ${senderId} to ${groupId ? 'Group ' + groupId : receiverId}`);
       } catch (error) {
-        console.error('Message send error:', error);
+        logger.error('Message send error', { socketId: socket.id });
         socket.emit('message:error', { error: 'Failed to send message' });
       }
     });
@@ -110,6 +154,11 @@ export const setupSocket = (io: Server) => {
     // Get chat history
     socket.on('messages:get', async (data: { userId?: string; otherUserId?: string; groupId?: string }) => {
       try {
+        if (!allowEvent(socket.id, 'messages:get', 30, 60_000)) {
+          socket.emit('message:error', { error: 'Rate limit exceeded' });
+          return;
+        }
+
         const userId = String((socket.data as any).userId || '');
         const { otherUserId, groupId } = data;
         let query;
@@ -135,13 +184,14 @@ export const setupSocket = (io: Server) => {
 
         socket.emit('messages:history', messages);
       } catch (error) {
-        console.error('Get messages error:', error);
+        logger.error('Get messages error', { socketId: socket.id });
         socket.emit('message:error', { error: 'Failed to get messages' });
       }
     });
 
     // Typing indicator
     socket.on('typing:start', (data: { senderId?: string; receiverId?: string; groupId?: string }) => {
+      if (!allowEvent(socket.id, 'typing:start', 120, 60_000)) return;
       const senderId = String((socket.data as any).userId || '');
       if (!senderId) return;
       if (data.groupId) {
@@ -156,6 +206,7 @@ export const setupSocket = (io: Server) => {
     });
 
     socket.on('typing:stop', (data: { senderId?: string; receiverId?: string; groupId?: string }) => {
+       if (!allowEvent(socket.id, 'typing:stop', 120, 60_000)) return;
        const senderId = String((socket.data as any).userId || '');
        if (!senderId) return;
        if (data.groupId) {
@@ -185,6 +236,7 @@ export const setupSocket = (io: Server) => {
 
     // User disconnect
     socket.on('disconnect', async () => {
+      socketEventBudgets.delete(socket.id);
       for (const [userId, socketId] of connectedUsers.entries()) {
         if (socketId === socket.id) {
           connectedUsers.delete(userId);
@@ -192,7 +244,7 @@ export const setupSocket = (io: Server) => {
           await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
           
           socket.broadcast.emit('user:offline', userId);
-          console.log(`User ${userId} disconnected`);
+          logger.info('User disconnected', { userId });
           break;
         }
       }
@@ -209,16 +261,21 @@ export const setupSocket = (io: Server) => {
     
     socket.on('message:reaction:add', async (data: { messageId: string; reaction: string }) => {
       try {
+        if (!allowEvent(socket.id, 'message:reaction:add', 240, 60_000)) return;
         const userId = String((socket.data as any).userId || '');
         if (!userId) return;
 
-        const message = await Message.findById(data.messageId).select('sender receiver groupId');
+        const messageId = typeof data.messageId === 'string' ? data.messageId : '';
+        const reaction = asTrimmedString(data.reaction, 32);
+        if (!messageId || !reaction) return;
+
+        const message = await Message.findById(messageId).select('sender receiver groupId');
         if (!message) return;
 
         const payload = {
-          messageId: data.messageId,
+          messageId,
           userId,
-          reaction: data.reaction,
+          reaction,
           timestamp: new Date().toISOString(),
           displayName: String((socket.data as any).displayName || ''),
         };
@@ -238,22 +295,27 @@ export const setupSocket = (io: Server) => {
         if (senderId) io.to(senderId).emit('message:reaction:add', payload);
         if (receiverId) io.to(receiverId).emit('message:reaction:add', payload);
       } catch (error) {
-        console.error('Error adding reaction:', error);
+        logger.error('Error adding reaction', { socketId: socket.id });
       }
     });
 
     socket.on('message:reaction:remove', async (data: { messageId: string; reaction: string }) => {
       try {
+        if (!allowEvent(socket.id, 'message:reaction:remove', 240, 60_000)) return;
         const userId = String((socket.data as any).userId || '');
         if (!userId) return;
 
-        const message = await Message.findById(data.messageId).select('sender receiver groupId');
+        const messageId = typeof data.messageId === 'string' ? data.messageId : '';
+        const reaction = asTrimmedString(data.reaction, 32);
+        if (!messageId || !reaction) return;
+
+        const message = await Message.findById(messageId).select('sender receiver groupId');
         if (!message) return;
 
         const payload = {
-          messageId: data.messageId,
+          messageId,
           userId,
-          reaction: data.reaction,
+          reaction,
         };
 
         if (message.groupId) {
@@ -271,7 +333,7 @@ export const setupSocket = (io: Server) => {
         if (senderId) io.to(senderId).emit('message:reaction:remove', payload);
         if (receiverId) io.to(receiverId).emit('message:reaction:remove', payload);
       } catch (error) {
-        console.error('Error removing reaction:', error);
+        logger.error('Error removing reaction', { socketId: socket.id });
       }
     });
   });

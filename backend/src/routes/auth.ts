@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import User from '../models/User';
 import { validate } from '../middleware/validation';
 import { verifyFirebaseToken } from '../middleware/auth';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -98,7 +99,6 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
             // Strategy 1: Find by email
             user = await User.findOne({ email });
             if (user) {
-              console.log('✅ Found user by email, updating...');
               user.firebaseUid = firebaseUid;
               user.displayName = resolvedDisplayName || user.displayName;
               user.photoURL = resolvedPhotoURL || user.photoURL;
@@ -106,12 +106,10 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
               user.isOnline = true;
               user.lastSeen = new Date();
               await user.save();
-              console.log('✅ User updated by email strategy');
             } else {
               // Strategy 2: Find by firebaseUid again (race condition)
               user = await User.findOne({ firebaseUid });
               if (user) {
-                console.log('✅ Found user by firebaseUid (race condition), updating...');
                 user.email = email;
                 user.displayName = resolvedDisplayName || user.displayName;
                 user.photoURL = resolvedPhotoURL || user.photoURL;
@@ -119,11 +117,9 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
                 user.isOnline = true;
                 user.lastSeen = new Date();
                 await user.save();
-                console.log('✅ User updated by firebaseUid strategy');
               } else {
                 // Strategy 3: Wait and retry (handle temporary issues)
                 if (attempt < maxAttempts) {
-                  console.log(`⏳ Waiting 100ms before retry ${attempt + 1}...`);
                   await new Promise(resolve => setTimeout(resolve, 100));
                 }
               }
@@ -131,7 +127,7 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
           }
         } else {
           // For other errors, log and re-throw
-          console.error('💥 Non-duplicate error occurred:', createError);
+          logger.error('Auth sync non-duplicate error', { message: createError?.message || String(createError) });
           throw createError;
         }
       }
@@ -141,7 +137,6 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
     
     // Final verification
     if (!user) {
-      console.error('💥 Failed to sync user after all attempts');
       throw new Error('Could not create or find user after multiple attempts');
     }
 
@@ -162,16 +157,7 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
       },
     });
   } catch (error: any) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('AUTH SYNC ERROR:', {
-        type: error?.constructor?.name,
-        message: error?.message,
-        code: error?.code,
-        stack: error?.stack,
-      });
-    } else {
-      console.error('AUTH SYNC ERROR:', error?.message || 'unknown');
-    }
+    logger.error('Auth sync error', { message: error?.message || 'unknown' });
     
     // More detailed error response
     res.status(500).json({ 
@@ -204,7 +190,7 @@ router.get('/profile/:firebaseUid', verifyFirebaseToken, async (req: Request, re
 
     res.status(200).json({ user });
   } catch (error) {
-    console.error('Get profile error:', error);
+    logger.error('Get profile error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -215,7 +201,7 @@ router.get('/users', verifyFirebaseToken, async (req: Request, res: Response) =>
     const users = await User.find({}, 'displayName email photoURL isOnline lastSeen');
     res.status(200).json({ users });
   } catch (error) {
-    console.error('Get users error:', error);
+    logger.error('Get users error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -232,7 +218,7 @@ router.post('/logout', verifyFirebaseToken, async (req: Request, res: Response) 
 
     res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -92,6 +92,14 @@ export const createApp = () => {
     });
   });
 
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({
+      status: 'OK',
+      service: 'ChatBull Backend',
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   app.get('/health/extended', async (req, res) => {
     try {
       const dbState = require('./config/database').getDbState?.() || 'unknown';

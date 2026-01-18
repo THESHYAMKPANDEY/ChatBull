@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 const mongoSanitize = require('express-mongo-sanitize');
 import dotenv from 'dotenv';
-import { requestLogger, errorHandler } from './utils/logger';
+import { requestLogger, errorHandler, logger } from './utils/logger';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import connectDB from './config/database';
@@ -20,6 +20,7 @@ import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
 import storyRoutes from './routes/story';
 import aiRoutes from './routes/ai';
+import { verifyFirebaseToken } from './middleware/auth';
 import admin from 'firebase-admin';
 import User from './models/User';
 
@@ -77,6 +78,14 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const mediaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: 'Too many media requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Production-ready CORS configuration for mobile apps
 const corsOptions = {
   origin: (origin: any, callback: any) => {
@@ -96,7 +105,7 @@ app.use(mongoSanitize()); // Prevent MongoDB Operator Injection
 
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/media', mediaRoutes);
+app.use('/api/media', verifyFirebaseToken, mediaLimiter, mediaRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/legal', legalRoutes);
 app.use('/api/user', userRoutes);
@@ -221,28 +230,27 @@ const startServer = async () => {
     initializeFirebaseAdmin();
     
     httpServer.listen(Number(PORT), HOST, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Socket.IO ready for connections`);
-      console.log(`Server accessible at: http://${HOST}:${PORT}/`);
+      logger.info('Server started', { host: HOST, port: PORT });
       
       // Only log local IPs in development
       if (process.env.NODE_ENV !== 'production') {
         const localIPs = getLocalIPAddresses();
-        console.log(`Server accessible at:`);
-        console.log(`  - http://localhost:${PORT}`);
-        console.log(`  - http://127.0.0.1:${PORT}`);
-        localIPs.forEach(ip => {
-          console.log(`  - http://${ip}:${PORT}`);
+        logger.info('Server accessible at', {
+          urls: [
+            `http://localhost:${PORT}`,
+            `http://127.0.0.1:${PORT}`,
+            ...localIPs.map((ip) => `http://${ip}:${PORT}`),
+            `http://${HOST}:${PORT}`,
+          ],
         });
-        console.log(`  - http://${HOST}:${PORT} (internal)`);
       }
     });
     
     httpServer.on('error', (err) => {
-      console.error('Server error:', err);
+      logger.error('Server error', { message: err?.message || String(err) });
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', { message: (error as any)?.message || String(error) });
     process.exit(1);
   }
 };

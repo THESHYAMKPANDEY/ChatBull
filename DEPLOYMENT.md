@@ -20,9 +20,9 @@ Create a `.env` file in the `backend/` directory:
 
 ```env
 PORT=5000
-MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/chatbull
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/chatbull
 JWT_SECRET=your_production_secret_key_min_32_chars
-FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 # Optional
 REDIS_URL=redis://localhost:6379
 
@@ -57,7 +57,7 @@ OLLAMA_MODEL=phi3:mini
    ```
 
 ### Security Checklist
-- [ ] Ensure `MONGO_URI` is secure and IP-whitelisted.
+- [ ] Ensure `MONGODB_URI` is secure and IP-whitelisted.
 - [ ] Rotate `JWT_SECRET` periodically.
 - [ ] Enable SSL/TLS (HTTPS) using Nginx or a cloud load balancer.
 - [ ] Set `NODE_ENV=production` to enable optimization.
@@ -87,7 +87,7 @@ Create a `.env` file in the `mobile/` directory:
 
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://your-backend-domain.com
-EXPO_PUBLIC_SOCKET_BASE_URL=https://your-backend-domain.com
+EXPO_PUBLIC_SOCKET_URL=https://your-backend-domain.com
 EXPO_PUBLIC_FIREBASE_API_KEY=...
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
