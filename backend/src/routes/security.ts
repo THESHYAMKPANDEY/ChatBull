@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { handleScreenshotDetection } from '../controllers/securityController';
-import { verifyFirebaseToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -9,7 +8,7 @@ const router = Router();
  * Endpoint to log when a screenshot is detected on the client
  * Body: { userId, timestamp, location }
  */
-router.post('/screenshot-detected', verifyFirebaseToken, handleScreenshotDetection);
+router.post('/screenshot-detected', handleScreenshotDetection);
 
 /**
  * GET /api/security/status

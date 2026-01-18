@@ -36,9 +36,14 @@ const setupRandomBytes = () => {
     // But let's log if it's missing.
     // console.warn('nacl PRNG not set up natively?');
     
-    // Simple pseudo-random fallback (NOT SECURE for production, but prevents crash in dev if polyfill missing)
-    for (let i = 0; i < n; i++) {
-      x[i] = Math.floor(Math.random() * 256);
+    // Use expo-crypto for secure random values
+    try {
+      Crypto.getRandomValues(x);
+    } catch (e) {
+      console.warn('Secure PRNG failed, falling back to insecure Math.random', e);
+      for (let i = 0; i < n; i++) {
+        x[i] = Math.floor(Math.random() * 256);
+      }
     }
   });
 };

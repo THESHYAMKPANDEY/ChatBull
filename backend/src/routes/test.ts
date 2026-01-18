@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import User from '../models/User';
 import { sendPushNotification, isFirebaseAdminReady } from '../services/notifications';
 import { notificationValidationRules, validate } from '../middleware/validation';
-import { verifyFirebaseToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -11,13 +10,13 @@ const router = Router();
  * Test push notification endpoint
  * Body: { userId, title, body }
  */
-router.post('/notify', verifyFirebaseToken, notificationValidationRules(), validate, async (req: Request, res: Response) => {
+router.post('/notify', notificationValidationRules(), validate, async (req: Request, res: Response) => {
   try {
-    const { title, body } = req.body;
+    const { userId, title, body } = req.body;
 
-    if (!title || !body) {
+    if (!userId || !title || !body) {
       res.status(400).json({ 
-        error: 'Missing required fields: title, body' 
+        error: 'Missing required fields: userId, title, body' 
       });
       return;
     }
@@ -30,8 +29,8 @@ router.post('/notify', verifyFirebaseToken, notificationValidationRules(), valid
       return;
     }
 
-    const firebaseUser = (res.locals as any).firebaseUser;
-    const user = await User.findOne({ firebaseUid: firebaseUser?.uid });
+    // Find user
+    const user = await User.findById(userId);
     if (!user) {
       res.status(404).json({ error: 'User not found' });
       return;
@@ -70,20 +69,19 @@ router.post('/notify', verifyFirebaseToken, notificationValidationRules(), valid
  * Register device token for a user (for testing)
  * Body: { firebaseUid, deviceToken }
  */
-router.post('/register-token', verifyFirebaseToken, async (req: Request, res: Response) => {
+router.post('/register-token', async (req: Request, res: Response) => {
   try {
-    const { deviceToken } = req.body;
-    const firebaseUser = (res.locals as any).firebaseUser;
+    const { firebaseUid, deviceToken } = req.body;
 
-    if (!deviceToken) {
+    if (!firebaseUid || !deviceToken) {
       res.status(400).json({ 
-        error: 'Missing required fields: deviceToken' 
+        error: 'Missing required fields: firebaseUid, deviceToken' 
       });
       return;
     }
 
     const user = await User.findOneAndUpdate(
-      { firebaseUid: firebaseUser?.uid },
+      { firebaseUid },
       { deviceToken },
       { new: true }
     );

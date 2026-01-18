@@ -155,6 +155,8 @@ app.use(errorHandler);
 // Setup Socket.IO
 io.use(async (socket, next) => {
   try {
+    // if ((socket as any).nsp?.name === '/private') return next();
+
     const token =
       (socket.handshake.auth as any)?.token ||
       (typeof socket.handshake.headers.authorization === 'string'

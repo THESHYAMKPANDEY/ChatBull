@@ -1,10 +1,8 @@
 # OTP Authentication
 
 ## SMS OTP (Phone)
-- Implemented cross-platform:
-  - Android/iOS: native Firebase Auth via `@react-native-firebase/auth`
-  - Web: Firebase JS SDK phone auth using reCAPTCHA verifier
-- Android/iOS requires real builds (EAS dev build / store build), not Expo Go.
+- Implemented using native Firebase Auth via `@react-native-firebase/auth`.
+- Works on real Android/iOS builds (EAS dev build / store build), not Expo Go.
 
 ### Firebase Console Setup
 - Authentication → Sign-in method → enable **Phone**.
@@ -14,15 +12,6 @@
   - `mobile/google-services.json`
   - `mobile/GoogleService-Info.plist`
 - Build with EAS (required for native auth modules).
-
-### Web Setup
-- Ensure Firebase Web config env vars exist:
-  - `EXPO_PUBLIC_FIREBASE_API_KEY`
-  - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
-  - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
-  - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
-  - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-  - `EXPO_PUBLIC_FIREBASE_APP_ID`
 
 ## Email OTP (Code)
 Firebase Auth does not provide “email OTP codes” out-of-the-box. This project implements email OTP using:
@@ -45,3 +34,4 @@ Firebase Auth does not provide “email OTP codes” out-of-the-box. This projec
 ## Notes
 - After any OTP sign-in, the app calls `/api/auth/sync` to create/update the app user record.
 - Phone-only users can exist without email; backend user schema supports optional `email`.
+

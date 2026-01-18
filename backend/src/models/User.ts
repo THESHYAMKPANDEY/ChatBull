@@ -5,17 +5,15 @@ export interface IUser extends Document {
   email?: string;
   displayName: string;
   username?: string;
-  bio?: string;
-  website?: string;
   photoURL?: string;
   phoneNumber?: string;
   deviceToken?: string;
+  savedPosts?: mongoose.Types.ObjectId[];
   isPremium?: boolean;
   isDeleted?: boolean;
   deletedAt?: Date;
   isOnline: boolean;
   lastSeen: Date;
-  savedPosts: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,16 +42,10 @@ const userSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
     },
-    bio: {
-      type: String,
-      default: '',
-      trim: true,
-    },
-    website: {
-      type: String,
-      default: '',
-      trim: true,
-    },
+    savedPosts: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Post'
+    }],
     photoURL: {
       type: String,
       default: '',
@@ -86,11 +78,6 @@ const userSchema = new Schema<IUser>(
       type: Date,
       default: Date.now,
     },
-    savedPosts: [{
-      type: Schema.Types.ObjectId,
-      ref: 'Post',
-      default: [],
-    }],
   },
   {
     timestamps: true,

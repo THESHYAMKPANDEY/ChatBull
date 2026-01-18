@@ -21,11 +21,9 @@ export const initializeFirebaseAdmin = (): boolean => {
   
   try {
     if (!serviceAccountJson) {
-      if (process.env.NODE_ENV !== 'test') {
-        console.warn(
-          '⚠️  Firebase Admin not configured. For cloud deployments (Render, Heroku, etc.), set FIREBASE_SERVICE_ACCOUNT_JSON environment variable with the full JSON content as a single-line string. Push notifications will be disabled until configured.'
-        );
-      }
+      console.warn(
+        '⚠️  Firebase Admin not configured. For cloud deployments (Render, Heroku, etc.), set FIREBASE_SERVICE_ACCOUNT_JSON environment variable with the full JSON content as a single-line string. Push notifications will be disabled until configured.'
+      );
       return false;
     }
 
@@ -36,14 +34,10 @@ export const initializeFirebaseAdmin = (): boolean => {
     });
 
     firebaseInitialized = true;
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('✅ Firebase Admin SDK initialized successfully');
-    }
+    console.log('✅ Firebase Admin SDK initialized successfully');
     return true;
   } catch (error) {
-    if (process.env.NODE_ENV !== 'test') {
-      console.error('❌ Failed to initialize Firebase Admin:', error);
-    }
+    console.error('❌ Failed to initialize Firebase Admin:', error);
     return false;
   }
 };
@@ -87,14 +81,10 @@ export const sendPushNotification = async (
     };
 
     const response = await admin.messaging().send(message);
-    if (process.env.NODE_ENV !== 'test') {
-      console.log(`✅ Push notification sent: ${response}`);
-    }
+    console.log(`✅ Push notification sent: ${response}`);
     return { success: true, messageId: response };
   } catch (error: any) {
-    if (process.env.NODE_ENV !== 'test') {
-      console.error('❌ Push notification failed:', error);
-    }
+    console.error('❌ Push notification failed:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 };
@@ -127,17 +117,13 @@ export const sendPushNotificationToMultiple = async (
     };
 
     const response = await admin.messaging().sendEachForMulticast(message);
-    if (process.env.NODE_ENV !== 'test') {
-      console.log(`✅ Multicast sent: ${response.successCount} success, ${response.failureCount} failed`);
-    }
+    console.log(`✅ Multicast sent: ${response.successCount} success, ${response.failureCount} failed`);
     return {
       successCount: response.successCount,
       failureCount: response.failureCount,
     };
   } catch (error) {
-    if (process.env.NODE_ENV !== 'test') {
-      console.error('❌ Multicast notification failed:', error);
-    }
+    console.error('❌ Multicast notification failed:', error);
     return { successCount: 0, failureCount: deviceTokens.length };
   }
 };

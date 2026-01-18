@@ -2,14 +2,8 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { uploadToCloudinary, isCloudinaryConfigured } from '../services/cloudinary';
-import fs from 'fs';
-import { verifyFirebaseToken } from '../middleware/auth';
 
 const router = Router();
-
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads', { recursive: true });
-}
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -49,7 +43,7 @@ const upload = multer({
  * Requires: multipart/form-data with 'file' field
  * Returns: { success: boolean, url: string, publicId: string, metadata: object }
  */
-router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: Request, res: Response) => {
+router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -76,7 +70,8 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     });
 
     // Clean up temp file (optional - we could do this later)
-    await fs.promises.unlink(req.file.path);
+    const fs = await import('fs');
+    fs.unlinkSync(req.file.path);
 
     res.status(200).json({
       success: true,
@@ -96,7 +91,8 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     
     // Clean up temp file if exists
     if (req.file) {
-      await fs.promises.unlink(req.file.path).catch(() => undefined);
+      const fs = await import('fs');
+      fs.unlinkSync(req.file.path);
     }
 
     res.status(500).json({ 
@@ -111,7 +107,7 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
  * Upload multiple media files to Cloudinary
  * Requires: multipart/form-data with 'files' field (array)
  */
-router.post('/upload-multiple', verifyFirebaseToken, upload.array('files', 10), async (req: Request, res: Response) => {
+router.post('/upload-multiple', upload.array('files', 10), async (req: Request, res: Response) => {
   try {
     // Check if Cloudinary is configured
     if (!isCloudinaryConfigured()) {
@@ -144,7 +140,10 @@ router.post('/upload-multiple', verifyFirebaseToken, upload.array('files', 10), 
     const results = await Promise.all(uploadPromises);
 
     // Clean up temp files
-    await Promise.all(files.map((file) => fs.promises.unlink(file.path).catch(() => undefined)));
+    const fs = await import('fs');
+    files.forEach(file => {
+      fs.unlinkSync(file.path);
+    });
 
     const urls = results.map(result => ({
       url: result.secure_url,
@@ -164,9 +163,10 @@ router.post('/upload-multiple', verifyFirebaseToken, upload.array('files', 10), 
     
     // Clean up temp files if any exist
     if (req.files) {
-      await Promise.all(
-        (req.files as Express.Multer.File[]).map((file) => fs.promises.unlink(file.path).catch(() => undefined))
-      );
+      const fs = await import('fs');
+      (req.files as Express.Multer.File[]).forEach(file => {
+        fs.unlinkSync(file.path);
+      });
     }
 
     res.status(500).json({ 

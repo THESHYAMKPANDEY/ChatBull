@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import PrivateMessage from '../models/PrivateMessage';
+import { logger } from '../utils/logger';
 
 // Store private sessions: sessionId -> { alias, socketId, publicKey }
 const privateSessions: Map<string, { alias: string; socketId: string; publicKey?: string }> = new Map();
@@ -23,13 +24,12 @@ export const setupPrivateSocket = (io: Server) => {
   const privateNamespace = io.of('/private');
 
   privateNamespace.on('connection', (socket: Socket) => {
-    console.log('Private user connected:', socket.id);
+    logger.info(`Private user connected: ${socket.id}`);
 
     // User enters private mode
-    socket.on('private:join', (data: { publicKey?: string } | undefined, callback: (data: any) => void) => {
-      // Handle both signature styles: (data, callback) or just (callback)
-      // If first arg is function, it's the callback and no data was sent
-      let publicKey: string | undefined = undefined;
+    socket.on('private:join', (data: { publicKey?: string } | ((res: any) => void), callback?: (data: any) => void) => {
+      // Handle legacy case or just callback
+      let publicKey: string | undefined;
       let cb = callback;
 
       if (typeof data === 'function') {
@@ -38,6 +38,8 @@ export const setupPrivateSocket = (io: Server) => {
         publicKey = data.publicKey;
       }
 
+      if (!cb) return;
+
       const sessionId = generateSessionId();
       const alias = generateAlias();
 
@@ -45,13 +47,11 @@ export const setupPrivateSocket = (io: Server) => {
       socket.join('private-lobby');
 
       // Send back session info
-      if (cb) {
-        cb({
-          sessionId,
-          alias,
-          message: 'Welcome to Private Mode. Your identity is hidden.',
-        });
-      }
+      cb({
+        sessionId,
+        alias,
+        message: 'Welcome to Private Mode. Your identity is hidden.',
+      });
 
       // Broadcast to lobby that someone joined (without revealing identity)
       socket.to('private-lobby').emit('private:user-joined', {
@@ -60,7 +60,7 @@ export const setupPrivateSocket = (io: Server) => {
         message: `${alias} joined the private chat`,
       });
 
-      console.log(`Private session created: ${alias}`);
+      logger.info(`Private session created: ${alias}`);
     });
 
     // Send private message
@@ -111,36 +111,9 @@ export const setupPrivateSocket = (io: Server) => {
           createdAt: message.createdAt,
         });
 
-      } catch (error) {
-        console.error('Private send error:', error);
+      } catch (error: any) {
+        logger.error(`Private send error: ${error.message}`);
         socket.emit('private:error', { error: 'Failed to send message' });
-      }
-    });
-
-    socket.on('private:typing', async (data: { sessionId: string; receiverAlias?: string; isTyping: boolean }) => {
-      try {
-        const session = privateSessions.get(data.sessionId);
-        if (!session) return;
-
-        const payload = { alias: session.alias, isTyping: !!data.isTyping };
-
-        if (data.receiverAlias) {
-          let receiverSocketId: string | null = null;
-          for (const [, value] of privateSessions.entries()) {
-            if (value.alias === data.receiverAlias) {
-              receiverSocketId = value.socketId;
-              break;
-            }
-          }
-          if (receiverSocketId) {
-            privateNamespace.to(receiverSocketId).emit('private:typing', payload);
-          }
-          return;
-        }
-
-        socket.to('private-lobby').emit('private:typing', payload);
-      } catch {
-        return;
       }
     });
 
@@ -176,11 +149,8 @@ export const setupPrivateSocket = (io: Server) => {
       if (!session) return;
 
       const users = Array.from(privateSessions.values())
-        .filter(s => s.alias !== session.alias)
-        .map(s => ({
-          alias: s.alias,
-          publicKey: s.publicKey
-        }));
+        .map(s => ({ alias: s.alias, publicKey: s.publicKey }))
+        .filter(u => u.alias !== session.alias);
       
       callback(users);
     });
@@ -204,7 +174,7 @@ export const setupPrivateSocket = (io: Server) => {
           message: `${session.alias} left the private chat`,
         });
 
-        console.log(`Private session destroyed: ${session.alias}`);
+        logger.info(`Private session destroyed: ${session.alias}`);
       }
 
       socket.emit('private:exited', { message: 'All your private data has been deleted.' });
@@ -225,7 +195,7 @@ export const setupPrivateSocket = (io: Server) => {
             message: `${session.alias} left the private chat`,
           });
           
-          console.log(`Private session cleaned up on disconnect: ${session.alias}`);
+          logger.info(`Private session cleaned up on disconnect: ${session.alias}`);
           break;
         }
       }

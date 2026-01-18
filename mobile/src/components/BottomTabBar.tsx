@@ -1,7 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../config/theme';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 export interface BottomTabBarProps {
   active: string;
@@ -13,29 +11,27 @@ export interface BottomTabBarProps {
 }
 
 export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI, onProfile }: BottomTabBarProps) {
-  const { colors } = useTheme();
   const tabs = [
-    { key: 'chats', onPress: onChats, icon: { active: 'chatbubble', inactive: 'chatbubble-outline' } as const },
-    { key: 'feed', onPress: onFeed, icon: { active: 'home', inactive: 'home-outline' } as const },
-    { key: 'ai', onPress: onAI, icon: { active: 'sparkles', inactive: 'sparkles-outline' } as const },
-    { key: 'profile', onPress: onProfile, icon: { active: 'person', inactive: 'person-outline' } as const },
+    { key: 'chats', label: 'Chats', icon: '💬', onPress: onChats },
+    { key: 'feed', label: 'Feed', icon: '📱', onPress: onFeed },
+    { key: 'ai', label: 'AI', icon: '🤖', onPress: onAI },
+    { key: 'profile', label: 'Profile', icon: '👤', onPress: onProfile },
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+    <View style={styles.container}>
       {tabs.map((tab) => (
         <TouchableOpacity
           key={tab.key}
           style={styles.tab}
           onPress={tab.onPress}
-          accessibilityRole="button"
-          accessibilityLabel={tab.key}
         >
-          <Ionicons
-            name={active === tab.key ? (tab.icon.active as any) : (tab.icon.inactive as any)}
-            size={26}
-            color={active === tab.key ? colors.text : colors.mutedText}
-          />
+          <Text style={[styles.icon, active === tab.key && styles.activeIcon]}>
+            {tab.icon}
+          </Text>
+          <Text style={[styles.label, active === tab.key && styles.activeLabel]}>
+            {tab.label}
+          </Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -45,14 +41,34 @@ export default function BottomTabBar({ active, onChats, onFeed, onPrivate, onAI,
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    paddingBottom: 18,
+    borderTopColor: '#eee',
+    paddingBottom: 20,
     paddingTop: 10,
-    height: 72,
+    height: 80,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  icon: {
+    fontSize: 24,
+    marginBottom: 4,
+    opacity: 0.5,
+    color: '#000',
+  },
+  activeIcon: {
+    opacity: 1,
+    color: '#007AFF',
+  },
+  label: {
+    fontSize: 10,
+    color: '#999',
+  },
+  activeLabel: {
+    color: '#007AFF',
+    fontWeight: 'bold',
   },
 });

@@ -25,6 +25,13 @@ JWT_SECRET=your_production_secret_key_min_32_chars
 FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json
 # Optional
 REDIS_URL=redis://localhost:6379
+
+# AI Provider
+# rules  = built-in local bot (no GPU needed)
+# ollama = local/hosted LLM served by Ollama
+AI_PROVIDER=rules
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=phi3:mini
 ```
 
 ### Build & Run
@@ -54,6 +61,20 @@ REDIS_URL=redis://localhost:6379
 - [ ] Rotate `JWT_SECRET` periodically.
 - [ ] Enable SSL/TLS (HTTPS) using Nginx or a cloud load balancer.
 - [ ] Set `NODE_ENV=production` to enable optimization.
+- [ ] Do NOT expose Ollama directly to the public internet (keep it private to the backend).
+
+### AI for Public Users
+
+If you want the AI to work for the public app, you must run an AI provider on a server (or use the built-in rules bot):
+
+- **Option A (No GPU):** `AI_PROVIDER=rules`
+  - Works everywhere, cheap, fast, but not a real LLM.
+- **Option B (Real AI, GPU recommended):** `AI_PROVIDER=ollama`
+  - Run Ollama on the same server as backend, or in the same private network (VPC / Docker network).
+  - Point backend to it via `OLLAMA_BASE_URL`.
+  - Recommended models for low VRAM: `phi3:mini`, `llama3.2:3b`.
+
+Important: Keep `OLLAMA_BASE_URL` private. Only the backend should call it.
 
 ---
 

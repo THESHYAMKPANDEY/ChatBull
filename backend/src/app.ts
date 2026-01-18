@@ -14,6 +14,7 @@ import storyRoutes from './routes/story';
 import aiRoutes from './routes/ai';
 import { requestLogger, errorHandler } from './utils/logger';
 import { isFirebaseAdminReady } from './services/notifications';
+import { verifyFirebaseToken } from './middleware/auth';
 
 export const createApp = () => {
   const app = express();
@@ -61,7 +62,7 @@ export const createApp = () => {
   if (process.env.NODE_ENV !== 'production') {
     app.use('/api/test', testRoutes);
   }
-  app.use('/api/media', mediaRoutes);
+  app.use('/api/media', verifyFirebaseToken, mediaRoutes);
   app.use('/api/security', securityRoutes);
   app.use('/api/legal', legalRoutes);
   app.use('/api/user', userRoutes);

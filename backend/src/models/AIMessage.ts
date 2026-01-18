@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IAIMessage extends Document {
   userId: mongoose.Types.ObjectId;
@@ -9,13 +9,26 @@ export interface IAIMessage extends Document {
 
 const aiMessageSchema = new Schema<IAIMessage>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    role: { type: String, enum: ['user', 'assistant', 'system'], required: true },
-    content: { type: String, required: true },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: ['user', 'assistant', 'system'],
+      required: true,
+    },
+    content: {
+      type: String,
+      required: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.model<IAIMessage>('AIMessage', aiMessageSchema);
+const AIMessage = mongoose.model<IAIMessage>('AIMessage', aiMessageSchema);
+
+export default AIMessage;
