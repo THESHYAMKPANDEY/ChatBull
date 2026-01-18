@@ -78,48 +78,34 @@ export const deactivateSecureView = () => {
   console.log('🔓 Secure view deactivated');
 };
 
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
 // Screen overlay component for additional protection
 export const SecurityOverlay = () => {
   if (!isProtectionActive) return null;
   
-  return {
-    type: 'View',
-    props: {
-      style: styles.overlay,
-      pointerEvents: 'none',
-      children: {
-        type: 'View',
-        props: {
-          style: styles.warningBanner,
-          children: null
-        }
-      }
-    }
-  };
+  return (
+    <View style={styles.overlay} pointerEvents="none">
+      <View style={styles.warningBanner}>
+        {/* Transparent warning layer */}
+      </View>
+    </View>
+  );
 };
 
 const overlayStyle = {
-  position: 'absolute' as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
+  ...StyleSheet.absoluteFillObject,
   backgroundColor: 'transparent',
   zIndex: 9999,
 };
 
 const warningBannerStyle = {
-  position: 'absolute' as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 20,
-  backgroundColor: 'rgba(255, 0, 0, 0.1)',
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
+  ...StyleSheet.absoluteFillObject,
+  backgroundColor: 'rgba(255, 0, 0, 0.02)', // Subtle indicator
 };
 
-const styles = {
+const styles = StyleSheet.create({
   overlay: overlayStyle,
   warningBanner: warningBannerStyle,
-};
+});
