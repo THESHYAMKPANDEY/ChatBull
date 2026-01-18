@@ -8,6 +8,7 @@ import { validate } from '../middleware/validation';
 import User from '../models/User';
 import AIMessage from '../models/AIMessage';
 import { generateChatbullReply } from '../services/chatbot';
+import { ollamaChat } from '../services/localLLM';
 
 const router = Router();
 
@@ -102,7 +103,40 @@ router.post('/chat', verifyFirebaseToken, chatValidationRules, validate, async (
       content: m.content,
     }));
 
-    const { reply } = generateChatbullReply({ message, history: contextMessages });
+    const provider = (process.env.AI_PROVIDER || 'rules').toLowerCase();
+    let reply: string;
+
+    if (provider === 'ollama') {
+      const model = process.env.OLLAMA_MODEL;
+      if (!model) {
+        res.status(500).json({ success: false, error: 'OLLAMA_MODEL is not set' });
+        return;
+      }
+
+      const system = {
+        role: 'system' as const,
+        content:
+          'You are JANEAI, the built-in assistant for ChatBull. Be accurate, concise, and helpful. If you are unsure, ask a clarifying question. Keep responses under 5 sentences unless asked.',
+      };
+
+      reply = await ollamaChat({
+        model,
+        messages: [system, ...contextMessages],
+      });
+    } else {
+      const result = await generateChatbullReply({
+        message,
+        history: contextMessages,
+        user: {
+          id: String(user._id),
+          displayName: user.displayName,
+          username: user.username,
+          savedPostsCount: Array.isArray(user.savedPosts) ? user.savedPosts.length : 0,
+          savedPostIds: Array.isArray(user.savedPosts) ? user.savedPosts.map((id) => String(id)) : [],
+        },
+      });
+      reply = result.reply;
+    }
 
     await AIMessage.create({
       userId: user._id,

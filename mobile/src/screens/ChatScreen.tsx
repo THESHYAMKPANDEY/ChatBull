@@ -18,7 +18,6 @@ import { messageStatusManager, MessageStatus } from '../services/messageStatus';
 import { messageReactionManager, DEFAULT_REACTIONS } from '../services/messageReactions';
 import * as Clipboard from 'expo-clipboard';
 import { auth } from '../config/firebase';
-import { Ionicons } from '@expo/vector-icons';
 
 const SOCKET_URL = appConfig.SOCKET_BASE_URL;
 
@@ -42,11 +41,10 @@ interface ChatScreenProps {
   currentUser: any;
   otherUser: any;
   onBack: () => void;
-  onStartCall: (callID: string) => void;
+  onStartCall?: (callId: string) => void;
 }
 
 export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall }: ChatScreenProps) {
-  const callID = [currentUser.id, otherUser._id].sort().join('_');
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ messageId: string; senderName: string; content: string } | null>(null);
@@ -575,9 +573,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{otherUser.displayName}</Text>
-        <TouchableOpacity onPress={() => onStartCall(callID)}>
-          <Ionicons name="call-outline" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.placeholder} />
       </View>
 
       {/* Messages */}
@@ -621,10 +617,10 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       {/* Input */}
       <View style={styles.inputContainer}>
         <TouchableOpacity style={styles.mediaButton} onPress={() => handleMediaUpload('image')} disabled={isUploading}>
-          <Ionicons name="camera-outline" size={22} color="#111" />
+          <Text style={styles.mediaButtonText}>📷</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.mediaButton} onPress={() => handleMediaUpload('document')} disabled={isUploading}>
-          <Ionicons name="attach-outline" size={22} color="#111" />
+          <Text style={styles.mediaButtonText}>📄</Text>
         </TouchableOpacity>
         <TextInput
           style={styles.input}
@@ -644,17 +640,17 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
   const getStatusIcon = (status: MessageStatus) => {
     switch (status) {
       case 'sending':
-        return <Ionicons name="time-outline" size={14} color="#8e8e8e" />;
+        return <Text style={styles.statusText}>⏳</Text>; // Sending
       case 'sent':
-        return <Ionicons name="checkmark" size={14} color="#8e8e8e" />;
+        return <Text style={styles.statusText}>✓</Text>; // Sent
       case 'delivered':
-        return <Ionicons name="checkmark-done" size={14} color="#8e8e8e" />;
+        return <Text style={styles.statusText}>✓✓</Text>; // Delivered
       case 'read':
-        return <Ionicons name="checkmark-done" size={14} color="#3897f0" />;
+        return <Text style={[styles.statusText, styles.readStatus]}>✓✓</Text>; // Read
       case 'failed':
-        return <Ionicons name="alert-circle" size={14} color="#ff3b30" />;
+        return <Text style={[styles.statusText, styles.failedStatus]}>⚠️</Text>; // Failed
       default:
-        return <Ionicons name="checkmark" size={14} color="#8e8e8e" />;
+        return <Text style={styles.statusText}>✓</Text>;
     }
   };
   
@@ -683,12 +679,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  callButton: {
-    color: '#fff',
-    fontSize: 20,
-    width: 50,
-    textAlign: 'right',
   },
   placeholder: {
     width: 50,

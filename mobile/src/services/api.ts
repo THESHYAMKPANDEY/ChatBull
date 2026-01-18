@@ -4,18 +4,6 @@ import { auth } from '../config/firebase';
 const API_URL = `${appConfig.API_BASE_URL}/api`;
 const TIMEOUT_MS = 8000;
 
-const logDev = (...args: any[]) => {
-  if (__DEV__) console.log(...args);
-};
-
-const warnDev = (...args: any[]) => {
-  if (__DEV__) console.warn(...args);
-};
-
-const errorDev = (...args: any[]) => {
-  if (__DEV__) console.error(...args);
-};
-
 // Enhanced fetch wrapper with comprehensive error handling
 const apiRequest = async (
   endpoint: string,
@@ -26,7 +14,7 @@ const apiRequest = async (
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
   
   try {
-    logDev(`🚀 API Request: ${API_URL}${endpoint}`);
+    console.log(`🚀 API Request: ${API_URL}${endpoint}`);
     
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -68,7 +56,7 @@ const apiRequest = async (
         errorMessage = errorData || errorMessage;
       }
       
-      errorDev(`❌ API Error: ${endpoint}`, {
+      console.error(`❌ API Error: ${endpoint}`, {
         status: response.status,
         message: errorMessage,
         details: errorDetails,
@@ -79,23 +67,23 @@ const apiRequest = async (
     }
 
     const data = await response.json();
-    logDev(`✅ API Success: ${endpoint}`);
+    console.log(`✅ API Success: ${endpoint}`, data);
     return data;
     
   } catch (error: any) {
     clearTimeout(timeoutId);
     
     if (error.name === 'AbortError') {
-      errorDev('⏰ Request timeout:', endpoint);
+      console.error('⏰ Request timeout:', endpoint);
       throw new Error('Request timed out. Please check your connection.');
     }
     
     if (error.name === 'TypeError' && error.message.includes('Network')) {
-      errorDev('🌐 Network error:', error.message);
+      console.error('🌐 Network error:', error.message);
       throw new Error('Network request failed. Please check your WiFi connection.');
     }
     
-    errorDev(`💥 API request failed: ${endpoint}`, error);
+    console.error(`💥 API request failed: ${endpoint}`, error);
     throw error;
   }
 };
@@ -104,19 +92,20 @@ const getAuthHeaders = async (): Promise<Record<string, string>> => {
   const currentUser = auth.currentUser;
 
   if (!currentUser) {
-    warnDev('No current user, proceeding without auth header');
+    console.log('No current user, proceeding without auth header');
     return {};
   }
 
   try {
     // Force refresh token to ensure it's valid
     const idToken = await currentUser.getIdToken(true);
+    console.log('✅ Token generated for user:', currentUser.uid);
     
     return {
       Authorization: `Bearer ${idToken}`,
     };
   } catch (error) {
-    errorDev('Auth token error:', error);
+    console.error('Auth token error:', error);
     return {};
   }
 };
@@ -125,7 +114,7 @@ export const api = {
   // Health check endpoint
   healthCheck: async () => {
     try {
-      logDev('🔍 Performing health check...');
+      console.log('🔍 Performing health check...');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
@@ -138,33 +127,19 @@ export const api = {
       
       if (response.ok) {
         const data = await response.json();
-        logDev('✅ Health check passed');
+        console.log('✅ Health check passed:', data);
         return { success: true, data };
       } else {
-        errorDev('❌ Health check failed:', response.status);
+        console.error('❌ Health check failed:', response.status);
         return { success: false, error: `Health check failed with status ${response.status}` };
       }
     } catch (error: any) {
-      errorDev('💥 Health check error:', error);
+      console.error('💥 Health check error:', error);
       return { success: false, error: error.message || 'Unknown error' };
     }
   },
   
   // Auth endpoints
-  sendEmailOtp: async (email: string) => {
-    return await apiRequest('/auth/email-otp/send', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  },
-
-  verifyEmailOtp: async (email: string, otp: string) => {
-    return await apiRequest('/auth/email-otp/verify', {
-      method: 'POST',
-      body: JSON.stringify({ email, otp }),
-    });
-  },
-
   syncUser: async (userData: {
     firebaseUid: string;
     email: string;
@@ -172,12 +147,12 @@ export const api = {
     photoURL?: string;
     phoneNumber?: string;
   }) => {
-    logDev('🔄 Starting user sync process...');
+    console.log('🔄 Starting user sync process...');
     
     // Perform health check before sync
     const health = await api.healthCheck();
     if (!health.success) {
-      warnDev('⚠️ Backend health check failed, but proceeding with sync...');
+      console.warn('⚠️ Backend health check failed, but proceeding with sync...');
     }
     
     const maxRetries = 2;
@@ -185,7 +160,7 @@ export const api = {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        logDev(`🔄 Sync attempt ${attempt}/${maxRetries}`);
+        console.log(`🔄 Sync attempt ${attempt}/${maxRetries}`);
         
         const headers = await getAuthHeaders();
         
@@ -195,45 +170,31 @@ export const api = {
           body: JSON.stringify(userData),
         });
         
-        logDev('✅ User sync successful!');
+        console.log('✅ User sync successful!');
         return result;
         
       } catch (error: any) {
         lastError = error;
-        errorDev(`❌ Sync attempt ${attempt} failed:`, error.message);
+        console.error(`❌ Sync attempt ${attempt} failed:`, error.message);
         
         // Don't retry on certain errors
         if (error.message.includes('401') || error.message.includes('403')) {
-          warnDev('🔐 Authentication error - not retrying');
+          console.log('🔐 Authentication error - not retrying');
           throw error;
         }
         
         // Retry with exponential backoff
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-          logDev(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
+          console.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
     
     // All retries failed
-    errorDev('💥 All sync attempts failed');
+    console.error('💥 All sync attempts failed');
     throw lastError;
-  },
-
-  getStories: async () => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/stories', { headers });
-  },
-
-  createStory: async (storyData: { mediaUrl: string; mediaType: 'image' | 'video' }) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/stories', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(storyData),
-    });
   },
 
   getUsers: async () => {
@@ -266,9 +227,6 @@ export const api = {
 
   updateProfile: async (userData: {
     displayName?: string;
-    username?: string;
-    bio?: string;
-    website?: string;
     photoURL?: string;
     phoneNumber?: string;
   }) => {
@@ -288,14 +246,6 @@ export const api = {
     return await apiRequest('/posts/feed', {
       headers,
     });
-  },
-
-  getMyPosts: async (params?: { page?: number; limit?: number }) => {
-    const headers = await getAuthHeaders();
-    const page = params?.page ? `page=${encodeURIComponent(String(params.page))}` : '';
-    const limit = params?.limit ? `limit=${encodeURIComponent(String(params.limit))}` : '';
-    const qs = [page, limit].filter(Boolean).join('&');
-    return await apiRequest(`/posts/me${qs ? `?${qs}` : ''}`, { headers });
   },
 
   createPost: async (postData: {
@@ -321,61 +271,14 @@ export const api = {
     });
   },
 
-  toggleSavePost: async (postId: string) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest(`/posts/${postId}/save`, {
-      method: 'POST',
-      headers,
-    });
-  },
-
-  getSavedPosts: async (params?: { page?: number; limit?: number }) => {
-    const headers = await getAuthHeaders();
-    const page = params?.page ? `page=${encodeURIComponent(String(params.page))}` : '';
-    const limit = params?.limit ? `limit=${encodeURIComponent(String(params.limit))}` : '';
-    const qs = [page, limit].filter(Boolean).join('&');
-    return await apiRequest(`/posts/saved${qs ? `?${qs}` : ''}`, { headers });
-  },
-
-  addComment: async (postId: string, content: string) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest(`/posts/${postId}/comments`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ content }),
-    });
-  },
-
-  getComments: async (postId: string, params?: { page?: number; limit?: number }) => {
-    const headers = await getAuthHeaders();
-    const page = params?.page ? `page=${encodeURIComponent(String(params.page))}` : '';
-    const limit = params?.limit ? `limit=${encodeURIComponent(String(params.limit))}` : '';
-    const qs = [page, limit].filter(Boolean).join('&');
-    return await apiRequest(`/posts/${postId}/comments${qs ? `?${qs}` : ''}`, { headers });
-  },
-
   // AI Chat
   aiChat: async (message: string) => {
     const headers = await getAuthHeaders();
+    
     return await apiRequest('/ai/chat', {
       method: 'POST',
       headers,
       body: JSON.stringify({ message }),
-    });
-  },
-
-  getAIHistory: async () => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/ai/history', { headers });
-  },
-
-  // Groups
-  createGroup: async (data: { name: string; memberIds: string[]; description?: string; photoURL?: string }) => {
-    const headers = await getAuthHeaders();
-    return await apiRequest('/groups', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data),
     });
   },
 
@@ -395,6 +298,64 @@ export const api = {
       method: 'POST',
       headers,
       body: JSON.stringify({ sessionId }),
+    });
+  },
+
+  getAIHistory: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/ai/history', { headers });
+  },
+
+  toggleSavePost: async (postId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/posts/${postId}/save`, { method: 'POST', headers });
+  },
+
+  getComments: async (postId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/posts/${postId}/comments`, { headers });
+  },
+
+  addComment: async (postId: string, content: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/posts/${postId}/comments`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  getMyPosts: async (params?: { page?: number; limit?: number }) => {
+    const headers = await getAuthHeaders();
+    const queryString = params ? `?page=${params.page}&limit=${params.limit}` : '';
+    return await apiRequest(`/user/me/posts${queryString}`, { headers });
+  },
+
+  getStories: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/story/feed', { headers });
+  },
+
+  createStory: async (mediaUrl: string, type: 'image' | 'video') => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/story', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ mediaUrl, type }),
+    });
+  },
+  
+  sendEmailOtp: async (email: string) => {
+    return await apiRequest('/auth/email-otp/send', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+    });
+  },
+  
+  verifyEmailOtp: async (email: string, otp: string) => {
+    return await apiRequest('/auth/email-otp/verify', {
+        method: 'POST',
+        body: JSON.stringify({ email, otp })
     });
   },
 };

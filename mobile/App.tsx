@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
-import { observeAuthState, signOutUser } from './src/services/authClient';
+import { auth } from './src/config/firebase';
 import { api } from './src/services/api';
 
 import LoginScreen from './src/screens/LoginScreen';
@@ -25,7 +25,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = observeAuthState(async (firebaseUser) => {
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
         // Sync with backend
         try {
@@ -34,7 +34,7 @@ export default function App() {
             firebaseUid: firebaseUser.uid,
             email: firebaseUser.email || '',
             displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            phoneNumber: firebaseUser.phoneNumber || '',
+            phoneNumber: (firebaseUser as any).phoneNumber || '',
           });
           console.log('App: Backend sync successful, result:', result);
           setCurrentUser(result.user);
@@ -74,7 +74,7 @@ export default function App() {
       if (currentUser) {
         await api.logout();
       }
-      await signOutUser();
+      await auth.signOut();
       setCurrentUser(null);
       setCurrentScreen('login');
     } catch (error) {
@@ -153,10 +153,6 @@ export default function App() {
     }
   };
 
-  const handleUserUpdated = (user: any) => {
-    setCurrentUser(user);
-  };
-
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -219,7 +215,7 @@ export default function App() {
             onPrivate={handlePrivateMode}
             onAI={handleAI}
             onDeleteAccount={handleDeleteAccount}
-            onUserUpdated={handleUserUpdated}
+            onUserUpdated={(user) => setCurrentUser(user)}
           />
         )}
 

@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import {
   confirmPhoneOtp,
   signInCustomToken,
@@ -52,7 +51,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           email: firebaseUser.email || '',
           displayName: firebaseUser.displayName || email.split('@')[0],
           photoURL: firebaseUser.photoURL || '',
-          phoneNumber: firebaseUser.phoneNumber || '',
+          phoneNumber: (firebaseUser as any).phoneNumber || '',
         });
 
         if (result?.user) {
@@ -87,7 +86,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           email: firebaseUser.email || email,
           displayName: firebaseUser.displayName || email.split('@')[0],
           photoURL: firebaseUser.photoURL || '',
-          phoneNumber: firebaseUser.phoneNumber || '',
+          phoneNumber: (firebaseUser as any).phoneNumber || '',
         });
 
         if (result?.user) {
@@ -182,7 +181,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     <View style={styles.container}>
       <View style={styles.headerContainer}>
         <View style={styles.logoContainer}>
-          <Ionicons name="chatbubble-ellipses" size={26} color="#fff" />
+          <Text style={styles.logoIcon}>💬</Text>
         </View>
         <Text style={styles.title}>ChatBull</Text>
         <Text style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>

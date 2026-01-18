@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { api } from '../services/api';
 import BottomTabBar from '../components/BottomTabBar';
@@ -42,7 +41,6 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -115,7 +113,7 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
   };
 
   const startRecording = async () => {
-    if (sending || isRecording) return;
+    if (sending || recording) return;
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) return;
@@ -129,17 +127,14 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
       await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await rec.startAsync();
       setRecording(rec);
-      setIsRecording(true);
     } catch (error) {
       setRecording(null);
-      setIsRecording(false);
     }
   };
 
   const stopRecordingAndSend = async () => {
     if (!recording) return;
     try {
-      setIsRecording(false);
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       setRecording(null);
@@ -176,19 +171,17 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
 
       const data = (await response.json()) as any;
       if (!response.ok || !data?.success) {
-        Alert.alert('Voice input unavailable', data?.error || 'Speech recognition is not available right now.');
+        setSending(false);
         return;
       }
 
       const transcript = String(data.text || '').trim();
+      setSending(false);
       if (transcript) {
         await sendMessage(transcript);
       }
     } catch (error) {
       setRecording(null);
-      setIsRecording(false);
-      Alert.alert('Error', 'Failed to process voice input.');
-    } finally {
       setSending(false);
     }
   };
@@ -230,10 +223,10 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
 
       {voiceMode ? (
         <View style={[styles.voiceContainer, { backgroundColor: colors.background }]}>
-          <View style={[styles.orbContainer, isSpeaking && styles.orbSpeaking, isRecording && styles.orbListening]}>
-             <View style={[styles.orb, { backgroundColor: isRecording ? colors.danger : isSpeaking ? colors.primary : colors.card }]}>
+          <View style={[styles.orbContainer, isSpeaking && styles.orbSpeaking, !!recording && styles.orbListening]}>
+             <View style={[styles.orb, { backgroundColor: !!recording ? colors.danger : isSpeaking ? colors.primary : colors.card }]}>
                 <Ionicons 
-                  name={isSpeaking ? "volume-high" : isRecording ? "mic" : "mic-outline"} 
+                  name={isSpeaking ? "volume-high" : !!recording ? "mic" : "mic-outline"} 
                   size={64} 
                   color="#fff" 
                 />
@@ -241,15 +234,15 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
           </View>
           
           <Text style={[styles.voiceStatus, { color: colors.text }]}>
-            {isSpeaking ? "Speaking..." : isRecording ? "Listening..." : "Tap to talk"}
+            {isSpeaking ? "Speaking..." : !!recording ? "Listening..." : "Tap to talk"}
           </Text>
 
           <TouchableOpacity 
-             style={[styles.voiceButton, { backgroundColor: isRecording ? colors.danger : colors.primary }]}
-             onPress={isRecording ? stopRecordingAndSend : startRecording}
+             style={[styles.voiceButton, { backgroundColor: !!recording ? colors.danger : colors.primary }]}
+             onPress={!!recording ? stopRecordingAndSend : startRecording}
              disabled={isSpeaking || sending}
           >
-             <Ionicons name={isRecording ? "stop" : "mic"} size={32} color="#fff" />
+             <Ionicons name={!!recording ? "stop" : "mic"} size={32} color="#fff" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -286,17 +279,17 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile }: 
     
             <TouchableOpacity
               style={[styles.iconBtn, { borderColor: colors.border }]}
-              onPress={isRecording ? stopRecordingAndSend : startRecording}
+              onPress={!!recording ? stopRecordingAndSend : startRecording}
               disabled={sending}
             >
               <Ionicons
-                name={isRecording ? 'stop-circle-outline' : 'mic-outline'}
+                name={!!recording ? 'stop-circle-outline' : 'mic-outline'}
                 size={18}
-                color={isRecording ? colors.danger : colors.text}
+                color={!!recording ? colors.danger : colors.text}
               />
             </TouchableOpacity>
     
-            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || isRecording}>
+            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || !!recording}>
               {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
             </TouchableOpacity>
           </View>

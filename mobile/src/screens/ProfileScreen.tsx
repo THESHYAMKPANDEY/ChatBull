@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig';
 import { useTheme } from '../config/theme';
 import AppHeader from '../components/AppHeader';
 import BottomTabBar from '../components/BottomTabBar';
-import { VerifiedBadge } from '../components/VerifiedBadge';
+import VerifiedBadge from '../components/VerifiedBadge';
 import { api } from '../services/api';
 import { pickImage, uploadFile, PickedMedia } from '../services/media';
 
@@ -36,9 +36,6 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const website = currentUser?.website as string | undefined;
   const phoneNumber = currentUser?.phoneNumber as string | undefined;
 
-  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
-  const [loadingSaved, setLoadingSaved] = useState(false);
-
   const stats = useMemo(() => {
     return { followers: 0, following: 0 };
   }, []);
@@ -48,25 +45,6 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'tagged'>('posts');
-  
-  useEffect(() => {
-    loadMyPosts();
-    if (activeTab === 'saved') {
-      loadSavedPosts();
-    }
-  }, [activeTab]);
-
-  const loadSavedPosts = async () => {
-    try {
-      setLoadingSaved(true);
-      const result = await api.getSavedPosts({ page: 1, limit: 30 });
-      setSavedPosts(Array.isArray(result?.posts) ? result.posts : []);
-    } catch {
-      setSavedPosts([]);
-    } finally {
-      setLoadingSaved(false);
-    }
-  };
 
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -112,7 +90,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   };
 
   useEffect(() => {
-    // loadMyPosts() called in loadInitial which is handled by tab change or mount
+    loadMyPosts();
   }, []);
 
   const openEditProfile = () => {
@@ -321,14 +299,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const gridData =
     activeTab === 'posts'
       ? posts.filter((p) => p.mediaType === 'image' && !!p.mediaUrl)
-      : activeTab === 'saved'
-      ? savedPosts.filter((p) => p.mediaType === 'image' && !!p.mediaUrl)
       : [];
-
-  const handleRefresh = () => {
-    if (activeTab === 'posts') loadMyPosts();
-    else if (activeTab === 'saved') loadSavedPosts();
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -350,13 +321,6 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                 <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>No posts yet</Text>
               </View>
             )
-          ) : activeTab === 'saved' ? (
-            loadingSaved ? null : (
-               <View style={styles.gridEmpty}>
-                <Ionicons name="bookmark-outline" size={28} color={colors.mutedText} />
-                <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>No saved posts</Text>
-              </View>
-            )
           ) : (
             <View style={styles.gridEmpty}>
               <Ionicons name="lock-closed-outline" size={28} color={colors.mutedText} />
@@ -367,8 +331,8 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
         contentContainerStyle={styles.scrollContent}
         columnWrapperStyle={styles.gridRow}
         showsVerticalScrollIndicator={false}
-        refreshing={loadingPosts || loadingSaved}
-        onRefresh={handleRefresh}
+        refreshing={loadingPosts}
+        onRefresh={loadMyPosts}
       />
 
       <View style={styles.tabBar}>

@@ -63,12 +63,11 @@ export const takeVideo = async (): Promise<PickedMedia | null> => {
 
 // Function to pick an image from device
 export const pickImage = async (): Promise<PickedMedia | null> => {
-  if (ImagePicker.requestMediaLibraryPermissionsAsync) {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to access images.');
-      return null;
-    }
+  // Request permission for iOS
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to access images.');
+    return null;
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -90,12 +89,11 @@ export const pickImage = async (): Promise<PickedMedia | null> => {
 
 // Function to pick a video from device
 export const pickVideo = async (): Promise<PickedMedia | null> => {
-  if (ImagePicker.requestMediaLibraryPermissionsAsync) {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to access videos.');
-      return null;
-    }
+  // Request permission for iOS
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to access videos.');
+    return null;
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({

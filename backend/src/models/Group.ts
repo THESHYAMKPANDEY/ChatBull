@@ -1,49 +1,48 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IGroup extends Document {
   name: string;
   description?: string;
-  avatar?: string;
   members: mongoose.Types.ObjectId[];
   admins: mongoose.Types.ObjectId[];
-  createdBy: mongoose.Types.ObjectId;
+  avatar?: string;
   lastMessage?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const GroupSchema: Schema = new Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
+const groupSchema = new Schema<IGroup>(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    members: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    }],
+    admins: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    }],
+    avatar: {
+      type: String,
+    },
+    lastMessage: {
+      type: Schema.Types.ObjectId,
+      ref: 'Message',
+    },
   },
-  description: {
-    type: String,
-    trim: true,
-  },
-  avatar: {
-    type: String,
-  },
-  members: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-  }],
-  admins: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-  }],
-  createdBy: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  lastMessage: {
-    type: Schema.Types.ObjectId,
-    ref: 'Message',
-  },
-}, {
-  timestamps: true,
-});
+  {
+    timestamps: true,
+  }
+);
 
-export default mongoose.model<IGroup>('Group', GroupSchema);
+const Group = mongoose.model<IGroup>('Group', groupSchema);
+
+export default Group;

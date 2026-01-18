@@ -67,6 +67,8 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
   const [newMessage, setNewMessage] = useState('');
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(true);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [connectAttempt, setConnectAttempt] = useState(0);
   
   // Refs
   const screenshotCleanupRef = useRef<Function | null>(null);
@@ -192,7 +194,14 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
     if (!isAuthenticated) return;
 
     // Connect to private namespace
-    socketRef.current = io(SOCKET_URL);
+    setIsConnecting(true);
+    setConnectError(null);
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      timeout: 8000,
+      reconnectionAttempts: 2,
+      forceNew: true,
+    });
 
     socketRef.current.on('connect', () => {
       const pubKey = myKeyPairRef.current ? encodeBase64(myKeyPairRef.current.publicKey) : undefined;
@@ -214,6 +223,11 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
         });
         refreshUsers();
       });
+    });
+
+    socketRef.current.on('connect_error', (err: any) => {
+      setConnectError(err?.message || 'Unable to connect to private server.');
+      setIsConnecting(false);
     });
 
     // Listen for broadcasts
@@ -342,7 +356,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
       socketRef.current?.disconnect();
       if (screenshotCleanupRef.current) screenshotCleanupRef.current();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, connectAttempt]);
 
   const refreshUsers = () => {
     if (socketRef.current && sessionIdRef.current) {
@@ -582,6 +596,29 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
     );
   }
 
+  if (connectError) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <View style={styles.loadingRow}>
+          <Ionicons name="warning-outline" size={28} color="#ffb020" />
+          <Text style={styles.loadingText}>Private Mode unavailable</Text>
+        </View>
+        <Text style={styles.loadingSubtext}>{connectError}</Text>
+        <View style={{ marginTop: 20, flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity
+            style={[styles.authButton, { backgroundColor: '#4CAF50' }]}
+            onPress={() => setConnectAttempt((v) => v + 1)}
+          >
+            <Text style={styles.authButtonText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.authButton, { backgroundColor: '#333' }]} onPress={onExit}>
+            <Text style={styles.authButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -662,7 +699,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
         <TextInput
           style={styles.input}
           placeholder={chatMode === 'dm' ? 'Encrypted Message...' : 'Broadcast Message...'}
-          placeholderTextColor="#666"
+          placeholderTextColor="#AAA"
           value={newMessage}
           onChangeText={handleComposerChange}
           multiline
@@ -697,7 +734,7 @@ export default function PrivateModeScreen({ onExit }: PrivateModeScreenProps) {
                 >
                   <Ionicons name="shield-half-outline" size={16} color="#4CAF50" />
                   <Text style={styles.modalRowText}>{u}</Text>
-                  {publicKeysRef.current.has(u) && <Ionicons name="key-outline" size={14} color="#666" style={{marginLeft: 'auto'}} />}
+                  {publicKeysRef.current.has(u) && <Ionicons name="key-outline" size={14} color="#AAA" style={{marginLeft: 'auto'}} />}
                 </TouchableOpacity>
               ))
             )}

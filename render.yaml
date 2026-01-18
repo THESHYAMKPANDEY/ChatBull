@@ -1,14 +1,10 @@
 services:
   - type: web
-    name: chatbull-api
-    runtime: node
-    repo: https://github.com/YOUR_USERNAME/ChatBull # User to replace
-    region: oregon
+    name: chatbull-backend
+    env: node
     plan: free
-    branch: main
-    rootDir: backend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -16,9 +12,10 @@ services:
         value: 10000
       - key: MONGODB_URI
         sync: false
-      - key: JWT_SECRET
-        generateValue: true
-      - key: FIREBASE_SERVICE_ACCOUNT
+      - key: FIREBASE_PROJECT_ID
         sync: false
-      - key: OPENAI_API_KEY
+      - key: FIREBASE_CLIENT_EMAIL
         sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+    healthCheckPath: /health
