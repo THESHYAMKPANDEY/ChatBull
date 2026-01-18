@@ -23,6 +23,15 @@ PORT=5000
 MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/chatbull
 JWT_SECRET=your_production_secret_key_min_32_chars
 FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+# One-time (or controlled) index sync on boot
+MONGODB_SYNC_INDEXES=false
+# Data retention (days). Set to 0 to disable TTL for AI history.
+AI_MESSAGE_TTL_DAYS=365
+# Observability (Sentry)
+SENTRY_DSN=
+SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=
+SENTRY_TRACES_SAMPLE_RATE=0
 # Optional
 REDIS_URL=redis://localhost:6379
 
@@ -92,6 +101,9 @@ EXPO_PUBLIC_FIREBASE_API_KEY=...
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
 # ... other firebase config keys
+EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_SENTRY_ENVIRONMENT=production
+EXPO_PUBLIC_SENTRY_RELEASE=
 ```
 
 ### Web Deployment

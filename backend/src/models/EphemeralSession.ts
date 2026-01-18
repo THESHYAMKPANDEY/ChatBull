@@ -24,5 +24,6 @@ const ephemeralSessionSchema = new Schema<IEphemeralSession>(
 
 // TTL Index for auto-deletion
 ephemeralSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+ephemeralSessionSchema.index({ owner: 1, isActive: 1, expiresAt: 1 });
 
 export default mongoose.model<IEphemeralSession>('EphemeralSession', ephemeralSessionSchema);

@@ -43,6 +43,8 @@ const groupSchema = new Schema<IGroup>(
   }
 );
 
+groupSchema.index({ members: 1, updatedAt: -1 });
+
 const Group = mongoose.model<IGroup>('Group', groupSchema);
 
 export default Group;

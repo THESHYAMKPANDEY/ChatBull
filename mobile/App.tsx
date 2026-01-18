@@ -14,10 +14,13 @@ import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CallScreen from './src/screens/CallScreen';
 import { ThemeProvider } from './src/config/theme';
 import AIChatScreen from './src/screens/AIChatScreen';
+import Sentry, { initSentry } from './src/services/sentry';
 
 type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call';
 
-export default function App() {
+initSentry();
+
+function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -243,6 +246,8 @@ export default function App() {
     </ThemeProvider>
   );
 }
+
+export default Sentry.wrap(App);
 
 const styles = StyleSheet.create({
   container: {
