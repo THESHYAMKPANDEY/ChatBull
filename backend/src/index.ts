@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
 import dotenv from 'dotenv';
 import { requestLogger, errorHandler } from './utils/logger';
 import { createServer } from 'http';
@@ -55,6 +57,8 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // Security middleware
 app.use(helmet()); // Sets security headers
+app.use(mongoSanitize()); // Prevent MongoDB Operator Injection
+app.use(xss()); // Sanitize user input
 
 // Request logging
 app.use(requestLogger);
