@@ -10,8 +10,10 @@ import {
 } from 'react-native';
 import { api } from '../services/api';
 import { pickImage, pickVideo, uploadFile } from '../services/media';
+import { Ionicons } from '@expo/vector-icons';
 
 import { VerifiedBadge } from '../components/VerifiedBadge';
+import { useTheme } from '../config/theme';
 
 export interface User {
   _id: string;
@@ -48,6 +50,7 @@ export default function UsersListScreen({
   onFeed,
   onAI,
 }: UsersListScreenProps) {
+  const { colors } = useTheme();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStartingPrivate, setIsStartingPrivate] = useState(false);
@@ -153,22 +156,23 @@ export default function UsersListScreen({
 
   const renderUser = ({ item }: { item: User }) => (
     <TouchableOpacity style={styles.userItem} onPress={() => onSelectUser(item)}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
+      <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
+        <Text style={[styles.avatarText, { color: colors.mutedText }]}>
           {item.displayName.charAt(0).toUpperCase()}
         </Text>
       </View>
       <View style={styles.userInfo}>
         <View style={styles.nameRow}>
-          <Text style={styles.userName}>{item.displayName}</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>{item.displayName}</Text>
           {item.isPremium && <VerifiedBadge size={14} />}
         </View>
-        <Text style={styles.userEmail}>{item.email}</Text>
+        <Text style={[styles.userEmail, { color: colors.mutedText }]}>{item.email}</Text>
       </View>
       <View
         style={[
           styles.onlineIndicator,
           item.isOnline ? styles.online : styles.offline,
+          { borderColor: colors.card },
         ]}
       />
     </TouchableOpacity>
@@ -176,30 +180,30 @@ export default function UsersListScreen({
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>ChatBull</Text>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>ChatBull</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={onFeed} style={styles.headerIcon}>
-            <Text style={styles.iconText}>🏠</Text>
+            <Ionicons name="home-outline" size={24} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handlePrivateMode} disabled={isStartingPrivate} style={styles.headerIcon}>
             {isStartingPrivate ? (
-              <ActivityIndicator color="#000" size="small" />
+              <ActivityIndicator color={colors.text} size="small" />
             ) : (
-              <Text style={styles.iconText}>🔒</Text>
+              <Ionicons name="lock-closed-outline" size={24} color={colors.text} />
             )}
           </TouchableOpacity>
           <TouchableOpacity onPress={onProfile} style={styles.headerIcon}>
-            <Text style={styles.iconText}>👤</Text>
+            <Ionicons name="person-circle-outline" size={26} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -207,39 +211,37 @@ export default function UsersListScreen({
       {/* Stories/Active Section (Mock) */}
       <View style={styles.storiesContainer}>
         <TouchableOpacity style={styles.storyItem} onPress={handleCreateStory} disabled={isPostingStory}>
-          <View style={[styles.storyAvatar, styles.myStory]}>
-            {isPostingStory ? <ActivityIndicator color="#000" /> : <Text style={styles.storyAvatarText}>+</Text>}
+          <View style={[styles.storyAvatar, styles.myStory, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {isPostingStory ? <ActivityIndicator color={colors.text} /> : <Ionicons name="add" size={22} color={colors.text} />}
           </View>
-          <Text style={styles.storyName}>Your Story</Text>
+          <Text style={[styles.storyName, { color: colors.text }]}>Your Story</Text>
         </TouchableOpacity>
 
         {stories.slice(0, 10).map((s) => (
           <View key={s._id} style={styles.storyItem}>
-            <View style={styles.storyAvatar}>
-              <Text style={styles.storyAvatarText}>
-                {s.author?.displayName?.charAt(0)?.toUpperCase() || 'S'}
-              </Text>
+            <View style={[styles.storyAvatar, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+              <Text style={[styles.storyAvatarText, { color: colors.text }]}>{s.author?.displayName?.charAt(0)?.toUpperCase() || 'S'}</Text>
             </View>
-            <Text style={styles.storyName} numberOfLines={1}>
+            <Text style={[styles.storyName, { color: colors.text }]} numberOfLines={1}>
               {s.author?.displayName || 'Story'}
             </Text>
           </View>
         ))}
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       {/* Messages List Header */}
       <View style={styles.messagesHeader}>
-        <Text style={styles.messagesTitle}>Messages</Text>
-        <Text style={styles.requestsLink}>Requests</Text>
+        <Text style={[styles.messagesTitle, { color: colors.text }]}>Messages</Text>
+        <Text style={[styles.requestsLink, { color: colors.primary }]}>Requests</Text>
       </View>
 
       {/* Users List */}
       {users.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No messages yet</Text>
-          <Text style={styles.emptySubtext}>
+          <Text style={[styles.emptyText, { color: colors.text }]}>No messages yet</Text>
+          <Text style={[styles.emptySubtext, { color: colors.mutedText }]}>
             Tap the + button to start a new chat
           </Text>
         </View>

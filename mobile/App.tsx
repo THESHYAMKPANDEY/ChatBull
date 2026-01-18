@@ -153,6 +153,10 @@ export default function App() {
     }
   };
 
+  const handleUserUpdated = (user: any) => {
+    setCurrentUser(user);
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -215,6 +219,7 @@ export default function App() {
             onPrivate={handlePrivateMode}
             onAI={handleAI}
             onDeleteAccount={handleDeleteAccount}
+            onUserUpdated={handleUserUpdated}
           />
         )}
 

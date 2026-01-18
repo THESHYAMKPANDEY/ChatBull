@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   confirmPhoneOtp,
   signInCustomToken,
@@ -181,7 +182,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     <View style={styles.container}>
       <View style={styles.headerContainer}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoIcon}>💬</Text>
+          <Ionicons name="chatbubble-ellipses" size={26} color="#fff" />
         </View>
         <Text style={styles.title}>ChatBull</Text>
         <Text style={styles.subtitle}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>

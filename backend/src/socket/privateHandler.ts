@@ -1,8 +1,8 @@
 import { Server, Socket } from 'socket.io';
 import PrivateMessage from '../models/PrivateMessage';
 
-// Store private sessions: sessionId -> { alias, socketId }
-const privateSessions: Map<string, { alias: string; socketId: string }> = new Map();
+// Store private sessions: sessionId -> { alias, socketId, publicKey }
+const privateSessions: Map<string, { alias: string; socketId: string; publicKey?: string }> = new Map();
 
 // Generate random anonymous alias
 const generateAlias = (): string => {
@@ -26,23 +26,37 @@ export const setupPrivateSocket = (io: Server) => {
     console.log('Private user connected:', socket.id);
 
     // User enters private mode
-    socket.on('private:join', (callback: (data: any) => void) => {
+    socket.on('private:join', (data: { publicKey?: string } | undefined, callback: (data: any) => void) => {
+      // Handle both signature styles: (data, callback) or just (callback)
+      // If first arg is function, it's the callback and no data was sent
+      let publicKey: string | undefined = undefined;
+      let cb = callback;
+
+      if (typeof data === 'function') {
+        cb = data;
+      } else if (data && typeof data === 'object') {
+        publicKey = data.publicKey;
+      }
+
       const sessionId = generateSessionId();
       const alias = generateAlias();
 
-      privateSessions.set(sessionId, { alias, socketId: socket.id });
+      privateSessions.set(sessionId, { alias, socketId: socket.id, publicKey });
       socket.join('private-lobby');
 
       // Send back session info
-      callback({
-        sessionId,
-        alias,
-        message: 'Welcome to Private Mode. Your identity is hidden.',
-      });
+      if (cb) {
+        cb({
+          sessionId,
+          alias,
+          message: 'Welcome to Private Mode. Your identity is hidden.',
+        });
+      }
 
       // Broadcast to lobby that someone joined (without revealing identity)
       socket.to('private-lobby').emit('private:user-joined', {
         alias,
+        publicKey,
         message: `${alias} joined the private chat`,
       });
 
@@ -103,6 +117,33 @@ export const setupPrivateSocket = (io: Server) => {
       }
     });
 
+    socket.on('private:typing', async (data: { sessionId: string; receiverAlias?: string; isTyping: boolean }) => {
+      try {
+        const session = privateSessions.get(data.sessionId);
+        if (!session) return;
+
+        const payload = { alias: session.alias, isTyping: !!data.isTyping };
+
+        if (data.receiverAlias) {
+          let receiverSocketId: string | null = null;
+          for (const [, value] of privateSessions.entries()) {
+            if (value.alias === data.receiverAlias) {
+              receiverSocketId = value.socketId;
+              break;
+            }
+          }
+          if (receiverSocketId) {
+            privateNamespace.to(receiverSocketId).emit('private:typing', payload);
+          }
+          return;
+        }
+
+        socket.to('private-lobby').emit('private:typing', payload);
+      } catch {
+        return;
+      }
+    });
+
     // Broadcast to lobby (public chat in private mode)
     socket.on('private:broadcast', async (data: {
       sessionId: string;
@@ -130,13 +171,16 @@ export const setupPrivateSocket = (io: Server) => {
     });
 
     // Get online users in private mode
-    socket.on('private:users', (data: { sessionId: string }, callback: (users: string[]) => void) => {
+    socket.on('private:users', (data: { sessionId: string }, callback: (users: any[]) => void) => {
       const session = privateSessions.get(data.sessionId);
       if (!session) return;
 
       const users = Array.from(privateSessions.values())
-        .map(s => s.alias)
-        .filter(alias => alias !== session.alias);
+        .filter(s => s.alias !== session.alias)
+        .map(s => ({
+          alias: s.alias,
+          publicKey: s.publicKey
+        }));
       
       callback(users);
     });

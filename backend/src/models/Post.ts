@@ -6,6 +6,7 @@ export interface IPost extends Document {
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'file';
   likes: mongoose.Types.ObjectId[];
+  commentCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +39,10 @@ const postSchema = new Schema<IPost>(
         default: [],
       },
     ],
+    commentCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
