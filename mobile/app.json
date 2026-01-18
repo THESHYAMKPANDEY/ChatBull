@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.social.chatapp.mobile",
+      "bundleIdentifier": "com.chatbull.app",
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
@@ -25,7 +25,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "usesCleartextTraffic": false,
-      "package": "com.socialchat.app",
+      "package": "com.chatbull.app",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
