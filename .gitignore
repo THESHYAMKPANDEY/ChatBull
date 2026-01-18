@@ -6,9 +6,11 @@ node_modules/
 .expo-shared/
 dist/
 build/
+.trae/
 
 backend/logs/
 backend/uploads/
+backend/coverage/
 
 backend/.env
 backend/.env.local
@@ -16,3 +18,5 @@ backend/.env.local
 mobile/.env
 mobile/.env.production
 mobile/.env.local
+mobile/google-services.json
+mobile/GoogleService-Info.plist

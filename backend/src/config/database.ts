@@ -8,12 +8,6 @@ const connectDB = async (): Promise<void> => {
   try {
     const mongoURI = process.env.MONGODB_URI;
 
-    console.log('MongoDB URI debug:', {
-      hasValue: !!mongoURI,
-      startsWithSrv: mongoURI?.startsWith('mongodb+srv://') || false,
-      includesLocalhost: mongoURI?.includes('localhost') || false,
-    });
-
     if (!mongoURI) {
       throw new Error('MONGODB_URI is not defined in environment variables');
     }

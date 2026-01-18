@@ -65,7 +65,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     // Upload to Cloudinary
     const result = await uploadToCloudinary(req.file.path, {
-      folder: 'social-chat-app/media', // Organize under media subfolder
+      folder: 'chatbull/media', // Organize under media subfolder
       resource_type: 'auto', // Auto-detect image/video/raw
     });
 
@@ -132,7 +132,7 @@ router.post('/upload-multiple', upload.array('files', 10), async (req: Request, 
     // Upload all files to Cloudinary
     const uploadPromises = files.map(file => 
       uploadToCloudinary(file.path, {
-        folder: 'social-chat-app/media',
+        folder: 'chatbull/media',
         resource_type: 'auto',
       })
     );

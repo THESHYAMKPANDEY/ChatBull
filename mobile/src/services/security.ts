@@ -9,7 +9,6 @@ let screenshotListener: any = null;
 export const enableScreenshotProtection = (enable: boolean) => {
   // Safe implementation using state management
   isProtectionActive = enable;
-  console.log(`📸 Screenshot protection ${enable ? 'ENABLED' : 'DISABLED'}`);
 };
 
 export const sendScreenshotEvent = async (userId: string, location: string = 'unknown') => {
@@ -69,28 +68,23 @@ export const withScreenshotProtection = (WrappedComponent: any, userId: string, 
 export const activateSecureView = (backgroundImage?: string) => {
   // Set protection flag
   isProtectionActive = true;
-  console.log('🔒 Secure view activated');
 };
 
 export const deactivateSecureView = () => {
   // Clear protection flag
   isProtectionActive = false;
-  console.log('🔓 Secure view deactivated');
 };
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 
 // Screen overlay component for additional protection
 export const SecurityOverlay = () => {
   if (!isProtectionActive) return null;
-  
-  return (
-    <View style={styles.overlay} pointerEvents="none">
-      <View style={styles.warningBanner}>
-        {/* Transparent warning layer */}
-      </View>
-    </View>
+  return React.createElement(
+    View,
+    { style: styles.overlay, pointerEvents: 'none' as const },
+    React.createElement(View, { style: styles.warningBanner }),
   );
 };
 
@@ -102,7 +96,7 @@ const overlayStyle = {
 
 const warningBannerStyle = {
   ...StyleSheet.absoluteFillObject,
-  backgroundColor: 'rgba(255, 0, 0, 0.02)', // Subtle indicator
+  backgroundColor: 'rgba(255, 0, 0, 0.02)',
 };
 
 const styles = StyleSheet.create({

@@ -1,7 +1,7 @@
 // PRODUCTION-READY CONNECTION STATE MANAGER
 // Note: @react-native-netinfo needs to be installed
 // npm install @react-native-netinfo
-import { EventEmitter } from 'events';
+import EventEmitter from 'eventemitter3';
 
 // Mock NetInfo for now - will be replaced with actual implementation
 const NetInfo = {
@@ -75,12 +75,10 @@ class ConnectionManager extends EventEmitter {
   }
 
   private handleReconnection() {
-    console.log('📡 Network reconnected');
     this.emit('reconnected');
   }
 
   private handleDisconnection() {
-    console.log('📡 Network disconnected');
     this.emit('disconnected');
     
     // Attempt to reconnect
@@ -89,12 +87,10 @@ class ConnectionManager extends EventEmitter {
 
   private attemptReconnection() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('❌ Max reconnection attempts reached');
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(`🔄 Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
 
     // Exponential backoff
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
@@ -201,17 +197,15 @@ const getConnectionStatusMessage = (status: ConnectionStatus): string => {
 // Global error handler for network issues
 export const setupGlobalNetworkErrorHandler = () => {
   // Listen for connection status changes
-  connectionManager.on('statusChanged', (data) => {
-    console.log(`🌐 Connection status: ${data.from} → ${data.to}`);
+  connectionManager.on('statusChanged', (data: { from: ConnectionStatus; to: ConnectionStatus; isConnected: boolean }) => {
+    void data;
   });
 
   connectionManager.on('disconnected', () => {
-    console.log('⚠️ Network disconnection detected');
     // Could show notification or alert user
   });
 
   connectionManager.on('reconnected', () => {
-    console.log('✅ Network reconnection successful');
     // Could trigger data sync or refresh
   });
 };

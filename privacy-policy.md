@@ -1,4 +1,4 @@
-# Privacy Policy for Social Chat App
+# Privacy Policy for ChatBull
 
 **Last updated:** January 14, 2026
 
@@ -47,4 +47,4 @@ You have the right to:
 
 If you have questions about this privacy policy, please contact us at:
 
-Email: privacy@socialchatapp.com
+Email: privacy@chatbull.com
