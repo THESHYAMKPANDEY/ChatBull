@@ -2,6 +2,7 @@
   "expo": {
     "name": "ChatBull",
     "slug": "chatbull",
+    "scheme": "chatbull",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,6 +31,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "475b8712-7d94-45bd-9a9f-1c5d25233283"
+      }
     }
   }
 }
