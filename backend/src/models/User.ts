@@ -84,6 +84,8 @@ const userSchema = new Schema<IUser>(
   }
 );
 
+userSchema.index({ isOnline: 1, lastSeen: -1 });
+
 const User = mongoose.model<IUser>('User', userSchema);
 
 export default User;

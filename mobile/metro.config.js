@@ -1,18 +1,9 @@
-const { getDefaultConfig } = require('@expo/metro-config');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
-const defaultConfig = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
-// Enable experimental toReversed function support
-defaultConfig.resolver.unstable_enableSymlinks = false;
+config.resolver.unstable_enableSymlinks = false;
+config.resolver.assetExts = [...config.resolver.assetExts, 'bin'];
+config.transformer.unstable_allowRequireContext = true;
 
-module.exports = {
-  ...defaultConfig,
-  resolver: {
-    ...defaultConfig.resolver,
-    assetExts: [...defaultConfig.resolver.assetExts, 'bin'],
-  },
-  transformer: {
-    ...defaultConfig.transformer,
-    unstable_allowRequireContext: true,
-  },
-};
+module.exports = config;

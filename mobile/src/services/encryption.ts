@@ -25,7 +25,7 @@ const setupRandomBytes = () => {
   // If not, we might need a PRNG seed.
   
   // As a fallback for managed Expo where 'crypto' might be missing in JS engine:
-  nacl.setPRNG((x, n) => {
+  nacl.setPRNG((x: Uint8Array, n: number) => {
     // This is synchronous.
     // If we can't get random bytes synchronously, we might be in trouble for tweetnacl's default expectations.
     // But let's try to use a simple JS-based PRNG seeded with something unique if absolutely necessary,

@@ -23,8 +23,10 @@ import aiRoutes from './routes/ai';
 import { verifyFirebaseToken } from './middleware/auth';
 import admin from 'firebase-admin';
 import User from './models/User';
+import Sentry, { initSentry } from './services/sentry';
 
 dotenv.config({ override: true });
+initSentry();
 
 const app = express();
 app.set('trust proxy', 1);
@@ -59,6 +61,10 @@ app.use(helmet()); // Sets security headers
 
 // Request logging
 app.use(requestLogger);
+
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.requestHandler());
+}
 
 // Rate limiting
 const limiter = rateLimit({
@@ -165,6 +171,10 @@ app.get('/health/extended', async (req, res) => {
     });
   }
 });
+
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
 
 app.use(errorHandler);
 
