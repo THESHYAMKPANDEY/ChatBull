@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "deploy": "git push origin main",
+    "deploy:manual": "echo 'Go to Render Dashboard to trigger manual deploy'",
+    "logs": "echo 'Use Render Dashboard to view logs'"
+  }
+}
