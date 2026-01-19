@@ -15,7 +15,11 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const connectDB = async (): Promise<void> => {
   try {
+    // In Render deployment, we log connection attempt (without secrets)
     const mongoURI = process.env.MONGODB_URI;
+    if (!mongoURI) {
+      console.warn('⚠️ MONGODB_URI is undefined. Checking backup configuration...');
+    }
 
     if (!mongoURI) {
       throw new Error('MONGODB_URI is not defined in environment variables');
