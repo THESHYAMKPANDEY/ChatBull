@@ -1,6 +1,10 @@
 {
   "name": "chatbull",
   "private": true,
+  "scripts": {
+    "build": "cd old_version/backend && npm install && npm run build",
+    "start": "cd old_version/backend && npm start"
+  },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
     "@types/express-rate-limit": "^5.1.3",
