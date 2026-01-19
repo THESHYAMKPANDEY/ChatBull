@@ -16,17 +16,7 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 const connectDB = async (): Promise<void> => {
   try {
     // In Render deployment, we log connection attempt (without secrets)
-    // Check if the variable is empty string vs undefined
     const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI;
-    
-    if (mongoURI === undefined) {
-      console.error('❌ FATAL: MONGODB_URI is strictly UNDEFINED in process.env');
-      console.log('Environment keys available:', Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('SECRET')));
-    } else if (mongoURI === '') {
-      console.error('❌ FATAL: MONGODB_URI is set but EMPTY (empty string)');
-    } else {
-      console.log('✅ MONGODB_URI is present (length: ' + mongoURI.length + ')');
-    }
 
     if (!mongoURI) {
       throw new Error('MONGODB_URI is not defined in environment variables');
