@@ -49,6 +49,26 @@ export const authApi = {
       };
     }
     throw new Error('Invalid OTP');
+  },
+
+  loginWithEmail: async (email: string, password: string) => {
+    // Mock login with email/password
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (password.length >= 6) {
+      return {
+        data: {
+          access_token: 'mock_jwt_token_email_' + Date.now(),
+          user: {
+            id: 'user_email_' + Date.now(),
+            email,
+            displayName: email.split('@')[0],
+          }
+        }
+      };
+    }
+    throw new Error('Invalid credentials');
   }
 };
 
