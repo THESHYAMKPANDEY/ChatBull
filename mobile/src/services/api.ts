@@ -2,7 +2,7 @@ import { appConfig } from '../config/appConfig';
 import { auth } from '../config/firebase';
 
 const API_URL = `${appConfig.API_BASE_URL}/api`;
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 120000; // Increased to 120 seconds for Render free tier cold starts
 
 // Enhanced fetch wrapper with comprehensive error handling
 const apiRequest = async (
