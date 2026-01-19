@@ -213,14 +213,8 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile, sh
     >
       <AppHeader 
         title={t('aiTitle')} 
-        rightIcon={
-          <Ionicons 
-            name={voiceMode ? "mic" : "mic-outline"} 
-            size={24} 
-            color={voiceMode ? colors.primary : colors.text} 
-          />
-        }
-        onRightPress={() => setVoiceMode(!voiceMode)}
+        rightIcon={null} // Voice mode disabled for production
+        onRightPress={() => {}}
       />
 
       {voiceMode ? (
@@ -280,7 +274,8 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile, sh
               />
             </TouchableOpacity>
     
-            <TouchableOpacity
+            {/* Voice recording disabled for production */}
+            {/* <TouchableOpacity
               style={[styles.iconBtn, { borderColor: colors.border }]}
               onPress={!!recording ? stopRecordingAndSend : startRecording}
               disabled={sending}
@@ -290,7 +285,7 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile, sh
                 size={18}
                 color={!!recording ? colors.danger : colors.text}
               />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
     
             <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={send} disabled={sending || !!recording}>
               {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>{t('send')}</Text>}

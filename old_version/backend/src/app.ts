@@ -11,6 +11,7 @@ import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
 import storyRoutes from './routes/story';
 import aiRoutes from './routes/ai';
+import shareRoutes from './routes/share';
 import { requestLogger, errorHandler } from './utils/logger';
 import { isFirebaseAdminReady } from './services/notifications';
 import { verifyFirebaseToken } from './middleware/auth';
@@ -71,6 +72,7 @@ export const createApp = () => {
   app.use('/api/private', privateRoutes);
   app.use('/api/stories', storyRoutes);
   app.use('/api/ai', aiRoutes);
+  app.use('/share', shareRoutes);
 
   app.get('/', (req, res) => {
     res.json({
