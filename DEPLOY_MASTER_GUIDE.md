@@ -75,6 +75,14 @@ This hosts the browser version of your app (`www.chatbull.com`).
     *   **Root Directory**: `mobile`
     *   **Build Command**: `npm run build:web`
     *   **Publish Directory**: `dist` (or `web-build` if you haven't changed default).
+    *   **Environment Variables**:
+        *   `EXPO_PUBLIC_API_BASE_URL`: `https://chatbull-backend.onrender.com` (Your backend URL)
+        *   `EXPO_PUBLIC_FIREBASE_API_KEY`: Your Firebase API Key
+        *   `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`: `your-project.firebaseapp.com`
+        *   `EXPO_PUBLIC_FIREBASE_PROJECT_ID`: `your-project-id`
+        *   `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`: `your-project.appspot.com`
+        *   `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`: Your Sender ID
+        *   `EXPO_PUBLIC_FIREBASE_APP_ID`: Your App ID
 
 4.  **Deploy**:
     *   Click **Create Static Site**.
@@ -82,10 +90,11 @@ This hosts the browser version of your app (`www.chatbull.com`).
 
 5.  **Custom Domain (GoDaddy)**:
     *   In Render (Static Site settings), go to **Settings** > **Custom Domains**.
-    *   Add `www.chatbull.com`.
-    *   Render will show you a **CNAME** value (e.g., `chatbull-web.onrender.com`).
-    *   Go to GoDaddy DNS Management.
-    *   Add/Edit **CNAME** for `www` and point it to the Render URL.
+    *   Add `chatbull.in` and `www.chatbull.in`.
+    *   Render will show you DNS values.
+    *   **Go to GoDaddy DNS Management**:
+        *   **Add CNAME**: Name=`www`, Value=`[your-render-url].onrender.com`
+        *   **Add A Record**: Name=`@`, Value=`216.24.57.1` (Render's IP)
 
 ---
 

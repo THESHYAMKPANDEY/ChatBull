@@ -344,6 +344,8 @@ function AppContent() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 20, color: colors.text }}>Connecting to secure server...</Text>
+        <Text style={{ marginTop: 10, color: colors.mutedText, fontSize: 12 }}>This may take up to 60s on free tier.</Text>
         <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       </View>
     );
