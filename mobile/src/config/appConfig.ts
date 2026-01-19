@@ -1,4 +1,4 @@
-const fallbackApiBase = 'https://chatbull-backend.onrender.com';
+const fallbackApiBase = 'https://chatbull.onrender.com';
 
 const apiBaseUrl =
   process.env.EXPO_PUBLIC_API_BASE_URL || fallbackApiBase;
