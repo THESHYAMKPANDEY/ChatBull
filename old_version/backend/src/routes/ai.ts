@@ -1,8 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import User from '../models/User';
@@ -13,19 +11,8 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-const aiUploadsDir = path.join(process.cwd(), 'uploads', 'ai');
-if (!fs.existsSync(aiUploadsDir)) {
-  fs.mkdirSync(aiUploadsDir, { recursive: true });
-}
-
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, aiUploadsDir),
-    filename: (_req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, `audio-${uniqueSuffix}${path.extname(file.originalname) || '.m4a'}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
 });
 
@@ -163,12 +150,6 @@ router.post('/transcribe', verifyFirebaseToken, upload.single('audio'), async (r
   } catch (error: any) {
     logger.error('AI transcribe error', { message: error?.message || String(error) });
     res.status(500).json({ success: false, error: error.message || 'Transcription failed' });
-  } finally {
-    if (req.file?.path) {
-      try {
-        await fs.promises.unlink(req.file.path);
-      } catch {}
-    }
   }
 });
 

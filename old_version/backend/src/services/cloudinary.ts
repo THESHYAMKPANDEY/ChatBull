@@ -36,6 +36,34 @@ export const uploadToCloudinary = async (
 };
 
 /**
+ * Upload buffer to Cloudinary (for memory storage)
+ */
+export const uploadBufferToCloudinary = (
+  buffer: Buffer,
+  options: Partial<UploadApiOptions> = {}
+): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const uploadOptions: UploadApiOptions = {
+      folder: 'chatbull',
+      resource_type: 'auto',
+      ...options,
+    };
+
+    const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+      if (error) {
+        logger.error('Cloudinary buffer upload error', { message: error.message });
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    });
+
+    stream.write(buffer);
+    stream.end();
+  });
+};
+
+/**
  * Upload multiple files to Cloudinary
  */
 export const uploadMultipleToCloudinary = async (

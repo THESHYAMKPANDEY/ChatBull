@@ -22,6 +22,7 @@ import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadFile, P
 import BottomTabBar from '../components/BottomTabBar';
 import { useTheme } from '../config/theme';
 import AppHeader from '../components/AppHeader';
+import { appConfig } from '../config/appConfig';
 
 import i18n from '../i18n';
 
@@ -306,8 +307,15 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
     try {
       const authorName = post.author?.displayName || 'User';
       const text = post.content ? `${authorName}: ${post.content}` : `${authorName} posted`;
-      const url = post.mediaUrl || undefined;
-      await Share.share({ message: url ? `${text}\n${url}` : text, url });
+      const shareUrl = `${appConfig.API_BASE_URL}/share/p/${post._id}`;
+      
+      const message = Platform.OS === 'ios' ? text : `${text}\n${shareUrl}`;
+      
+      await Share.share({ 
+        message, 
+        url: shareUrl,
+        title: 'Share Post'
+      });
     } catch (error) {
       console.error('Share error:', error);
     }

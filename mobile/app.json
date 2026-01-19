@@ -38,7 +38,34 @@
     },
     "plugins": [
       "expo-font",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends.",
+          "cameraPermission": "The app accesses your camera to let you take photos and videos to share."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "The app accesses your microphone to let you send voice messages."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "The app accesses your contacts to help you find friends."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow ChatBull to use Face ID for secure access."
+        }
+      ],
+      "expo-speech",
+      "expo-notifications"
     ]
   }
 }

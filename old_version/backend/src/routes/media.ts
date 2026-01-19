@@ -1,26 +1,13 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import path from 'path';
-import { uploadToCloudinary, isCloudinaryConfigured } from '../services/cloudinary';
+import { uploadBufferToCloudinary, isCloudinaryConfigured } from '../services/cloudinary';
 import { logger } from '../utils/logger';
 
 const router = Router();
 
-// Set up multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Create temp uploads directory
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Set up multer for file uploads (Memory Storage)
 const upload = multer({ 
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max file size
   },
@@ -64,15 +51,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       return;
     }
 
-    // Upload to Cloudinary
-    const result = await uploadToCloudinary(req.file.path, {
+    // Upload to Cloudinary using buffer
+    const result = await uploadBufferToCloudinary(req.file.buffer, {
       folder: 'chatbull/media', // Organize under media subfolder
       resource_type: 'auto', // Auto-detect image/video/raw
     });
-
-    // Clean up temp file (optional - we could do this later)
-    const fs = await import('fs');
-    fs.unlinkSync(req.file.path);
 
     res.status(200).json({
       success: true,
@@ -90,12 +73,6 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
   } catch (error: any) {
     logger.error('Media upload error', { message: error?.message || String(error) });
     
-    // Clean up temp file if exists
-    if (req.file) {
-      const fs = await import('fs');
-      fs.unlinkSync(req.file.path);
-    }
-
     res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to upload file to Cloudinary' 
@@ -130,21 +107,15 @@ router.post('/upload-multiple', upload.array('files', 10), async (req: Request, 
 
     const files = req.files as Express.Multer.File[];
     
-    // Upload all files to Cloudinary
+    // Upload all files to Cloudinary using buffers
     const uploadPromises = files.map(file => 
-      uploadToCloudinary(file.path, {
+      uploadBufferToCloudinary(file.buffer, {
         folder: 'chatbull/media',
         resource_type: 'auto',
       })
     );
 
     const results = await Promise.all(uploadPromises);
-
-    // Clean up temp files
-    const fs = await import('fs');
-    files.forEach(file => {
-      fs.unlinkSync(file.path);
-    });
 
     const urls = results.map(result => ({
       url: result.secure_url,
@@ -162,14 +133,6 @@ router.post('/upload-multiple', upload.array('files', 10), async (req: Request, 
   } catch (error: any) {
     logger.error('Multiple media upload error', { message: error?.message || String(error) });
     
-    // Clean up temp files if any exist
-    if (req.files) {
-      const fs = await import('fs');
-      (req.files as Express.Multer.File[]).forEach(file => {
-        fs.unlinkSync(file.path);
-      });
-    }
-
     res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to upload files to Cloudinary' 
