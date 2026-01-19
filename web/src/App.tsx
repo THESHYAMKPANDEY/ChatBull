@@ -3,6 +3,8 @@ import { authApi } from './lib/api';
 import { connectSocket, getSocket } from './lib/socket';
 import { SignalManager } from './lib/signal/SignalManager';
 import api from './lib/api';
+import { CallModal } from './components/CallModal';
+import { callManager } from './lib/CallManager';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -149,6 +151,22 @@ function App() {
       setInput('');
   };
 
+  const startVideoCall = () => {
+    if (!recipientId) {
+      alert('Please enter a recipient ID first');
+      return;
+    }
+    callManager.startCall(recipientId, 'video');
+  };
+
+  const startAudioCall = () => {
+    if (!recipientId) {
+      alert('Please enter a recipient ID first');
+      return;
+    }
+    callManager.startCall(recipientId, 'audio');
+  };
+
   // ... (Rest of UI is same as before, simplified for brevity)
   if (step === 'phone') {
     return (
@@ -192,10 +210,20 @@ function App() {
           <h3>ChatBull</h3>
           <small>Logged in as: {user?.phoneNumber} (ID: {user?.id})</small>
         </div>
-        <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid white', color: 'white', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={startAudioCall} style={{ background: 'transparent', border: '1px solid white', color: 'white', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>
+             📞 Audio
+          </button>
+          <button onClick={startVideoCall} style={{ background: 'transparent', border: '1px solid white', color: 'white', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>
+             🎥 Video
+          </button>
+          <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid white', color: 'white', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>
+            Logout
+          </button>
+        </div>
       </header>
+      
+      <CallModal />
       
       <div style={{ background: '#eee', padding: '10px' }}>
          <input 
