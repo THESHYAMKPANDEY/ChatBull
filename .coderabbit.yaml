@@ -1,0 +1,40 @@
+# CodeRabbit Configuration
+# Documentation: https://coderabbit.ai/docs
+
+language: "en-US"
+early_access: false
+
+reviews:
+  # Profile determines the tone of the review
+  # Options: "assertive", "chill", "cooperative"
+  profile: "cooperative"
+
+  # Whether to mark the review as "Request Changes" if issues are found
+  request_changes_workflow: false
+
+  # Generate a high-level summary of the changes
+  high_level_summary: true
+
+  # Auto-review settings
+  auto_review:
+    enabled: true
+    # Do not review PRs with these words in the title
+    ignore_title_keywords:
+      - "WIP"
+      - "Draft"
+      - "do not merge"
+    # Labels that trigger a review
+    labels: []
+    # Files/globs to ignore
+    ignore:
+      - "package-lock.json"
+      - "yarn.lock"
+      - "dist/**"
+      - "build/**"
+      - "*.min.js"
+      - "*.map"
+      - "assets/**"
+
+chat:
+  # Allow the bot to reply to comments in the PR thread
+  auto_reply: true
