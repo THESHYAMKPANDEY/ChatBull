@@ -43,7 +43,14 @@ const connectDB = async (): Promise<void> => {
       logger.info('MongoDB indexes synced');
     }
   } catch (error) {
-    logger.error('MongoDB connection error', { message: (error as any)?.message || String(error) });
+    const errorMessage = (error as any)?.message || String(error);
+    logger.error('MongoDB connection error', { message: errorMessage });
+    
+    // Proactive hint for common auth issues
+    if (errorMessage.includes('bad auth') || errorMessage.includes('authentication failed')) {
+      logger.error('HINT: Check if your MongoDB password contains special characters (@, :, etc). If so, they must be URL encoded in the connection string.');
+    }
+    
     process.exit(1);
   }
 };
