@@ -67,7 +67,6 @@
           "faceIDPermission": "Allow ChatBull to use Face ID for secure access."
         }
       ],
-      "expo-speech",
       "expo-notifications"
     ]
   }

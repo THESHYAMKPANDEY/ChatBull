@@ -1,0 +1,233 @@
+:root {
+  --primary: #007AFF;
+  --primary-hover: #0069d9;
+  --bg-color: #fafafa;
+  --card-bg: #ffffff;
+  --text-main: #262626;
+  --text-secondary: #8e8e8e;
+  --border-color: #dbdbdb;
+  --error: #ed4956;
+  --link-color: #00376b;
+  --input-bg: #fafafa;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Login Page Styles */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.login-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 350px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  border-radius: 20px; /* Optional: matches iOS style */
+}
+
+.app-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  color: var(--text-main);
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group {
+  width: 100%;
+  position: relative;
+}
+
+.form-input {
+  width: 100%;
+  padding: 9px 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--input-bg);
+  border-radius: 3px;
+  font-size: 14px;
+  color: var(--text-main);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--text-secondary);
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+}
+
+.login-button {
+  width: 100%;
+  padding: 8px 10px;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.2s;
+}
+
+.login-button:disabled {
+  background-color: rgba(0, 149, 246, 0.3);
+  cursor: default;
+}
+
+.login-button:not(:disabled):hover {
+  background-color: var(--primary-hover);
+}
+
+.divider {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+.divider-text {
+  padding: 0 15px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.social-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #385185;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+
+.forgot-password {
+  font-size: 12px;
+  color: var(--link-color);
+  text-decoration: none;
+  margin-top: 12px;
+}
+
+.signup-box {
+  margin-top: 10px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 350px;
+  padding: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.signup-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 5px;
+  cursor: pointer;
+}
+
+.error-message {
+  color: var(--error);
+  font-size: 14px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 5px;
+}
+
+.remember-me input {
+  margin-right: 5px;
+}
+
+/* Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 450px) {
+  .login-card, .signup-box {
+    border: none;
+    background-color: transparent;
+    max-width: 100%;
+  }
+  .login-container {
+    padding: 0;
+    align-items: flex-start;
+    padding-top: 40px;
+    background-color: var(--card-bg);
+  }
+}

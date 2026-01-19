@@ -318,7 +318,7 @@ router.post('/email-otp/verify', async (req: Request, res: Response) => {
 
     res.status(200).json({ 
         message: 'OTP verified',
-        token: customToken
+        customToken
     });
 
   } catch (error) {
