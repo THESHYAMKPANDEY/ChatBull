@@ -14,6 +14,7 @@ import legalRoutes from './routes/legal';
 import postRoutes from './routes/post';
 import { setupSocket } from './socket/chatHandler';
 import { setupPrivateSocket } from './socket/privateHandler';
+import { setupCallSocket } from './socket/callHandler';
 import { initializeFirebaseAdmin, isFirebaseAdminReady } from './services/notifications';
 import userRoutes from './routes/user';
 import privateRoutes from './routes/private';
@@ -219,6 +220,7 @@ io.use(async (socket, next) => {
 
 setupSocket(io);
 setupPrivateSocket(io);
+setupCallSocket(io);
 
 import os from 'os';
 

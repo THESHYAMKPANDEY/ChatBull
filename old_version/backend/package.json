@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
+    "build:render": "npm install && npm run build",
     "start": "node dist/index.js",
     "test": "jest",
     "test:ci": "jest --runInBand"
