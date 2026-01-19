@@ -17,7 +17,7 @@ const connectDB = async (): Promise<void> => {
   try {
     // In Render deployment, we log connection attempt (without secrets)
     // Check if the variable is empty string vs undefined
-    const mongoURI = process.env.MONGODB_URI;
+    const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI;
     
     if (mongoURI === undefined) {
       console.error('❌ FATAL: MONGODB_URI is strictly UNDEFINED in process.env');
