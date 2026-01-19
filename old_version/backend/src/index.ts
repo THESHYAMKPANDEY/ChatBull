@@ -3,6 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env file explicitly if NODE_ENV is not production (or for debugging)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+} else {
+  dotenv.config();
+}
+
 import { requestLogger, errorHandler, logger } from './utils/logger';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -29,7 +38,7 @@ import User from './models/User';
 import Sentry, { initSentry } from './services/sentry';
 import { noSqlSanitize } from './middleware/noSqlSanitize';
 
-dotenv.config({ override: true });
+// Remove the override config call as we handled it above
 initSentry();
 
 const app = express();
