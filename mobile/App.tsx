@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Alert, Platform, PanResponder, TouchableOpacity, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Alert, Platform, PanResponder, TouchableOpacity, Text, BackHandler } from 'react-native';
 import { auth } from './src/config/firebase';
 import { api } from './src/services/api';
 import * as Notifications from 'expo-notifications';
@@ -192,6 +192,59 @@ function AppContent() {
     // Return to the screen they were on before
     setCurrentScreen(previousScreenRef.current);
   };
+
+  // Android Back Handler
+  useEffect(() => {
+    const onBackPress = () => {
+      // Return true to stop default behavior (exiting app)
+      
+      if (currentScreen === 'chat') {
+        handleBackFromChat();
+        return true;
+      }
+      
+      if (currentScreen === 'call') {
+        handleBackFromCall();
+        return true;
+      }
+
+      if (currentScreen === 'createGroup') {
+        handleBackToUsers();
+        return true;
+      }
+      
+      if (currentScreen === 'profile') {
+        handleBackToUsers();
+        return true;
+      }
+      
+      if (currentScreen === 'feed') {
+        handleBackToUsers();
+        return true;
+      }
+      
+      if (currentScreen === 'ai') {
+        handleBackToUsers();
+        return true;
+      }
+
+      if (currentScreen === 'private') {
+        handleExitPrivateMode();
+        return true;
+      }
+
+      // If on login or users list (main screens), let default behavior happen (exit app)
+      if (currentScreen === 'users' || currentScreen === 'login') {
+        return false;
+      }
+
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    return () => subscription.remove();
+  }, [currentScreen, selectedUser, callData]); // Re-bind when screen changes to capture correct state closures
 
   const handleProfile = () => {
     setCurrentScreen('profile');
@@ -439,11 +492,15 @@ function AppContent() {
   );
 }
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 

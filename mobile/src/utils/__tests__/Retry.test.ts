@@ -41,10 +41,12 @@ describe('withRetry', () => {
       initialDelayMs: 10
     });
 
+    const resultPromise = expect(promise).rejects.toThrow(RetryError);
+
     // Advance enough time for all retries
     await jest.advanceTimersByTimeAsync(1000);
 
-    await expect(promise).rejects.toThrow(RetryError);
+    await resultPromise;
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
@@ -69,6 +71,9 @@ describe('withRetry', () => {
       maxDelayMs: 500, // Cap at 500
       onRetry
     });
+    
+    // Attach error handler to prevent unhandled rejection during timer advance
+    promise.catch(() => {});
 
     await jest.advanceTimersByTimeAsync(5000);
     try { await promise; } catch (e) {}

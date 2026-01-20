@@ -10,12 +10,12 @@ const router = Router();
 
 /**
  * GET /api/legal/privacy
- * Serve privacy policy
+ * Serve privacy policy as HTML for browsers/Google Play, or JSON for API clients
  */
 router.get('/privacy', (req: Request, res: Response) => {
-  res.status(200).json({
-    title: 'Privacy Policy',
-    content: `
+  const isBrowser = req.headers.accept?.includes('text/html');
+  
+  const privacyContent = `
 # Privacy Policy for ChatBull
 
 **Last updated:** January 14, 2026
@@ -66,9 +66,39 @@ You have the right to:
 If you have questions about this privacy policy, please contact us at:
 
 Email: privacy@chatbull.com
-    `,
-    lastUpdated: '2026-01-14',
-  });
+  `;
+
+  if (isBrowser) {
+    // Serve nice HTML for Google Play / Browsers
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Privacy Policy - ChatBull</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+          h1 { color: #007AFF; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+          h2 { color: #444; margin-top: 30px; }
+          ul { padding-left: 20px; }
+          li { margin-bottom: 8px; }
+          strong { color: #000; }
+        </style>
+      </head>
+      <body>
+        ${privacyContent.replace(/\n/g, '<br/>').replace(/# (.*)/, '<h1>$1</h1>').replace(/## (.*)/g, '<h2>$1</h2>').replace(/- \*\*(.*)\*\*: (.*)/g, '<li><strong>$1</strong>: $2</li>').replace(/- (.*)/g, '<li>$1</li>')}
+      </body>
+      </html>
+    `;
+    res.send(html);
+  } else {
+    // Serve JSON for Mobile App
+    res.status(200).json({
+      title: 'Privacy Policy',
+      content: privacyContent,
+      lastUpdated: '2026-01-14',
+    });
+  }
 });
 
 /**
