@@ -8,6 +8,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -226,8 +228,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerContainer}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <View style={styles.headerContainer}>
         <View style={styles.logoContainer}>
           <Ionicons name="chatbubble-ellipses" size={40} color="#fff" />
         </View>
@@ -401,8 +407,9 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             </Text>
           </TouchableOpacity>
         )}
-      </View>
-    </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -412,7 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   headerContainer: {
-    flex: 0.4,
+    height: 300, // Fixed height instead of flex for ScrollView
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#007AFF',
@@ -460,7 +467,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   formContainer: {
-    flex: 0.6,
+    // flex: 0.6, // Removed flex
     padding: 24,
   },
   modeSwitch: {
