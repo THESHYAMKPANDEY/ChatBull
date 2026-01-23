@@ -49,6 +49,14 @@ export const setupRecaptcha = (containerId: string, onSolved?: () => void) => {
       } catch {}
     }
 
+    // Force clear the container DOM element to prevent "element must be empty" error
+    if (typeof document !== 'undefined') {
+      const container = document.getElementById(containerId);
+      if (container) {
+        container.innerHTML = '';
+      }
+    }
+
     // @ts-ignore
     window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
       'size': 'invisible',
