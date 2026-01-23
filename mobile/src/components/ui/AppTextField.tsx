@@ -10,10 +10,11 @@ export type AppTextFieldProps = TextInputProps & {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   containerStyle?: ViewStyle;
+  hint?: string;
 };
 
 const AppTextField = React.forwardRef<TextInput, AppTextFieldProps>(function AppTextField(
-  { label, error, style, onKeyPress, onSubmitEditing, multiline, leftIcon, rightIcon, containerStyle, ...props }: AppTextFieldProps,
+  { label, error, style, onKeyPress, onSubmitEditing, multiline, leftIcon, rightIcon, containerStyle, hint, ...props }: AppTextFieldProps,
   ref
 ) {
   const { colors } = useTheme();
@@ -54,6 +55,11 @@ const AppTextField = React.forwardRef<TextInput, AppTextFieldProps>(function App
         />
         {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
       </View>
+      {hint && !error ? (
+        <AppText variant="caption" style={{ marginTop: spacing[1] }} color={colors.mutedText}>
+          {hint}
+        </AppText>
+      ) : null}
       {error ? (
         <AppText variant="caption" style={{ marginTop: spacing[1] }} color={colors.danger}>
           {error}

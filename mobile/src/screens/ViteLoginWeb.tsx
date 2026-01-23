@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, ActivityIndicator, Platform, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp } from '../services/authClient';
+import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp, setupRecaptcha } from '../services/authClient';
 import { api } from '../services/api';
 
 interface Props {
@@ -29,6 +29,12 @@ export default function ViteLoginWeb({ onLogin }: Props) {
     { code: 'JP', label: '🇯🇵 +81', calling: '81' },
     { code: 'DE', label: '🇩🇪 +49', calling: '49' },
   ] as const;
+
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      setupRecaptcha('sign-in-button');
+    }
+  }, []);
 
   const handleSubmit = async () => {
     setError('');
