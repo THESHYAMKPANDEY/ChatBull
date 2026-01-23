@@ -148,3 +148,19 @@ export const resetRecaptcha = () => {
     } catch {}
   }
 };
+
+export const clearRecaptcha = () => {
+  if (Platform.OS !== 'web') return;
+  // @ts-ignore
+  if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+    try {
+      // @ts-ignore
+      window.recaptchaVerifier.clear();
+    } catch (e) {
+      console.warn("Failed to clear recaptcha", e);
+    }
+    // @ts-ignore
+    window.recaptchaVerifier = null;
+  }
+  recaptchaWidgetId = null;
+};

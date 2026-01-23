@@ -28,6 +28,7 @@ import {
   startPhoneOtp,
   resetRecaptcha,
   setupRecaptcha,
+  clearRecaptcha,
 } from '../services/authClient';
 import { api } from '../services/api';
 import { useTheme } from '../config/theme';
@@ -105,7 +106,16 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const fadeAnim = useState(new Animated.Value(1))[0];
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      clearRecaptcha();
+    }
     checkBiometrics();
+    
+    return () => {
+      if (Platform.OS === 'web') {
+        clearRecaptcha();
+      }
+    };
   }, []);
 
   // Dynamic input type detection
@@ -391,7 +401,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               {/* OTP Field (Only for Phone after sending) */}
               {inputType === 'phone' && otpSent && (
                 <View>
-                  {Platform.OS === 'web' && <div id={recaptchaContainerId} />}
                   <AppTextField
                     placeholder={i18n.t('sixDigitCode')}
                     value={otp}
