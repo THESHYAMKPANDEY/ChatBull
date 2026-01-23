@@ -8,6 +8,7 @@ import * as Device from 'expo-device';
 import { Ionicons } from '@expo/vector-icons';
 
 import LoginScreen from './src/screens/LoginScreen';
+import ViteLoginWeb from './src/screens/ViteLoginWeb';
 import UsersListScreen from './src/screens/UsersListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import PrivateModeScreen from './src/screens/PrivateModeScreen';
@@ -407,7 +408,11 @@ function AppContent() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...panResponder.panHandlers}>
       {currentScreen === 'login' && (
-        <LoginScreen onLogin={handleLogin} />
+        Platform.OS === 'web' ? (
+          <ViteLoginWeb onLogin={handleLogin} />
+        ) : (
+          <LoginScreen onLogin={handleLogin} />
+        )
       )}
       
       {/* Responsive Layout for Web/Tablet */}
@@ -505,6 +510,9 @@ function App() {
 }
 
 async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web') {
+    return undefined;
+  }
   let token;
   if (Device.isDevice) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://chatbull.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -19,23 +19,36 @@ api.interceptors.request.use((config) => {
 
 export const authApi = {
   login: async (phoneNumber: string) => {
-    // In a real app, this would call the backend to send OTP
-    // For this demo/dev, we might mock it or hit a dev endpoint
-    // Assuming backend has an endpoint like /auth/login-otp or similar
-    // Since I don't see the exact backend route for phone login in the file list (I saw email otp in .env),
-    // I will assume a standard flow or mock it for the "dev" experience as the App.tsx suggests "Dev Code".
-    
-    // Using a mock response for now to allow the UI to proceed
+    void phoneNumber;
     return {
       data: {
         message: 'OTP Sent',
-        devOtp: '123456', // Mock OTP
+        devOtp: '123456',
       }
     };
   },
+
+  loginWithEmail: async (email: string, password: string) => {
+    if (email && password) {
+         await new Promise(resolve => setTimeout(resolve, 500));
+         
+         return {
+              data: {
+                   access_token: 'mock_jwt_token_' + Date.now(),
+                   user: {
+                        id: 'user_' + Date.now(),
+                        email: email,
+                        displayName: email.split('@')[0],
+                   }
+              }
+         };
+    }
+    throw new Error('Invalid credentials');
+  },
   
   verifyOtp: async (phoneNumber: string, otp: string, identityKey: string, registrationId: string) => {
-    // Mock verification
+    void identityKey;
+    void registrationId;
     if (otp === '123456') {
       return {
         data: {
@@ -50,25 +63,11 @@ export const authApi = {
     }
     throw new Error('Invalid OTP');
   },
-
-  loginWithEmail: async (email: string, password: string) => {
-    // Mock login with email/password
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (password.length >= 6) {
-      return {
-        data: {
-          access_token: 'mock_jwt_token_email_' + Date.now(),
-          user: {
-            id: 'user_email_' + Date.now(),
-            email,
-            displayName: email.split('@')[0],
-          }
-        }
-      };
-    }
-    throw new Error('Invalid credentials');
+  sendEmailOtp: async (email: string) => {
+    return api.post('/auth/email-otp/send', { email });
+  },
+  verifyEmailOtp: async (email: string, otp: string) => {
+    return api.post('/auth/email-otp/verify', { email, otp });
   }
 };
 

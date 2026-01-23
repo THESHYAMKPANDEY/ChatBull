@@ -33,6 +33,7 @@
       "favicon": "./assets/favicon.png"
     },
     "notification": {
+      "vapidPublicKey": "BPh_7-placeholder-key-for-development-only-replace-with-real-vapid-key-from-firebase"
     },
     "extra": {
       "eas": {
