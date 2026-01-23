@@ -19,6 +19,7 @@ interface ProfileScreenProps {
   onDeleteAccount: () => void;
   onUserUpdated: (user: any) => void;
   showTabBar?: boolean;
+  onLogout?: () => void;
 }
 
 type Post = {
@@ -27,7 +28,7 @@ type Post = {
   mediaType?: 'image' | 'video' | 'file';
 };
 
-export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onAI, onDeleteAccount, onUserUpdated, showTabBar = true }: ProfileScreenProps) {
+export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onAI, onDeleteAccount, onUserUpdated, showTabBar = true, onLogout }: ProfileScreenProps) {
   const { colors, theme, toggleTheme } = useTheme();
 
   const displayName = currentUser?.displayName || 'User';
@@ -57,6 +58,7 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const [editPhoneNumber, setEditPhoneNumber] = useState(phoneNumber || '');
   const [pickedAvatar, setPickedAvatar] = useState<PickedMedia | null>(null);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -366,7 +368,19 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
       <AppHeader
         title={displayName}
         rightIcon={<Ionicons name="menu-outline" size={24} color={colors.text} />}
+        onRightPress={() => setMenuOpen(true)}
       />
+      {menuOpen && (
+        <View style={[styles.menuBackdrop]}>
+          <TouchableOpacity style={styles.menuBackdropHit} onPress={() => setMenuOpen(false)} />
+          <View style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); onLogout && onLogout(); }}>
+              <Ionicons name="log-out-outline" size={18} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       <FlatList
         data={gridData}
         keyExtractor={(i) => i._id}
@@ -732,6 +746,46 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  menuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    bottom: 0,
+    zIndex: 20,
+  },
+  menuBackdropHit: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    bottom: 0,
+  },
+  menuCard: {
+    position: 'absolute',
+    top: 60,
+    right: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 6,
+    width: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  menuText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   viewerBackdrop: {
     flex: 1,

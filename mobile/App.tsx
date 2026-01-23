@@ -373,6 +373,7 @@ function AppContent() {
                onDeleteAccount={handleDeleteAccount}
                onUserUpdated={(user) => setCurrentUser(user)}
                showTabBar={false}
+              onLogout={handleLogout}
              />
            )}
 
