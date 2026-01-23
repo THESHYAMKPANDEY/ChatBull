@@ -26,3 +26,16 @@ services:
         value: mock
       - key: SENTRY_DSN
         sync: false
+  - type: static
+    name: chatbull-web
+    plan: free
+    region: oregon
+    rootDir: mobile
+    buildCommand: npm install && npm run build:web
+    publishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: EXPO_PUBLIC_API_BASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SOCKET_URL
+        sync: false
