@@ -83,11 +83,22 @@ export const profileUpdateValidationRules = (): ValidationChain[] => {
       .withMessage('Display name must be between 2 and 30 characters'),
     body('photoURL')
       .optional()
-      .isURL()
-      .withMessage('Photo URL must be a valid URL'),
+      .isString()
+      .withMessage('Photo URL must be a string'),
     body('phoneNumber')
       .optional()
       .matches(/^[\+]?[1-9][\d]{0,15}$/)
       .withMessage('Phone number must be a valid international format'),
+    body('username')
+      .optional()
+      .trim()
+      .isLength({ min: 3, max: 30 })
+      .matches(/^[a-zA-Z0-9_]+$/)
+      .withMessage('Username must be 3-30 characters and only contain letters, numbers, and underscores'),
+    body('bio')
+      .optional()
+      .trim()
+      .isLength({ max: 150 })
+      .withMessage('Bio cannot exceed 150 characters'),
   ];
 };

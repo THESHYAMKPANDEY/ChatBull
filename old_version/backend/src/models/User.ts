@@ -5,6 +5,7 @@ export interface IUser extends Document {
   email?: string;
   displayName: string;
   username?: string;
+  bio?: string;
   photoURL?: string;
   phoneNumber?: string;
   deviceToken?: string;
@@ -37,10 +38,15 @@ const userSchema = new Schema<IUser>(
     },
     username: {
       type: String,
-      unique: false,  // Set to false to avoid the constraint issue
-      sparse: true,   // Only enforce uniqueness where the field exists
+      unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
+    },
+    bio: {
+      type: String,
+      default: '',
+      maxlength: 150,
     },
     savedPosts: [{
       type: Schema.Types.ObjectId,
