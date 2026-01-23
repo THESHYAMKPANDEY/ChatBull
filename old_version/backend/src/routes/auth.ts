@@ -74,9 +74,9 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
           };
           
           // Only add username if it's not null/undefined to avoid unique constraint
-          if (resolvedDisplayName && resolvedDisplayName.trim() !== '') {
-            userData.username = resolvedDisplayName.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '_');
-          }
+          // if (resolvedDisplayName && resolvedDisplayName.trim() !== '') {
+          //   userData.username = resolvedDisplayName.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '_');
+          // }
           
           user = await User.create(userData);
         }

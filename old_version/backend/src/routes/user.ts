@@ -57,6 +57,26 @@ router.delete('/me', verifyFirebaseToken, async (req: Request, res: Response) =>
 });
 
 /**
+ * GET /api/user/check-username/:username
+ * Check if username is available
+ */
+router.get('/check-username/:username', async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+    if (!username || username.length < 3) {
+       res.status(400).json({ error: 'Username too short' });
+       return;
+    }
+    
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    res.status(200).json({ available: !existingUser });
+  } catch (error) {
+    logger.error('Check username error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ error: 'Failed to check username' });
+  }
+});
+
+/**
  * PUT /api/user/me
  * Update user profile
  */
@@ -69,7 +89,7 @@ router.put(
     try {
       const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
       const firebaseUid = firebaseUser.uid;
-      const { displayName, photoURL, phoneNumber } = req.body;
+      const { displayName, photoURL, phoneNumber, username, bio } = req.body;
 
       const user = await User.findOne({ firebaseUid });
       if (!user) {
@@ -81,6 +101,19 @@ router.put(
       if (displayName) user.displayName = displayName;
       if (photoURL) user.photoURL = photoURL;
       if (phoneNumber) user.phoneNumber = phoneNumber;
+      if (bio !== undefined) user.bio = bio;
+      
+      if (username) {
+        const lowerUsername = username.toLowerCase();
+        if (user.username !== lowerUsername) {
+          const exists = await User.findOne({ username: lowerUsername });
+          if (exists) {
+            res.status(400).json({ error: 'Username already taken' });
+            return;
+          }
+          user.username = lowerUsername;
+        }
+      }
 
       await user.save();
 
@@ -92,6 +125,8 @@ router.put(
           displayName: user.displayName,
           photoURL: user.photoURL,
           phoneNumber: user.phoneNumber,
+          username: user.username,
+          bio: user.bio,
         },
       });
     } catch (error) {
