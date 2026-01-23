@@ -77,13 +77,16 @@ export const setupRecaptcha = (containerId: string, onSolved?: () => void) => {
   }
 };
 
-export const startPhoneOtp = async (phoneNumber: string, recaptchaContainerId?: string) => {
-  let verifier;
+export const startPhoneOtp = async (phoneNumber: string, recaptchaContainerId?: string, existingVerifier?: any) => {
+  let verifier = existingVerifier;
   if (Platform.OS === 'web') {
-    // Use the global verifier if available, or try to create one if containerId is provided
-    // @ts-ignore
-    verifier = window.recaptchaVerifier;
+    // If verifier passed explicitly, use it.
+    if (!verifier) {
+        // @ts-ignore
+        verifier = window.recaptchaVerifier;
+    }
     
+    // If still no verifier, try to setup (lazy init)
     if (!verifier && recaptchaContainerId) {
        verifier = setupRecaptcha(recaptchaContainerId);
     }
