@@ -8,6 +8,7 @@ import * as Device from 'expo-device';
 import { Ionicons } from '@expo/vector-icons';
 
 import LoginScreen from './src/screens/LoginScreen';
+import CompleteProfileScreen from './src/screens/CompleteProfileScreen';
 import ViteLoginWeb from './src/screens/ViteLoginWeb';
 import UsersListScreen from './src/screens/UsersListScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -20,7 +21,7 @@ import { ThemeProvider, useTheme } from './src/config/theme';
 import AIChatScreen from './src/screens/AIChatScreen';
 import Sentry, { initSentry } from './src/services/sentry';
 
-type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call';
+type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call' | 'completeProfile';
 
 initSentry();
 
@@ -105,7 +106,11 @@ function AppContent() {
           });
           console.log('App: Backend sync successful, result:', result);
           setCurrentUser(result.user);
-          setCurrentScreen('users');
+          if (!result.user.username) {
+            setCurrentScreen('completeProfile');
+          } else {
+            setCurrentScreen('users');
+          }
         } catch (error: any) {
           console.error('❌ App sync error:', error);
           
@@ -132,6 +137,15 @@ function AppContent() {
   }, []);
 
   const handleLogin = (user: any) => {
+    setCurrentUser(user);
+    if (!user.username) {
+      setCurrentScreen('completeProfile');
+    } else {
+      setCurrentScreen('users');
+    }
+  };
+
+  const handleProfileComplete = (user: any) => {
     setCurrentUser(user);
     setCurrentScreen('users');
   };
@@ -416,8 +430,12 @@ function AppContent() {
         )
       )}
       
+      {currentScreen === 'completeProfile' && currentUser && (
+        <CompleteProfileScreen currentUser={currentUser} onComplete={handleProfileComplete} />
+      )}
+      
       {/* Responsive Layout for Web/Tablet */}
-      {Platform.OS === 'web' && currentUser && renderWebLayout()}
+      {Platform.OS === 'web' && currentUser && currentScreen !== 'completeProfile' && renderWebLayout()}
 
       {/* Mobile Layout (Standard Stack) */}
       {Platform.OS !== 'web' && (

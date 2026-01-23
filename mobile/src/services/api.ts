@@ -225,10 +225,16 @@ export const api = {
     });
   },
 
+  checkUsername: async (username: string) => {
+    return await apiRequest(`/user/check-username/${username}`);
+  },
+
   updateProfile: async (userData: {
     displayName?: string;
     photoURL?: string;
     phoneNumber?: string;
+    username?: string;
+    bio?: string;
   }) => {
     const headers = await getAuthHeaders();
     

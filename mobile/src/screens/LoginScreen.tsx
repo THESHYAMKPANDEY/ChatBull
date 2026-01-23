@@ -27,6 +27,7 @@ import {
   signInEmailPassword,
   startPhoneOtp,
   resetRecaptcha,
+  setupRecaptcha,
 } from '../services/authClient';
 import { api } from '../services/api';
 import { useTheme } from '../config/theme';
@@ -98,7 +99,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [otpSent, setOtpSent] = useState(false);
   
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
-  const recaptchaContainerId = 'recaptcha-container';
+  const recaptchaContainerId = 'sign-in-button';
 
   // Animation for smooth mode switching
   const fadeAnim = useState(new Animated.Value(1))[0];
@@ -402,10 +403,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </View>
               )}
 
-              {/* Recaptcha Container for Web (Always render hidden to be safe) */}
-              {Platform.OS === 'web' && inputType === 'phone' && !otpSent && (
+              {/* Recaptcha Container for Web (Always render hidden to be safe) - REMOVED as we use button */}
+              {/* {Platform.OS === 'web' && inputType === 'phone' && !otpSent && (
                  <div id={recaptchaContainerId} style={{ display: 'none' }} />
-              )}
+              )} */}
 
               {/* Action Button */}
               <Pressable
