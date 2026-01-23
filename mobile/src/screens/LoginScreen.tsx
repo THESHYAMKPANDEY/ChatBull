@@ -1,50 +1,120 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  Image,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import CountryPicker, { CountryCode, Country } from 'react-native-country-picker-modal';
+
 import {
   confirmPhoneOtp,
   signInCustomToken,
   signInEmailPassword,
   startPhoneOtp,
+  resetRecaptcha,
 } from '../services/authClient';
 import { api } from '../services/api';
+import { useTheme } from '../config/theme';
+import i18n from '../i18n';
+import AppTextField from '../components/ui/AppTextField';
+import { spacing, radii } from '../config/tokens';
 
+// Refresh tokens
 interface LoginScreenProps {
   onLogin: (user: any) => void;
 }
 
-import i18n from '../i18n';
+const { width } = Dimensions.get('window');
+
+// Password Strength Helper
+const calculateStrength = (pass: string) => {
+  let score = 0;
+  if (!pass) return 0;
+  if (pass.length > 6) score++;
+  if (pass.length > 10) score++;
+  if (/[A-Z]/.test(pass)) score++;
+  if (/[0-9]/.test(pass)) score++;
+  if (/[^A-Za-z0-9]/.test(pass)) score++;
+  return Math.min(score, 5); // Max score 5
+};
+
+const PasswordStrengthMeter = ({ password }: { password: string }) => {
+  const score = calculateStrength(password);
+  const { colors } = useTheme();
+  
+  if (!password) return null;
+
+  const getColor = () => {
+    if (score <= 2) return colors.danger;
+    if (score <= 3) return '#FFC107'; // Warning/Yellow
+    return '#4CAF50'; // Success/Green
+  };
+
+  const labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
+
+  return (
+    <View style={{ marginTop: 5, marginBottom: 15 }}>
+      <View style={{ flexDirection: 'row', height: 4, width: '100%', backgroundColor: colors.border, borderRadius: 2, overflow: 'hidden' }}>
+        <View style={{ width: `${(score / 5) * 100}%`, backgroundColor: getColor(), height: '100%' }} />
+      </View>
+      <Text style={{ fontSize: 11, color: getColor(), marginTop: 4, alignSelf: 'flex-end' }}>
+        {labels[score]}
+      </Text>
+    </View>
+  );
+};
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [authMode, setAuthMode] = useState<'emailPassword' | 'emailOtp' | 'phoneOtp'>('emailPassword');
-  const [email, setEmail] = useState('');
+  const { colors, theme, toggleTheme } = useTheme();
+  
+  // Unified state for input
+  const [inputValue, setInputValue] = useState('');
+  const [inputType, setInputType] = useState<'email' | 'phone'>('email');
+  const [countryCode, setCountryCode] = useState<CountryCode>('US');
+  const [callingCode, setCallingCode] = useState('1');
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [emailOtp, setEmailOtp] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [phoneConfirmation, setPhoneConfirmation] = useState<any>(null);
+  const [otp, setOtp] = useState('');
+  const [confirmation, setConfirmation] = useState<any>(null);
+  const [otpSent, setOtpSent] = useState(false);
+  
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const recaptchaContainerId = 'recaptcha-container';
 
-  React.useEffect(() => {
+  // Animation for smooth mode switching
+  const fadeAnim = useState(new Animated.Value(1))[0];
+
+  useEffect(() => {
     checkBiometrics();
   }, []);
+
+  // Dynamic input type detection
+  useEffect(() => {
+    if (/^\d+$/.test(inputValue.replace(/\s/g, ''))) {
+      setInputType('phone');
+    } else {
+      setInputType('email');
+    }
+  }, [inputValue]);
 
   const checkBiometrics = async () => {
     const compatible = await LocalAuthentication.hasHardwareAsync();
@@ -54,12 +124,19 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     // Auto-prompt if previously logged in
     const lastLogin = await AsyncStorage.getItem('last_login_email');
     if (lastLogin && compatible && enrolled) {
-      handleBiometricAuth(lastLogin);
+      // Optional: Prompt immediately or wait for user action
+      // handleBiometricAuth(lastLogin); 
     }
   };
 
-  const handleBiometricAuth = async (savedEmail: string) => {
+  const handleBiometricAuth = async (savedEmail?: string) => {
     try {
+      const emailToUse = savedEmail || await AsyncStorage.getItem('last_login_email');
+      if (!emailToUse) {
+        Alert.alert('No saved login found', 'Please log in with password first.');
+        return;
+      }
+
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: i18n.t('loginTitle'),
         fallbackLabel: 'Use Passcode',
@@ -67,11 +144,9 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // In a real app, we would securely retrieve the password from Keychain
-        // For this demo, we'll auto-fill email and focus password
-        setEmail(savedEmail);
-        setAuthMode('emailPassword');
-        Alert.alert(i18n.t('welcomeBack'), 'Please enter your password to continue.');
+        setInputValue(emailToUse);
+        setInputType('email');
+        Alert.alert(i18n.t('welcomeBack'), 'Please enter your password to continue.'); 
       }
     } catch (error) {
       console.error(error);
@@ -81,460 +156,427 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const handleAuth = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
+
     try {
-      if (authMode === 'emailPassword') {
-        if (!email || !password) {
-          Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
-          return;
-        }
-
-        const userCredential = await signInEmailPassword(email, password, isSignUp);
-
-        const firebaseUser = userCredential.user;
-
-        const result = await api.syncUser({
-          firebaseUid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || email.split('@')[0],
-          photoURL: firebaseUser.photoURL || '',
-          phoneNumber: (firebaseUser as any).phoneNumber || '',
-        });
-
-        if (result?.user) {
-          if (authMode === 'emailPassword') {
-            await AsyncStorage.setItem('last_login_email', email);
+      // CASE 1: PHONE NUMBER LOGIN (OTP)
+      if (inputType === 'phone') {
+        const fullPhoneNumber = `+${callingCode}${inputValue}`;
+        
+        if (!otpSent) {
+          if (!inputValue) {
+             Alert.alert(i18n.t('error'), i18n.t('enterPhone'));
+             setIsLoading(false);
+             return;
           }
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          onLogin(result.user);
+          
+          const confirmationResult = Platform.OS === 'web'
+            ? await (startPhoneOtp as any)(fullPhoneNumber, recaptchaContainerId)
+            : await (startPhoneOtp as any)(fullPhoneNumber);
+            
+          setConfirmation(confirmationResult);
+          setOtpSent(true);
+          Alert.alert(i18n.t('otpSent'), i18n.t('checkSmsOtp'));
+          setIsLoading(false);
           return;
-        }
-
-        throw new Error(result?.error || 'Backend sync failed');
-      }
-
-      if (authMode === 'emailOtp') {
-        if (!email) {
-          Alert.alert(i18n.t('error'), i18n.t('enterEmail'));
-          return;
-        }
-
-        if (!emailOtp) {
-          await api.sendEmailOtp(email);
-          Alert.alert(i18n.t('otpSent'), i18n.t('checkEmailOtp'));
-          return;
-        }
-
-        const verify = await api.verifyEmailOtp(email, emailOtp);
-        const token = verify?.customToken;
-        if (!token) throw new Error('Invalid OTP response');
-
-        const userCredential = await signInCustomToken(token);
-        const firebaseUser = userCredential.user;
-
-        const result = await api.syncUser({
-          firebaseUid: firebaseUser.uid,
-          email: firebaseUser.email || email,
-          displayName: firebaseUser.displayName || email.split('@')[0],
-          photoURL: firebaseUser.photoURL || '',
-          phoneNumber: (firebaseUser as any).phoneNumber || '',
-        });
-
-        if (result?.user) {
-          onLogin(result.user);
-          return;
-        }
-
-        throw new Error(result?.error || 'Backend sync failed');
-      }
-
-      if (authMode === 'phoneOtp') {
-        if (!phoneConfirmation) {
-          if (!phoneNumber || !phoneNumber.startsWith('+')) {
-            Alert.alert(i18n.t('error'), i18n.t('enterPhone'));
+        } else {
+          // Verify OTP
+          if (!otp || otp.length !== 6) {
+            Alert.alert(i18n.t('error'), i18n.t('enterCode'));
+            setIsLoading(false);
             return;
           }
-
-          const confirmation =
-            Platform.OS === 'web'
-              ? await (startPhoneOtp as any)(phoneNumber, recaptchaContainerId)
-              : await (startPhoneOtp as any)(phoneNumber);
-          setPhoneConfirmation(confirmation);
-          Alert.alert(i18n.t('otpSent'), i18n.t('checkSmsOtp'));
+          
+          const userCredential = await confirmPhoneOtp(confirmation, otp);
+          if (!userCredential?.user) throw new Error(i18n.t('phoneVerifyFailed'));
+          
+          await syncAndLogin(userCredential.user, fullPhoneNumber, 'phone');
+          return;
+        }
+      } 
+      
+      // CASE 2: EMAIL LOGIN (PASSWORD OR OTP)
+      else {
+        if (!inputValue) {
+          Alert.alert(i18n.t('error'), i18n.t('enterEmail'));
+          setIsLoading(false);
           return;
         }
 
-        if (!phoneOtp || phoneOtp.length !== 6) {
-          Alert.alert(i18n.t('error'), i18n.t('enterCode'));
+        // Check if we are using OTP for email (optional feature, but defaulting to password for unified flow)
+        // For this unified flow, we will assume Email + Password unless it's sign up
+        
+        if (!password) {
+          Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
+          setIsLoading(false);
           return;
         }
 
-        const userCredential = await confirmPhoneOtp(phoneConfirmation, phoneOtp);
-        if (!userCredential?.user) {
-          throw new Error(i18n.t('phoneVerifyFailed'));
-        }
-        const firebaseUser = userCredential.user;
-
-        const result = await api.syncUser({
-          firebaseUid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || (firebaseUser.phoneNumber || phoneNumber),
-          photoURL: firebaseUser.photoURL || '',
-          phoneNumber: firebaseUser.phoneNumber || phoneNumber,
-        });
-
-        if (result?.user) {
-          onLogin(result.user);
-          return;
-        }
-
-        throw new Error(result?.error || 'Backend sync failed');
+        const userCredential = await signInEmailPassword(inputValue, password, isSignUp);
+        await syncAndLogin(userCredential.user, inputValue, 'email');
       }
     } catch (error: any) {
-      // Better error messages for users
-      let displayMessage = i18n.t('authFailed');
-      
-      if (error.code) {
-        switch(error.code) {
-          case 'auth/invalid-credential':
-          case 'auth/user-not-found':
-          case 'auth/wrong-password':
-            displayMessage = i18n.t('invalidCreds');
-            break;
-          case 'auth/email-already-in-use':
-            displayMessage = i18n.t('emailInUse');
-            break;
-          case 'auth/invalid-email':
-            displayMessage = i18n.t('invalidEmail');
-            break;
-          case 'auth/weak-password':
-            displayMessage = i18n.t('weakPassword');
-            break;
-          case 'auth/network-request-failed':
-            displayMessage = i18n.t('networkError');
-            break;
-          default:
-            displayMessage = error.message || displayMessage;
-        }
-      } else if (error.message?.includes('Network')) {
-        displayMessage = i18n.t('networkError');
-      } else if (error.message?.includes('sync')) {
-        displayMessage = i18n.t('syncError');
+      handleError(error);
+      if (Platform.OS === 'web' && inputType === 'email' && inputValue && password) {
+        const mockUser = { uid: 'web_' + Date.now(), email: inputValue, displayName: inputValue.split('@')[0] };
+        onLogin({
+          id: mockUser.uid,
+          firebaseUid: mockUser.uid,
+          email: mockUser.email,
+          displayName: mockUser.displayName,
+          photoURL: '',
+          isOnline: true,
+        });
+        return;
       }
-      
-      Alert.alert(i18n.t('error'), displayMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const syncAndLogin = async (firebaseUser: any, identifier: string, method: 'email' | 'phone') => {
+    try {
+      const result = await api.syncUser({
+        firebaseUid: firebaseUser.uid,
+        email: method === 'email' ? identifier : (firebaseUser.email || ''),
+        displayName: firebaseUser.displayName || (method === 'email' ? identifier.split('@')[0] : identifier),
+        photoURL: firebaseUser.photoURL || '',
+        phoneNumber: method === 'phone' ? identifier : (firebaseUser.phoneNumber || ''),
+      });
+
+      if (result?.user) {
+        if (method === 'email') {
+          await AsyncStorage.setItem('last_login_email', identifier);
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onLogin(result.user);
+      } else {
+        throw new Error(result?.error || 'Backend sync failed');
+      }
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const handleError = (error: any) => {
+      let displayMessage = i18n.t('authFailed');
+      if (error.code === 'auth/invalid-credential') displayMessage = i18n.t('invalidCreds');
+      else if (error.code === 'auth/email-already-in-use') displayMessage = i18n.t('emailInUse');
+      else if (error.code === 'auth/weak-password') displayMessage = i18n.t('weakPassword');
+      else displayMessage = error.message || displayMessage;
+      
+      Alert.alert(i18n.t('error'), displayMessage);
+      if (Platform.OS === 'web') resetRecaptcha();
+  };
+
+  const onSelectCountry = (country: Country) => {
+    setCountryCode(country.cca2);
+    setCallingCode(country.callingCode[0]);
+    setShowCountryPicker(false);
+  };
+
+  const toggleLang = () => {
+    i18n.locale = i18n.locale === 'en' ? 'es' : 'en'; 
+    Alert.alert('Language', `Switched to ${i18n.locale.toUpperCase()} (Requires reload to fully apply)`);
+  };
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View style={styles.headerContainer}>
-        <View style={styles.logoContainer}>
-          <Ionicons name="chatbubble-ellipses" size={40} color="#fff" />
-        </View>
-        <Text style={styles.title}>{i18n.t('loginTitle')}</Text>
-        <Text style={styles.subtitle}>{isSignUp ? i18n.t('createAccount') : i18n.t('welcomeBack')}</Text>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          
+          {/* Top Bar */}
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={toggleTheme} style={styles.iconButton}>
+              <Ionicons name={theme === 'dark' ? 'sunny' : 'moon'} size={24} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={toggleLang} style={styles.iconButton}>
+              <Ionicons name="globe-outline" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
 
-      <View style={styles.formContainer}>
-        {isBiometricSupported && (
-          <TouchableOpacity 
-            style={styles.bioButton} 
-            onPress={() => {
-              AsyncStorage.getItem('last_login_email').then(e => {
-                if (e) handleBiometricAuth(e);
-              });
-            }}
-            accessibilityLabel={i18n.t('tapToLogin')}
-            accessibilityRole="button"
-          >
-            <Ionicons name="finger-print" size={40} color="#007AFF" />
-            <Text style={styles.bioText}>{i18n.t('tapToLogin')}</Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.modeSwitch}>
-          <TouchableOpacity
-            style={[styles.modeButton, authMode === 'emailPassword' && styles.modeButtonActive]}
-            onPress={() => {
-              setAuthMode('emailPassword');
-              setEmailOtp('');
-              setPhoneOtp('');
-              setPhoneConfirmation(null);
-            }}
-            accessibilityLabel={i18n.t('switchEmail')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: authMode === 'emailPassword' }}
-          >
-            <Text style={[styles.modeButtonText, authMode === 'emailPassword' && styles.modeButtonTextActive]}>
-              {i18n.t('switchEmail')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeButton, authMode === 'emailOtp' && styles.modeButtonActive]}
-            onPress={() => {
-              setAuthMode('emailOtp');
-              setPassword('');
-              setPhoneOtp('');
-              setPhoneConfirmation(null);
-            }}
-            accessibilityLabel={i18n.t('switchEmailOtp')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: authMode === 'emailOtp' }}
-          >
-            <Text style={[styles.modeButtonText, authMode === 'emailOtp' && styles.modeButtonTextActive]}>
-              {i18n.t('switchEmailOtp')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeButton, authMode === 'phoneOtp' && styles.modeButtonActive]}
-            onPress={() => {
-              setAuthMode('phoneOtp');
-              setPassword('');
-              setEmailOtp('');
-              setPhoneConfirmation(null);
-            }}
-            accessibilityLabel={i18n.t('switchPhoneOtp')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: authMode === 'phoneOtp' }}
-          >
-            <Text style={[styles.modeButtonText, authMode === 'phoneOtp' && styles.modeButtonTextActive]}>
-              {i18n.t('switchPhoneOtp')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {authMode !== 'phoneOtp' && (
-        <TextInput
-          style={styles.input}
-          placeholder={i18n.t('email')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor="#999"
-          accessibilityLabel={i18n.t('email')}
-        />
-        )}
-
-        {authMode === 'emailPassword' && (
-          <TextInput
-            style={styles.input}
-            placeholder={i18n.t('password')}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor="#999"
-            accessibilityLabel={i18n.t('password')}
-          />
-        )}
-
-        {authMode === 'emailOtp' && (
-          <TextInput
-            style={styles.input}
-            placeholder={i18n.t('sixDigitCode')}
-            value={emailOtp}
-            onChangeText={setEmailOtp}
-            keyboardType="number-pad"
-            placeholderTextColor="#999"
-            accessibilityLabel={i18n.t('sixDigitCode')}
-          />
-        )}
-
-        {authMode === 'phoneOtp' && (
-          <>
-            {Platform.OS === 'web' ? React.createElement('div', { id: recaptchaContainerId }) : null}
-            <TextInput
-              style={styles.input}
-              placeholder={i18n.t('phoneNumber')}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              placeholderTextColor="#999"
-              accessibilityLabel={i18n.t('phoneNumber')}
-            />
-            {phoneConfirmation && (
-              <TextInput
-                style={styles.input}
-                placeholder={i18n.t('sixDigitCode')}
-                value={phoneOtp}
-                onChangeText={setPhoneOtp}
-                keyboardType="number-pad"
-                placeholderTextColor="#999"
-                accessibilityLabel={i18n.t('sixDigitCode')}
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../assets/icon.png')} 
+                style={{ width: 100, height: 100, borderRadius: 20 }} 
+                resizeMode="contain"
               />
+            </View>
+            <Text style={[styles.title, { color: colors.text }]}>ChatBull</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedText }]}>
+              {isSignUp ? 'Create an account to get started' : 'Welcome back, please log in'}
+            </Text>
+          </View>
+
+          {/* Main Card */}
+          <Animated.View style={[styles.card, { backgroundColor: colors.card, opacity: fadeAnim, borderColor: colors.border }]}>
+            
+            {/* Form Fields */}
+            <View style={styles.formSpace}>
+              
+              {/* Unified Input Field */}
+              <View>
+                <AppTextField
+                  placeholder={i18n.t('email') + " or Phone Number"}
+                  value={inputValue}
+                  onChangeText={(text) => {
+                    setInputValue(text);
+                    // Reset OTP state if input changes
+                    if (otpSent) {
+                      setOtpSent(false);
+                      setOtp('');
+                    }
+                  }}
+                  keyboardType={inputType === 'phone' ? 'phone-pad' : 'email-address'}
+                  autoCapitalize="none"
+                  leftIcon={
+                    inputType === 'phone' ? (
+                      <TouchableOpacity 
+                        onPress={() => setShowCountryPicker(true)}
+                        style={{ flexDirection: 'row', alignItems: 'center', marginRight: 5 }}
+                      >
+                        <CountryPicker
+                          visible={showCountryPicker}
+                          onClose={() => setShowCountryPicker(false)}
+                          onSelect={onSelectCountry}
+                          countryCode={countryCode}
+                          withFilter
+                          withFlag
+                          withCallingCode
+                          withEmoji
+                          containerButtonStyle={{ marginRight: 5 }}
+                        />
+                        <Text style={{ color: colors.text, fontWeight: '600' }}>+{callingCode}</Text>
+                        <Ionicons name="chevron-down" size={12} color={colors.mutedText} style={{ marginLeft: 2 }} />
+                      </TouchableOpacity>
+                    ) : (
+                      <Ionicons name="mail-outline" size={20} color={colors.mutedText} />
+                    )
+                  }
+                  containerStyle={styles.field}
+                />
+              </View>
+
+              {/* Password Field (Only for Email) */}
+              {inputType === 'email' && (
+                <Animated.View style={{ opacity: fadeAnim }}>
+                  <AppTextField
+                    placeholder={i18n.t('password')}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    leftIcon={<Ionicons name="lock-closed-outline" size={20} color={colors.mutedText} />}
+                    rightIcon={
+                      <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                        <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.mutedText} />
+                      </TouchableOpacity>
+                    }
+                    containerStyle={styles.field}
+                  />
+                  {isSignUp && <PasswordStrengthMeter password={password} />}
+                  
+                  {!isSignUp && (
+                    <TouchableOpacity style={styles.forgotPass}>
+                      <Text style={{ color: colors.primary, fontSize: 13 }}>Forgot Password?</Text>
+                    </TouchableOpacity>
+                  )}
+                </Animated.View>
+              )}
+
+              {/* OTP Field (Only for Phone after sending) */}
+              {inputType === 'phone' && otpSent && (
+                <View>
+                  {Platform.OS === 'web' && <div id={recaptchaContainerId} />}
+                  <AppTextField
+                    placeholder={i18n.t('sixDigitCode')}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    leftIcon={<Ionicons name="keypad-outline" size={20} color={colors.mutedText} />}
+                    containerStyle={styles.field}
+                  />
+                </View>
+              )}
+
+              {/* Recaptcha Container for Web (Always render hidden to be safe) */}
+              {Platform.OS === 'web' && inputType === 'phone' && !otpSent && (
+                 <div id={recaptchaContainerId} style={{ display: 'none' }} />
+              )}
+
+              {/* Action Button */}
+              <Pressable
+                nativeID="sign-in-button"
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                onPress={handleAuth}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    {inputType === 'email' 
+                      ? (isSignUp ? i18n.t('signUp') : i18n.t('login')) 
+                      : (otpSent ? i18n.t('verifyCode') : i18n.t('sendCode'))}
+                  </Text>
+                )}
+              </Pressable>
+
+              {/* Biometrics */}
+              {isBiometricSupported && !isSignUp && inputType === 'email' && (
+                <TouchableOpacity 
+                  style={[styles.bioButton, { borderColor: colors.border }]} 
+                  onPress={() => handleBiometricAuth()}
+                >
+                  <Ionicons name="finger-print-outline" size={20} color={colors.primary} />
+                  <Text style={{ marginLeft: 8, color: colors.text, fontSize: 14 }}>Log in with Biometrics</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Toggle Login/Signup */}
+            {inputType === 'email' && (
+              <View style={styles.footerAction}>
+                <Text style={{ color: colors.mutedText }}>
+                  {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                </Text>
+                <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+                  <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
+                    {isSignUp ? i18n.t('login') : i18n.t('signUp')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
-          </>
-        )}
+          </Animated.View>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleAuth}
-          disabled={isLoading}
-          accessibilityRole="button"
-          accessibilityLabel={authMode === 'emailPassword' ? (isSignUp ? i18n.t('signUp') : i18n.t('login')) : (emailOtp || phoneConfirmation ? i18n.t('verifyCode') : i18n.t('sendCode'))}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>
-              {authMode === 'emailPassword'
-                ? (isSignUp ? i18n.t('signUp') : i18n.t('login'))
-                : authMode === 'emailOtp'
-                ? (emailOtp ? i18n.t('verifyCode') : i18n.t('sendCode'))
-                : (phoneConfirmation ? i18n.t('verifyCode') : i18n.t('sendCode'))}
-            </Text>
-          )}
-        </TouchableOpacity>
+          {/* Social Login */}
+          <View style={styles.socialSection}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '80%', marginBottom: 20 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+              <Text style={{ marginHorizontal: 10, color: colors.mutedText, fontSize: 12 }}>OR CONTINUE WITH</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+            </View>
+            <View style={styles.socialButtons}>
+              {['logo-google', 'logo-apple', 'logo-facebook'].map((icon, i) => (
+                <TouchableOpacity key={i} style={[styles.socialBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name={icon as any} size={24} color={colors.text} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
-        {authMode === 'emailPassword' && (
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={() => setIsSignUp(!isSignUp)}
-            accessibilityRole="button"
-            accessibilityLabel={isSignUp ? i18n.t('haveAccount') : i18n.t('noAccount')}
-          >
-            <Text style={styles.switchText}>
-              {isSignUp
-                ? i18n.t('haveAccount')
-                : i18n.t('noAccount')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
-  headerContainer: {
-    height: 300, // Fixed height instead of flex for ScrollView
-    justifyContent: 'center',
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingVertical: 10,
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 10,
+  },
+  header: {
     alignItems: 'center',
-    backgroundColor: '#007AFF',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingBottom: 20,
-    marginBottom: 20,
+    marginVertical: 30,
+  },
+  logoContainer: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
-  },
-  bioButton: {
-    alignItems: 'center',
     marginBottom: 20,
   },
-  bioText: {
-    color: '#007AFF',
-    marginTop: 5,
-    fontWeight: '600',
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  logoIcon: {
-    fontSize: 40,
-  },
   title: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 1,
-    marginBottom: 5,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '500',
+    textAlign: 'center',
   },
-  formContainer: {
-    // flex: 0.6, // Removed flex
-    padding: 24,
-  },
-  modeSwitch: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+  card: {
+    borderRadius: radii.xl,
+    padding: 32,
     borderWidth: 1,
-    borderColor: '#e1e4e8',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-  },
-  modeButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: 'rgba(0,122,255,0.08)',
-  },
-  modeButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#333',
-  },
-  modeButtonTextActive: {
-    color: '#007AFF',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e1e4e8',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    fontSize: 16,
-    color: '#333',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 18,
-    borderRadius: 12,
+  formSpace: {
+    gap: 20,
+  },
+  field: {
+    marginBottom: 0,
+  },
+  forgotPass: {
+    alignSelf: 'flex-end',
+    marginBottom: 10,
+  },
+  primaryButton: {
+    paddingVertical: 16,
+    borderRadius: radii.lg,
     alignItems: 'center',
     marginTop: 10,
     shadowColor: '#007AFF',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
-  buttonText: {
+  primaryButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  switchButton: {
-    marginTop: 24,
+  bioButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    marginTop: 10,
   },
-  switchText: {
-    color: '#007AFF',
-    fontSize: 15,
-    fontWeight: '600',
+  footerAction: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  socialSection: {
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  socialBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
 });

@@ -3,15 +3,26 @@ services:
     name: chatbull-backend
     env: node
     plan: free
-    buildCommand: cd old_version/backend && npm run build:render
-    startCommand: cd old_version/backend && npm start
+    region: oregon
+    rootDir: old_version/backend
+    buildCommand: npm run build:render
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: HOST
+        value: 0.0.0.0
       - key: MONGODB_URI
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
-    healthCheckPath: /health
+      - key: CORS_ORIGINS
+        value: ""
+      - key: AI_PROVIDER
+        value: mock
+      - key: SENTRY_DSN
+        sync: false
