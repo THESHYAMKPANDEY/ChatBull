@@ -100,7 +100,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [otpSent, setOtpSent] = useState(false);
   
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
-  const recaptchaContainerId = 'sign-in-button';
+  const recaptchaContainerId = 'recaptcha-container';
+  const recaptchaVerifierRef = React.useRef<any>(null);
 
   // Animation for smooth mode switching
   const fadeAnim = useState(new Animated.Value(1))[0];
@@ -108,12 +109,20 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   useEffect(() => {
     if (Platform.OS === 'web') {
       clearRecaptcha();
+      // Initialize reCAPTCHA on mount to ensure container is ready and empty
+      setTimeout(() => {
+         const verifier = setupRecaptcha(recaptchaContainerId);
+         if (verifier) {
+            recaptchaVerifierRef.current = verifier;
+         }
+      }, 500);
     }
     checkBiometrics();
     
     return () => {
       if (Platform.OS === 'web') {
         clearRecaptcha();
+        recaptchaVerifierRef.current = null;
       }
     };
   }, []);
@@ -181,7 +190,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           }
           
           const confirmationResult = Platform.OS === 'web'
-            ? await (startPhoneOtp as any)(fullPhoneNumber, recaptchaContainerId)
+            ? await (startPhoneOtp as any)(fullPhoneNumber, recaptchaContainerId, recaptchaVerifierRef.current)
             : await (startPhoneOtp as any)(fullPhoneNumber);
             
           setConfirmation(confirmationResult);
@@ -412,10 +421,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </View>
               )}
 
-              {/* Recaptcha Container for Web (Always render hidden to be safe) - REMOVED as we use button */}
-              {/* {Platform.OS === 'web' && inputType === 'phone' && !otpSent && (
-                 <div id={recaptchaContainerId} style={{ display: 'none' }} />
-              )} */}
+              {/* Recaptcha Container for Web */}
+              {Platform.OS === 'web' && (
+                 <View 
+                   nativeID={recaptchaContainerId} 
+                   style={{ marginTop: 10 }}
+                 />
+              )}
 
               {/* Action Button */}
               <Pressable
