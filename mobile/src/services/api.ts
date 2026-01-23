@@ -4,87 +4,108 @@ import { auth } from '../config/firebase';
 const API_URL = `${appConfig.API_BASE_URL}/api`;
 const TIMEOUT_MS = 120000; // Increased to 120 seconds for Render free tier cold starts
 
-// Enhanced fetch wrapper with comprehensive error handling
+// Enhanced fetch wrapper with comprehensive error handling and retries
 const apiRequest = async (
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { retries?: number } = {}
 ): Promise<any> => {
-  // Add timeout to prevent hanging requests
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  
-  try {
-    console.log(`🚀 API Request: ${API_URL}${endpoint}`);
-    
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-      signal: controller.signal,
-    });
+  const { retries = 2, ...fetchOptions } = options;
+  let attempt = 0;
 
-    clearTimeout(timeoutId);
+  while (true) {
+    attempt++;
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    if (!response.ok) {
-      // Handle different error statuses
-      const errorData = await response.text();
-      let errorMessage = `HTTP Error: ${response.status}`;
-      let errorDetails: any = undefined;
-      
-      try {
-        const parsedError = JSON.parse(errorData);
-        errorMessage = parsedError.error || parsedError.message || errorMessage;
-        errorDetails = parsedError.details;
-
-        if (
-          errorMessage.toLowerCase().includes('validation') &&
-          Array.isArray(errorDetails) &&
-          errorDetails.length > 0
-        ) {
-          const messages = errorDetails
-            .map((d: any) => d?.msg)
-            .filter(Boolean)
-            .slice(0, 2);
-          if (messages.length > 0) {
-            errorMessage = `${errorMessage}: ${messages.join(', ')}`;
-          }
-        }
-      } catch {
-        // If error response isn't JSON, use the raw text
-        errorMessage = errorData || errorMessage;
+    try {
+      if (attempt === 1) {
+        console.log(`🚀 API Request: ${API_URL}${endpoint}`);
+      } else {
+        console.log(`🔄 API Retry ${attempt}/${retries + 1}: ${API_URL}${endpoint}`);
       }
       
-      console.error(`❌ API Error: ${endpoint}`, {
-        status: response.status,
-        message: errorMessage,
-        details: errorDetails,
-        url: response.url
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        ...fetchOptions,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(fetchOptions.headers || {}),
+        },
+        signal: controller.signal,
       });
-      
-      throw new Error(errorMessage);
-    }
 
-    const data = await response.json();
-    console.log(`✅ API Success: ${endpoint}`, data);
-    return data;
-    
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    
-    if (error.name === 'AbortError') {
-      console.error('⏰ Request timeout:', endpoint);
-      throw new Error('Request timed out. Please check your connection.');
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        // Handle different error statuses
+        const errorData = await response.text();
+        let errorMessage = `HTTP Error: ${response.status}`;
+        let errorDetails: any = undefined;
+        
+        try {
+          const parsedError = JSON.parse(errorData);
+          errorMessage = parsedError.error || parsedError.message || errorMessage;
+          errorDetails = parsedError.details;
+
+          if (
+            errorMessage.toLowerCase().includes('validation') &&
+            Array.isArray(errorDetails) &&
+            errorDetails.length > 0
+          ) {
+            const messages = errorDetails
+              .map((d: any) => d?.msg)
+              .filter(Boolean)
+              .slice(0, 2);
+            if (messages.length > 0) {
+              errorMessage = `${errorMessage}: ${messages.join(', ')}`;
+            }
+          }
+        } catch {
+          // If error response isn't JSON, use the raw text
+          errorMessage = errorData || errorMessage;
+        }
+        
+        const errorObj: any = new Error(errorMessage);
+        errorObj.status = response.status;
+        errorObj.details = errorDetails;
+        throw errorObj;
+      }
+
+      const data = await response.json();
+      console.log(`✅ API Success: ${endpoint}`, data);
+      return data;
+      
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      const isTimeout = error.name === 'AbortError';
+      const isNetworkError = error.name === 'TypeError' && error.message.includes('Network');
+      const isServerError = error.status && error.status >= 500;
+      
+      // Determine if we should retry
+      const shouldRetry = attempt <= retries && (isTimeout || isNetworkError || isServerError);
+
+      if (shouldRetry) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff max 10s
+        console.log(`⚠️ Request failed (${error.message}). Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Final error handling
+      if (isTimeout) {
+        console.error('⏰ Request timeout:', endpoint);
+        throw new Error('Request timed out. Please check your connection.');
+      }
+      
+      if (isNetworkError) {
+        console.error('🌐 Network error:', error.message);
+        throw new Error('Network request failed. Please check your WiFi connection.');
+      }
+      
+      console.error(`💥 API request failed: ${endpoint}`, error);
+      throw error;
     }
-    
-    if (error.name === 'TypeError' && error.message.includes('Network')) {
-      console.error('🌐 Network error:', error.message);
-      throw new Error('Network request failed. Please check your WiFi connection.');
-    }
-    
-    console.error(`💥 API request failed: ${endpoint}`, error);
-    throw error;
   }
 };
 
