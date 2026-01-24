@@ -10,7 +10,8 @@ import {
   linkWithCredential,
   signOut as signOutWeb,
   updateEmail,
-  sendEmailVerification
+  sendEmailVerification,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as webAuth } from '../config/firebase';
 import { Platform } from 'react-native';
@@ -226,6 +227,14 @@ export const sendEmailVerificationLink = async () => {
     await sendEmailVerification(webAuth.currentUser);
   } else if (Platform.OS !== 'web' && nativeAuth().currentUser) {
     await nativeAuth().currentUser?.sendEmailVerification();
+  }
+};
+
+export const sendForgotPasswordEmail = async (email: string) => {
+  if (Platform.OS === 'web') {
+    await sendPasswordResetEmail(webAuth, email);
+  } else {
+    await nativeAuth().sendPasswordResetEmail(email);
   }
 };
 
