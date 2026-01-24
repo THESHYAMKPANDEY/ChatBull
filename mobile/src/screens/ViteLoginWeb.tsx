@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, ActivityIndicator, Platform, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp, setupRecaptcha } from '../services/authClient';
+import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp, setupRecaptcha, signInCustomToken, sendEmailVerificationLink } from '../services/authClient';
 import { api } from '../services/api';
 
 interface Props {
@@ -20,6 +20,9 @@ export default function ViteLoginWeb({ onLogin }: Props) {
   const [countryCode, setCountryCode] = useState<'IN' | 'US' | 'UK' | 'JP' | 'DE'>('IN');
   const [callingCode, setCallingCode] = useState('91');
   const [rememberPhone, setRememberPhone] = useState(false);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const countries = [
@@ -46,7 +49,23 @@ export default function ViteLoginWeb({ onLogin }: Props) {
         if (!emailRegex.test(email)) throw new Error('Please enter a valid email address');
         if (!otpMode) {
           if (!password) throw new Error('Please enter your password');
-          const cred = await signInEmailPassword(email, password, false);
+          
+          if (isSignUp) {
+             if (password !== confirmPassword) throw new Error('Passwords do not match');
+          }
+
+          const cred = await signInEmailPassword(email, password, isSignUp);
+          
+          if (isSignUp) {
+            // Send Verification Email
+            try {
+              await sendEmailVerificationLink();
+              alert('Account created! Please check your email to verify your account.');
+            } catch (e) {
+              console.warn('Failed to send verification email:', e);
+            }
+          }
+
           const result = await api.syncUser({
             firebaseUid: cred.user.uid,
             email,
@@ -56,24 +75,63 @@ export default function ViteLoginWeb({ onLogin }: Props) {
           });
           onLogin(result.user ?? { id: cred.user.uid, displayName: email.split('@')[0], email });
         } else {
+          // Email OTP Flow
+          if (!emailOtpSent) {
+             // Send OTP
+             await api.sendEmailOtp(email);
+             setEmailOtpSent(true);
+             // alert('OTP sent to ' + email);
+             return; // Stop here, wait for user to enter OTP
+          }
+
           if (!otp) throw new Error('Please enter the OTP');
-          if (otp === '123456') {
-            const mockUser = { uid: 'web_' + Date.now(), email, displayName: email.split('@')[0] };
-            onLogin({
-              id: mockUser.uid,
-              firebaseUid: mockUser.uid,
-              email: mockUser.email,
-              displayName: mockUser.displayName,
-              photoURL: '',
-              isOnline: true,
-            });
-          } else {
-            throw new Error('Verification failed');
+          
+          try {
+             // Verify OTP with Backend
+             const response = await api.verifyEmailOtp(email, otp);
+             if (!response.customToken) throw new Error('Invalid OTP response');
+             
+             // Sign in with Custom Token
+             const cred = await signInCustomToken(response.customToken);
+             
+             const result = await api.syncUser({
+                firebaseUid: cred.user.uid,
+                email,
+                displayName: email.split('@')[0],
+                photoURL: '',
+                phoneNumber: '',
+             });
+             onLogin(result.user ?? { id: cred.user.uid, displayName: email.split('@')[0], email });
+
+          } catch (err: any) {
+             // Fallback to Mock if 123456 (Dev Mode)
+             if (otp === '123456') {
+                const mockUser = { uid: 'web_' + Date.now(), email, displayName: email.split('@')[0] };
+                onLogin({
+                  id: mockUser.uid,
+                  firebaseUid: mockUser.uid,
+                  email: mockUser.email,
+                  displayName: mockUser.displayName,
+                  photoURL: '',
+                  isOnline: true,
+                });
+             } else {
+                throw err;
+             }
           }
         }
       } else {
         if (!phone) throw new Error('Please enter your phone number');
         const fullNumber = `+${callingCode}${phone}`;
+        
+        // DEV BYPASS: Allow login without Firebase Billing for this specific number
+        if (fullNumber === '+919999999999') {
+          console.log('Using Dev Bypass for:', fullNumber);
+          setConfirmation({ verificationId: 'dev-bypass-id' });
+          setOtpMode(true);
+          return;
+        }
+
         if (!otpMode) {
           try {
             const conf = await startPhoneOtp(fullNumber);
@@ -84,6 +142,22 @@ export default function ViteLoginWeb({ onLogin }: Props) {
           }
         } else {
           if (!otp || otp.length !== 6) throw new Error('Please enter the 6-digit OTP');
+          
+          // DEV BYPASS: Verify the specific number with fixed OTP
+          if (fullNumber === '+919999999999' && otp === '123456') {
+             const mockUser = { uid: 'dev_' + Date.now(), displayName: fullNumber, phoneNumber: fullNumber };
+             onLogin({
+                id: mockUser.uid,
+                firebaseUid: mockUser.uid,
+                email: '',
+                displayName: mockUser.displayName,
+                photoURL: '',
+                isOnline: true,
+                phoneNumber: fullNumber,
+             });
+             return;
+          }
+
           try {
             const userCredential = await confirmPhoneOtp(confirmation, otp);
             const result = await api.syncUser({
@@ -113,7 +187,22 @@ export default function ViteLoginWeb({ onLogin }: Props) {
         }
       }
     } catch (e: any) {
-      setError(e.message || 'Login failed. Please try again.');
+      console.error('Login error:', e);
+      let msg = e.message || 'Login failed. Please try again.';
+      
+      // Handle specific Firebase errors
+      if (e.code === 'auth/billing-not-enabled') {
+        msg = 'Project billing not enabled. Please upgrade Firebase project to Blaze plan for Phone Auth.';
+      } else if (e.code === 'auth/invalid-phone-number') {
+        msg = 'Please enter a valid phone number.';
+      } else if (e.code === 'auth/too-many-requests') {
+        msg = 'Too many attempts. Please try again later.';
+      } else if (e.code === 'auth/quota-exceeded') {
+        msg = 'SMS quota exceeded for this project.';
+      }
+
+      setError(msg);
+
       if (Platform.OS === 'web' && loginMethod === 'email' && email && password) {
         const mockUser = { uid: 'web_' + Date.now(), email, displayName: email.split('@')[0] };
         onLogin({
@@ -197,6 +286,22 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                     <Text style={styles.link}>Use OTP instead</Text>
                   </TouchableOpacity>
                 </View>
+
+                {isSignUp && (
+                  <View style={[styles.formGroup, { marginTop: 12 }]}>
+                    <Text style={styles.label}>Confirm Password</Text>
+                    <input
+                      id="confirmPassword"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e: any) => setConfirmPassword(e.target.value)}
+                      disabled={isLoading}
+                      className="vite-input"
+                      style={styles.input as any}
+                    />
+                  </View>
+                )}
               </View>
             ) : (
               <View style={styles.formGroup}>
@@ -298,16 +403,28 @@ export default function ViteLoginWeb({ onLogin }: Props) {
         >
           {isLoading ? <ActivityIndicator color="#fff" /> : (
             <Text style={styles.buttonText}>
-              {loginMethod === 'email' ? (otpMode ? 'Verify' : 'Sign In') : (otpMode ? 'Verify' : 'Get OTP')}
+              {loginMethod === 'email' 
+                ? (otpMode 
+                    ? (emailOtpSent ? 'Verify' : 'Get OTP') 
+                    : (isSignUp ? 'Sign Up' : 'Sign In')) 
+                : (otpMode ? 'Verify' : 'Get OTP')}
             </Text>
           )}
         </Pressable>
 
         {!otpMode && (
-          <View style={{ alignItems: 'flex-end', marginTop: 12 }}>
-            <TouchableOpacity>
-              <Text style={styles.link}>Forgot your password?</Text>
-            </TouchableOpacity>
+          <View style={{ marginTop: 16, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.muted}>{isSignUp ? 'Already have an account?' : "Don't have an account?"} </Text>
+                <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+                   <Text style={styles.link}>{isSignUp ? 'Sign In' : 'Sign Up'}</Text>
+                </TouchableOpacity>
+            </View>
+            {!isSignUp && (
+                <TouchableOpacity style={{ marginTop: 8 }}>
+                   <Text style={styles.link}>Forgot your password?</Text>
+                </TouchableOpacity>
+            )}
           </View>
         )}
 
