@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, ActivityIndicator, Platform, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp, setupRecaptcha, signInCustomToken, sendEmailVerificationLink } from '../services/authClient';
+import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp, setupRecaptcha, signInCustomToken, sendEmailVerificationLink, sendForgotPasswordEmail } from '../services/authClient';
 import { api } from '../services/api';
 
 interface Props {
