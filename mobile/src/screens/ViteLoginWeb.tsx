@@ -299,9 +299,6 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                     <Text style={styles.link}>{showPassword ? 'Hide' : 'Show'} Password</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setOtpMode(true)}>
-                    <Text style={styles.link}>Use OTP instead</Text>
-                  </TouchableOpacity>
                 </View>
 
                 {isSignUp && (
