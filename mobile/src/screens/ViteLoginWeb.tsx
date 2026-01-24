@@ -421,7 +421,7 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                 </TouchableOpacity>
             </View>
             {!isSignUp && (
-                <TouchableOpacity style={{ marginTop: 8 }}>
+                <TouchableOpacity style={{ marginTop: 8 }} onPress={handleForgotPassword}>
                    <Text style={styles.link}>Forgot your password?</Text>
                 </TouchableOpacity>
             )}
