@@ -84,6 +84,13 @@ export default function CompleteProfileScreen({ currentUser, onComplete }: Props
     });
 
     if (!result.canceled && result.assets[0].base64) {
+      // Check file size (approximate from base64 length)
+      // Base64 is ~1.33x larger than binary. 20MB base64 ~= 15MB file.
+      if (result.assets[0].base64.length > 20 * 1024 * 1024) {
+        Alert.alert('File too large', 'Please choose a smaller photo (under 15MB).');
+        return;
+      }
+
       // In a real app, upload this to Cloudinary/S3 here
       // For now, we'll use the base64 data URI (limitations apply)
       // Ideally, the backend upload endpoint should return a URL
@@ -274,13 +281,18 @@ export default function CompleteProfileScreen({ currentUser, onComplete }: Props
               style={[
                 styles.button,
                 { backgroundColor: colors.primary },
-                (isSaving || isUsernameAvailable === false) && styles.buttonDisabled
+                (isSaving || isUsernameAvailable === false || isCheckingUsername) && styles.buttonDisabled
               ]}
               onPress={handleSave}
-              disabled={isSaving || isUsernameAvailable === false}
+              disabled={isSaving || isUsernameAvailable === false || isCheckingUsername}
             >
               {isSaving ? (
-                <ActivityIndicator color="#fff" />
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.buttonText}>Saving Profile...</Text>
+                </View>
+              ) : isCheckingUsername ? (
+                 <Text style={styles.buttonText}>Checking Username...</Text>
               ) : (
                 <Text style={styles.buttonText}>Get Started</Text>
               )}
