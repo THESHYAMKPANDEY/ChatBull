@@ -32,7 +32,7 @@ export default function ViteLoginWeb({ onLogin }: Props) {
 
   React.useEffect(() => {
     if (Platform.OS === 'web') {
-      setupRecaptcha('sign-in-button');
+      setupRecaptcha('recaptcha-container');
     }
   }, []);
 
@@ -282,6 +282,8 @@ export default function ViteLoginWeb({ onLogin }: Props) {
             )}
           </>
         )}
+
+        <View nativeID="recaptcha-container" />
 
         <Pressable
           nativeID="sign-in-button"
