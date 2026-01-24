@@ -9,7 +9,8 @@ import {
   EmailAuthProvider,
   linkWithCredential,
   signOut as signOutWeb,
-  updateEmail
+  updateEmail,
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth as webAuth } from '../config/firebase';
 import { Platform } from 'react-native';
@@ -216,6 +217,15 @@ export const resetRecaptcha = () => {
     try {
       grecaptcha.reset(recaptchaWidgetId);
     } catch {}
+  }
+};
+
+export const sendEmailVerificationLink = async () => {
+  if (Platform.OS === 'web' && webAuth.currentUser) {
+    // @ts-ignore
+    await sendEmailVerification(webAuth.currentUser);
+  } else if (Platform.OS !== 'web' && nativeAuth().currentUser) {
+    await nativeAuth().currentUser?.sendEmailVerification();
   }
 };
 
