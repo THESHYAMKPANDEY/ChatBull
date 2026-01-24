@@ -39,6 +39,23 @@ export default function ViteLoginWeb({ onLogin }: Props) {
     }
   }, []);
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address to reset password');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await sendForgotPasswordEmail(email);
+      alert('Password reset link sent to ' + email);
+      setError('');
+    } catch (e: any) {
+      setError(e.message || 'Failed to send reset email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setError('');
     setIsLoading(true);
