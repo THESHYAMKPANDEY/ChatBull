@@ -263,18 +263,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       }
     } catch (error: any) {
       handleError(error);
-      if (Platform.OS === 'web' && inputType === 'email' && inputValue && password) {
-        const mockUser = { uid: 'web_' + Date.now(), email: inputValue, displayName: inputValue.split('@')[0] };
-        onLogin({
-          id: mockUser.uid,
-          firebaseUid: mockUser.uid,
-          email: mockUser.email,
-          displayName: mockUser.displayName,
-          photoURL: '',
-          isOnline: true,
-        });
-        return;
-      }
+      // Removed mock login fallback to ensure real errors are seen
     } finally {
       setIsLoading(false);
     }

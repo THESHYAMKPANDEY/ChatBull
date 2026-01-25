@@ -219,19 +219,7 @@ export default function ViteLoginWeb({ onLogin }: Props) {
       }
 
       setError(msg);
-
-      if (Platform.OS === 'web' && loginMethod === 'email' && email && password) {
-        const mockUser = { uid: 'web_' + Date.now(), email, displayName: email.split('@')[0] };
-        onLogin({
-          id: mockUser.uid,
-          firebaseUid: mockUser.uid,
-          email: mockUser.email,
-          displayName: mockUser.displayName,
-          photoURL: '',
-          isOnline: true,
-        });
-        return;
-      }
+      // Removed mock login fallback
     } finally {
       setIsLoading(false);
     }
