@@ -247,20 +247,37 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
     // Note: In production, configure these env vars
     // Use env vars for configuration, fallback to GoDaddy if specific var missing (legacy behavior)
     // But prefer full env configuration
-        const isSecure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE !== 'false' && process.env.SMTP_PORT === '465');
+        const host = process.env.SMTP_HOST || 'smtpout.secureserver.net';
+        const port = parseInt(process.env.SMTP_PORT || '465');
+        const isSecure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE !== 'false' && port === 465);
         
         const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtpout.secureserver.net',
-            port: parseInt(process.env.SMTP_PORT || '465'),
+            host,
+            port,
             secure: isSecure,
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
+            tls: {
+                // Do not fail on invalid certs
+                rejectUnauthorized: false
+            }
         });
 
         console.log("!!! SMTP CONFIG LOADED !!!");
-        logger.info(`Attempting to send email via ${process.env.SMTP_HOST || 'default(godaddy)'} for user ${process.env.SMTP_USER}`);
+        console.log(`Host: ${host}, Port: ${port}, Secure: ${isSecure}`);
+        logger.info(`Attempting to send email via ${host} for user ${process.env.SMTP_USER}`);
+        
+        // Verify connection configuration
+        try {
+            await transporter.verify();
+            console.log('✅ SMTP Connection Verified');
+        } catch (verifyError: any) {
+            console.error('❌ SMTP Verification Failed:', verifyError);
+            logger.error('SMTP Connection Error', { message: verifyError.message });
+            // Don't throw here, try sending anyway as verify() can be flaky on some servers
+        }
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
@@ -276,10 +293,56 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
     }
 
     res.status(200).json({ message: 'OTP sent' });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('💥 Send OTP Fatal Error:', error);
     logger.error('Send OTP error', { message: (error as any)?.message || String(error) });
-    res.status(500).json({ error: 'Failed to send OTP' });
+    res.status(500).json({ 
+        error: 'Failed to send OTP',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
+});
+
+// SMTP Diagnostic Endpoint
+router.get('/smtp-test', async (req: Request, res: Response) => {
+    try {
+        const host = process.env.SMTP_HOST || 'smtpout.secureserver.net';
+        const port = parseInt(process.env.SMTP_PORT || '465');
+        const isSecure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE !== 'false' && port === 465);
+        
+        const config = {
+            host,
+            port,
+            secure: isSecure,
+            user: process.env.SMTP_USER ? '***CONFIGURED***' : 'MISSING',
+            pass: process.env.SMTP_PASS ? '***CONFIGURED***' : 'MISSING',
+        };
+        
+        const transporter = nodemailer.createTransport({
+            host,
+            port,
+            secure: isSecure,
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+            tls: { rejectUnauthorized: false }
+        });
+
+        await transporter.verify();
+        
+        res.json({
+            status: 'success',
+            message: 'SMTP Connection Verified Successfully',
+            config
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message,
+            stack: error.stack
+        });
+    }
 });
 
 // Email OTP - Verify
