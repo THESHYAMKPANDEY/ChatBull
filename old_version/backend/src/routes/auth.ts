@@ -320,7 +320,6 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
         res.status(200).json({ message: 'OTP sent' });
 
     } catch (error: any) {
-        console.error('💥 Send OTP Fatal Error:', error);
         logger.error('Send OTP error', { message: (error as any)?.message || String(error) });
         res.status(500).json({ 
             error: 'Failed to send OTP',
