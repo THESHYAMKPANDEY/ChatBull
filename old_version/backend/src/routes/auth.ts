@@ -256,7 +256,7 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
       },
     });
 
-    logger.info(`Attempting to send email via ${transporter.options.host} for user ${process.env.SMTP_USER}`);
+    logger.info(`Attempting to send email via smtpout.secureserver.net for user ${process.env.SMTP_USER}`);
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
