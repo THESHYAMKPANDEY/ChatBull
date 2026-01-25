@@ -297,48 +297,64 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                   className="vite-input"
                   style={styles.input as any}
                 />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Text style={styles.link}>{showPassword ? 'Hide' : 'Show'} Password</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {isSignUp && (
-                  <View style={[styles.formGroup, { marginTop: 12 }]}>
-                    <Text style={styles.label}>Confirm Password</Text>
-                    <input
-                      id="confirmPassword"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e: any) => setConfirmPassword(e.target.value)}
-                      disabled={isLoading}
-                      className="vite-input"
-                      style={styles.input as any}
-                    />
-                  </View>
-                )}
+                {!otpMode && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Text style={styles.link}>{showPassword ? 'Hide' : 'Show'} Password</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setOtpMode(true)}>
+                  <Text style={styles.link}>Login with OTP</Text>
+                </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Enter OTP</Text>
+            )}
+
+            {otpMode && (
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                <TouchableOpacity onPress={() => setOtpMode(false)}>
+                  <Text style={styles.link}>Use Password</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {!otpMode && isSignUp && (
+              <View style={[styles.formGroup, { marginTop: 12 }]}>
+                <Text style={styles.label}>Confirm Password</Text>
                 <input
-                  id="otp"
-                  type="tel"
-                  placeholder="6-digit code"
-                  value={otp}
-                  onChange={(e: any) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  id="confirmPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e: any) => setConfirmPassword(e.target.value)}
                   disabled={isLoading}
                   className="vite-input"
                   style={styles.input as any}
                 />
               </View>
             )}
-          </>
+          </View>
         ) : (
-          <>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Mobile Number</Text>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Enter OTP</Text>
+            <input
+              id="otp"
+              type="tel"
+              placeholder="6-digit code"
+              value={otp}
+              onChange={(e: any) => setOtp(e.target.value.replace(/\D/g, ''))}
+              disabled={isLoading}
+              className="vite-input"
+              style={styles.input as any}
+            />
+            <TouchableOpacity onPress={() => setOtpMode(false)} style={{ marginTop: 8, alignSelf: 'flex-end' }}>
+               <Text style={styles.link}>Use Password</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </>
+    ) : (
+      <>
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Mobile Number</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <select
                   value={countryCode}
