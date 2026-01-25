@@ -280,6 +280,16 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
 });
 
 // Email OTP - Verify
+router.get('/debug-version', async (req: Request, res: Response) => {
+    res.json({ 
+        version: "NUCLEAR V3 - GODADDY HARDCODED",
+        host: 'smtpout.secureserver.net',
+        port: 465,
+        user: process.env.SMTP_USER ? 'CONFIGURED' : 'MISSING',
+        pass: process.env.SMTP_PASS ? 'CONFIGURED' : 'MISSING'
+    });
+});
+
 router.post('/email-otp/verify', async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
