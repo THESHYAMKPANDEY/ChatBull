@@ -179,6 +179,24 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     }
   };
 
+  const handleSwitchToOtp = async () => {
+    setOtpSent(true);
+    setPassword('');
+    
+    // Auto-send OTP if email is already entered
+    if (inputValue && inputType === 'email') {
+        setIsLoading(true);
+        try {
+            await api.sendEmailOtp(inputValue);
+            Alert.alert(i18n.t('otpSent'), `Code sent to ${inputValue}`);
+        } catch (error: any) {
+            handleError(error);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+  };
+
   const handleAuth = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
@@ -491,7 +509,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   
                   {!isSignUp && (
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <TouchableOpacity onPress={() => { setOtpSent(true); setPassword(''); }}>
+                        <TouchableOpacity onPress={handleSwitchToOtp}>
                             <Text style={{ color: colors.primary, fontSize: 13 }}>Login with OTP</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.forgotPass}>
