@@ -222,17 +222,44 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           return;
         }
 
-        // Check if we are using OTP for email (optional feature, but defaulting to password for unified flow)
-        // For this unified flow, we will assume Email + Password unless it's sign up
-        
-        if (!password) {
-          Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
-          setIsLoading(false);
-          return;
+        // --- EMAIL OTP FLOW ---
+        if (otpSent) {
+            // 2. Verify OTP
+            if (otp) {
+                if (otp.length !== 6) {
+                    Alert.alert(i18n.t('error'), i18n.t('enterCode'));
+                    setIsLoading(false);
+                    return;
+                }
+                const result = await api.verifyEmailOtp(inputValue, otp);
+                if (result.token) {
+                    const userCredential = await signInCustomToken(result.token);
+                    await syncAndLogin(userCredential.user, inputValue, 'email');
+                    return;
+                } else {
+                    throw new Error("Invalid OTP");
+                }
+            } 
+            // 1. Send OTP
+            else {
+                await api.sendEmailOtp(inputValue);
+                Alert.alert("OTP Sent", `Code sent to ${inputValue}`);
+                // UI stays in otpSent=true state, waiting for user to type OTP
+                return;
+            }
         }
+        
+        // --- EMAIL PASSWORD FLOW ---
+        else {
+            if (!password) {
+              Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
+              setIsLoading(false);
+              return;
+            }
 
-        const userCredential = await signInEmailPassword(inputValue, password, isSignUp);
-        await syncAndLogin(userCredential.user, inputValue, 'email');
+            const userCredential = await signInEmailPassword(inputValue, password, isSignUp);
+            await syncAndLogin(userCredential.user, inputValue, 'email');
+        }
       }
     } catch (error: any) {
       handleError(error);
@@ -382,7 +409,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               </View>
 
               {/* Password Field (Only for Email) */}
-              {inputType === 'email' && (
+              {inputType === 'email' && !otpSent && (
                 <Animated.View style={{ opacity: fadeAnim }}>
                   <AppTextField
                     placeholder={i18n.t('password')}
@@ -400,15 +427,20 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   {isSignUp && <PasswordStrengthMeter password={password} />}
                   
                   {!isSignUp && (
-                    <TouchableOpacity style={styles.forgotPass}>
-                      <Text style={{ color: colors.primary, fontSize: 13 }}>Forgot Password?</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <TouchableOpacity onPress={() => setOtpSent(true)}>
+                            <Text style={{ color: colors.primary, fontSize: 13 }}>Login with OTP</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.forgotPass}>
+                            <Text style={{ color: colors.primary, fontSize: 13 }}>Forgot Password?</Text>
+                        </TouchableOpacity>
+                    </View>
                   )}
                 </Animated.View>
               )}
 
-              {/* OTP Field (Only for Phone after sending) */}
-              {inputType === 'phone' && otpSent && (
+              {/* OTP Field (For Phone OR Email OTP Mode) */}
+              {((inputType === 'phone' && otpSent) || (inputType === 'email' && otpSent)) && (
                 <View>
                   <AppTextField
                     placeholder={i18n.t('sixDigitCode')}
@@ -418,6 +450,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     leftIcon={<Ionicons name="keypad-outline" size={20} color={colors.mutedText} />}
                     containerStyle={styles.field}
                   />
+                  {inputType === 'email' && (
+                      <TouchableOpacity onPress={() => { setOtpSent(false); setOtp(''); }} style={{ alignSelf: 'flex-end', marginTop: 8 }}>
+                          <Text style={{ color: colors.primary, fontSize: 13 }}>Use Password</Text>
+                      </TouchableOpacity>
+                  )}
                 </View>
               )}
 
