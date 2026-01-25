@@ -241,13 +241,15 @@ export default function ViteLoginWeb({ onLogin }: Props) {
     <View style={styles.container}>
       <View style={styles.card}>
         <View style={styles.logoContainer}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={{ width: 80, height: 80, borderRadius: 20 }}
-            resizeMode="contain"
-          />
+          <View style={styles.logoWrapper}>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
         </View>
-        <Text style={styles.title}>Chatbull</Text>
+        <Text style={styles.title}>ChatBull</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -449,12 +451,10 @@ export default function ViteLoginWeb({ onLogin }: Props) {
         </View>
 
         <View style={styles.socialRow}>
-          {['logo-facebook'].map((icon, i) => (
-            <TouchableOpacity key={i} style={styles.socialBtn}>
-              <Ionicons name={icon as any} size={20} color="#1877F2" />
-              <Text style={{ marginLeft: 8, color: '#111b21' }}>Facebook</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity style={styles.socialBtn}>
+            <Ionicons name="logo-google" size={20} color="#DB4437" />
+            <Text style={styles.socialBtnText}>Continue with Google</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -477,22 +477,40 @@ const styles = StyleSheet.create({
     padding: 32,
     boxShadow: '0 4px 24px rgba(0,0,0,0.08)' as any,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#128c7e',
-    textAlign: 'center',
-  },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
+  },
+  logoWrapper: {
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+    padding: 2, // Slight border effect
+  },
+  logo: {
+    width: 90,
+    height: 90,
+    borderRadius: 22,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#128c7e',
+    textAlign: 'center',
+    marginTop: 16,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#54656f',
     marginTop: 8,
-    marginBottom: 20,
+    marginBottom: 32,
     textAlign: 'center',
+    fontWeight: '400',
   },
   error: {
     backgroundColor: '#fce8e8',
@@ -538,12 +556,12 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    padding: 12,
+    padding: 14,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#e9edef',
+    borderColor: '#d1d7db',
     borderRadius: 8,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#fff',
     color: '#111b21',
   },
   muted: {
@@ -553,25 +571,32 @@ const styles = StyleSheet.create({
   link: {
     color: '#128c7e',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#128c7e',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 24, // More rounded pill shape
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
-    minHeight: 48,
+    marginTop: 16,
+    minHeight: 52,
+    shadowColor: '#128c7e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 24,
+    marginBottom: 8,
   },
   dividerLine: {
     flex: 1,
@@ -580,9 +605,10 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: 10,
-    color: '#54656f',
+    color: '#5f6368',
     fontSize: 12,
     fontWeight: '500',
+    letterSpacing: 0.5,
   },
   socialRow: {
     marginTop: 12,
@@ -592,10 +618,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    padding: 10,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#e9edef',
-    borderRadius: 8,
+    borderColor: '#dadce0',
+    borderRadius: 24,
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  socialBtnText: {
+    marginLeft: 10,
+    color: '#3c4043',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
 });

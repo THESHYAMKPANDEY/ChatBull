@@ -248,7 +248,7 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
+      secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -257,7 +257,7 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
-        from: '"ChatBull" <noreply@chatbull.com>',
+        from: process.env.SMTP_FROM || `"ChatBull" <${process.env.SMTP_USER}>`,
         to: email,
         subject: 'Your Login Code',
         text: `Your verification code is: ${otp}`,
