@@ -32,6 +32,13 @@ Firebase Auth does not provide “email OTP codes” out-of-the-box. This projec
   - `FIREBASE_SERVICE_ACCOUNT_JSON`
 - Configure SMTP:
   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+  - **For GoDaddy Workspace Email:**
+    - Host: `smtpout.secureserver.net`
+    - Port: `465`
+    - Use `SMTP_PASS` same as your email password.
+  - **For Titan Email:**
+    - Host: `smtp.titan.email`
+    - Port: `465`
 - Optional:
   - `EMAIL_OTP_TTL_MINUTES` (default 10)
 

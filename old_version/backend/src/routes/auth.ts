@@ -245,10 +245,11 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
 
     // Send Email
     // Note: In production, configure these env vars
+    // Defaulting to GoDaddy Workspace Email (smtpout.secureserver.net)
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
+      host: process.env.SMTP_HOST || 'smtpout.secureserver.net',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: process.env.SMTP_PORT ? process.env.SMTP_PORT === '465' : true, // Default true for 465
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
