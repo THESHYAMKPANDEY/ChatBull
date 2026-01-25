@@ -33,6 +33,22 @@ export default function ViteLoginWeb({ onLogin }: Props) {
     { code: 'DE', label: '🇩🇪 +49', calling: '49' },
   ] as const;
 
+  const [signUpStep, setSignUpStep] = useState(0); // 0: Email, 1: OTP, 2: Password
+
+  const resetState = () => {
+    setEmail('');
+    setPhone('');
+    setPassword('');
+    setConfirmPassword('');
+    setOtp('');
+    setOtpMode(false);
+    setSignUpStep(0);
+  };
+
+  React.useEffect(() => {
+    resetState();
+  }, [isSignUp, loginMethod]);
+
   React.useEffect(() => {
     if (Platform.OS === 'web') {
       setupRecaptcha('recaptcha-container');

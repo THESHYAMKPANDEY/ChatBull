@@ -29,6 +29,8 @@ import {
   resetRecaptcha,
   setupRecaptcha,
   clearRecaptcha,
+  getCurrentUser,
+  updateUserPassword,
 } from '../services/authClient';
 import { api } from '../services/api';
 import { useTheme } from '../config/theme';
@@ -98,6 +100,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [otp, setOtp] = useState('');
   const [confirmation, setConfirmation] = useState<any>(null);
   const [otpSent, setOtpSent] = useState(false);
+  
+  // Signup Flow State
+  const [signUpStep, setSignUpStep] = useState(0);
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const recaptchaContainerId = 'recaptcha-container';
@@ -222,43 +228,93 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           return;
         }
 
-        // --- EMAIL OTP FLOW ---
-        if (otpSent) {
-            // 2. Verify OTP
-            if (otp) {
-                if (otp.length !== 6) {
+        // --- NEW SIGN UP FLOW (Verified Email) ---
+        if (isSignUp) {
+            if (signUpStep === 0) {
+                // Step 0: Send OTP
+                await api.sendEmailOtp(inputValue);
+                setSignUpStep(1);
+                Alert.alert("Verification Code Sent", `We sent a code to ${inputValue}`);
+                return;
+            }
+            
+            if (signUpStep === 1) {
+                // Step 1: Verify OTP
+                if (!otp || otp.length !== 6) {
                     Alert.alert(i18n.t('error'), i18n.t('enterCode'));
                     setIsLoading(false);
                     return;
                 }
                 const result = await api.verifyEmailOtp(inputValue, otp);
-                if (result.token) {
-                    const userCredential = await signInCustomToken(result.token);
-                    await syncAndLogin(userCredential.user, inputValue, 'email');
+                if (result.customToken) {
+                    // Log in temporarily to set password
+                    const userCredential = await signInCustomToken(result.customToken);
+                    setSignUpStep(2); // Move to Set Password
                     return;
                 } else {
                     throw new Error("Invalid OTP");
                 }
-            } 
-            // 1. Send OTP
-            else {
-                await api.sendEmailOtp(inputValue);
-                Alert.alert("OTP Sent", `Code sent to ${inputValue}`);
-                // UI stays in otpSent=true state, waiting for user to type OTP
+            }
+
+            if (signUpStep === 2) {
+                // Step 2: Set Password & Finish
+                if (!password) {
+                    Alert.alert(i18n.t('error'), "Please set a password");
+                    setIsLoading(false);
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    Alert.alert(i18n.t('error'), i18n.t('passwordsDoNotMatch'));
+                    setIsLoading(false);
+                    return;
+                }
+                
+                // Update password for the logged-in user
+                const user = getCurrentUser();
+                if (user) {
+                    await updateUserPassword(user, password);
+                    await syncAndLogin(user, inputValue, 'email');
+                } else {
+                    throw new Error("Session expired. Please verify email again.");
+                }
                 return;
             }
         }
-        
-        // --- EMAIL PASSWORD FLOW ---
-        else {
-            if (!password) {
-              Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
-              setIsLoading(false);
-              return;
-            }
 
-            const userCredential = await signInEmailPassword(inputValue, password, isSignUp);
-            await syncAndLogin(userCredential.user, inputValue, 'email');
+        // --- LOGIN FLOW (Email + Password OR OTP) ---
+        if (!isSignUp) {
+            if (otpSent) {
+                // ... existing OTP login logic ...
+                if (otp) {
+                    if (otp.length !== 6) {
+                        Alert.alert(i18n.t('error'), i18n.t('enterCode'));
+                        setIsLoading(false);
+                        return;
+                    }
+                    const result = await api.verifyEmailOtp(inputValue, otp);
+                    if (result.customToken) {
+                        const userCredential = await signInCustomToken(result.customToken);
+                        await syncAndLogin(userCredential.user, inputValue, 'email');
+                        return;
+                    } else {
+                        throw new Error("Invalid OTP");
+                    }
+                } else {
+                    await api.sendEmailOtp(inputValue);
+                    Alert.alert("OTP Sent", `Code sent to ${inputValue}`);
+                    return;
+                }
+            } else {
+                // Password Login
+                if (!password) {
+                  Alert.alert(i18n.t('error'), i18n.t('enterEmailPass'));
+                  setIsLoading(false);
+                  return;
+                }
+    
+                const userCredential = await signInEmailPassword(inputValue, password, isSignUp);
+                await syncAndLogin(userCredential.user, inputValue, 'email');
+            }
         }
       }
     } catch (error: any) {
@@ -366,6 +422,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                       setOtpSent(false);
                       setOtp('');
                     }
+                    if (isSignUp && signUpStep > 0) {
+                        setSignUpStep(0);
+                        setOtp('');
+                        setPassword('');
+                        setConfirmPassword('');
+                    }
                   }}
                   keyboardType={inputType === 'phone' ? 'phone-pad' : 'email-address'}
                   autoCapitalize="none"
@@ -398,7 +460,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               </View>
 
               {/* Password Field (Only for Email) */}
-              {inputType === 'email' && !otpSent && (
+              {inputType === 'email' && ((!isSignUp && !otpSent) || (isSignUp && signUpStep === 2)) && (
                 <Animated.View style={{ opacity: fadeAnim }}>
                   <AppTextField
                     placeholder={i18n.t('password')}
@@ -413,11 +475,23 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     }
                     containerStyle={styles.field}
                   />
+                  
+                  {isSignUp && signUpStep === 2 && (
+                      <AppTextField
+                        placeholder="Confirm Password"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showPassword}
+                        leftIcon={<Ionicons name="lock-closed-outline" size={20} color={colors.mutedText} />}
+                        containerStyle={[styles.field, { marginTop: 10 }]}
+                      />
+                  )}
+
                   {isSignUp && <PasswordStrengthMeter password={password} />}
                   
                   {!isSignUp && (
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <TouchableOpacity onPress={() => setOtpSent(true)}>
+                        <TouchableOpacity onPress={() => { setOtpSent(true); setPassword(''); }}>
                             <Text style={{ color: colors.primary, fontSize: 13 }}>Login with OTP</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.forgotPass}>
@@ -429,7 +503,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               )}
 
               {/* OTP Field (For Phone OR Email OTP Mode) */}
-              {((inputType === 'phone' && otpSent) || (inputType === 'email' && otpSent)) && (
+              {((inputType === 'phone' && otpSent) || (inputType === 'email' && !isSignUp && otpSent) || (isSignUp && signUpStep === 1)) && (
                 <View>
                   <AppTextField
                     placeholder={i18n.t('sixDigitCode')}
@@ -439,7 +513,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     leftIcon={<Ionicons name="keypad-outline" size={20} color={colors.mutedText} />}
                     containerStyle={styles.field}
                   />
-                  {inputType === 'email' && (
+                  {inputType === 'email' && !isSignUp && (
                       <TouchableOpacity onPress={() => { setOtpSent(false); setOtp(''); }} style={{ alignSelf: 'flex-end', marginTop: 8 }}>
                           <Text style={{ color: colors.primary, fontSize: 13 }}>Use Password</Text>
                       </TouchableOpacity>
@@ -466,9 +540,9 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.primaryButtonText}>
-                    {inputType === 'email' 
-                      ? (isSignUp ? i18n.t('signUp') : i18n.t('login')) 
-                      : (otpSent ? i18n.t('verifyCode') : i18n.t('sendCode'))}
+                    {isSignUp 
+                      ? (signUpStep === 0 ? 'Send Verification Code' : signUpStep === 1 ? 'Verify & Continue' : 'Create Account')
+                      : (otpSent && !otp ? 'Send Code' : otpSent && otp ? 'Verify & Login' : i18n.t('login'))}
                   </Text>
                 )}
               </Pressable>

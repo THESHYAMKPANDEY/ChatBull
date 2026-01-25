@@ -31,6 +31,23 @@ const getAuthInstance = () => {
   return Platform.OS === 'web' ? webAuth : nativeAuth();
 };
 
+export const getCurrentUser = () => {
+  if (Platform.OS === 'web') {
+    // @ts-ignore
+    return webAuth.currentUser;
+  }
+  return nativeAuth().currentUser;
+};
+
+export const updateUserPassword = async (user: any, password: string) => {
+  if (Platform.OS === 'web') {
+    // @ts-ignore
+    await updatePassword(user, password);
+  } else {
+    await user.updatePassword(password);
+  }
+};
+
 export const signInEmailPassword = async (email: string, password: string, isSignUp: boolean): Promise<any> => {
   if (Platform.OS !== 'web') {
     if (isSignUp) {
