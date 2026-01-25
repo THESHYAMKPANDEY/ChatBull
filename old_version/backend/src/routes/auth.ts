@@ -245,18 +245,19 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
 
     // Send Email
     // Note: In production, configure these env vars
-    // Force GoDaddy Workspace for debugging
-    const transporter = nodemailer.createTransport({
-      host: 'smtpout.secureserver.net',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    // Force GoDaddy Workspace for debugging - V3 NUCLEAR
+        const transporter = nodemailer.createTransport({
+            host: 'smtpout.secureserver.net',
+            port: 465,
+            secure: true,
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
 
-    logger.info(`Attempting to send email via smtpout.secureserver.net for user ${process.env.SMTP_USER}`);
+        console.log("!!! NUCLEAR FIX V3 APPLIED - USING GODADDY !!!");
+        logger.info(`Attempting to send email via smtpout.secureserver.net for user ${process.env.SMTP_USER}`);
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
