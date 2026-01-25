@@ -244,48 +244,55 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
     });
 
     // Send Email
-    // Note: In production, configure these env vars
-    // Use env vars for configuration, fallback to GoDaddy if specific var missing (legacy behavior)
-    // But prefer full env configuration
-        const host = process.env.SMTP_HOST || 'smtpout.secureserver.net';
-        const port = parseInt(process.env.SMTP_PORT || '465');
-        const isSecure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE !== 'false' && port === 465);
-        
-        const transporter = nodemailer.createTransport({
-            host,
-            port,
-            secure: isSecure,
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-            },
-            tls: {
-                // Do not fail on invalid certs
-                rejectUnauthorized: false
-            }
-        });
-
-        console.log("!!! SMTP CONFIG LOADED !!!");
-        console.log(`Host: ${host}, Port: ${port}, Secure: ${isSecure}`);
-        logger.info(`Attempting to send email via ${host} for user ${process.env.SMTP_USER}`);
-        
-        // Verify connection configuration
-        try {
-            await transporter.verify();
-            console.log('✅ SMTP Connection Verified');
-        } catch (verifyError: any) {
-            console.error('❌ SMTP Verification Failed:', verifyError);
-            logger.error('SMTP Connection Error', { message: verifyError.message });
-            // Don't throw here, try sending anyway as verify() can be flaky on some servers
+    // Use env vars for configuration
+    const host = process.env.SMTP_HOST || 'smtpout.secureserver.net';
+    const port = parseInt(process.env.SMTP_PORT || '465');
+    // If SMTP_SECURE is explicitly set, use it. Otherwise default to true for port 465, false for others.
+    const isSecure = process.env.SMTP_SECURE !== undefined 
+        ? process.env.SMTP_SECURE === 'true' 
+        : port === 465;
+    
+    const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: isSecure,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+        tls: {
+            // Necessary for some GoDaddy/Office365 configurations to work with self-signed certs or proxies
+            rejectUnauthorized: false,
+            ciphers: 'SSLv3'
         }
+    });
+
+    console.log(`📧 SMTP Config: ${host}:${port} (Secure: ${isSecure})`);
+    
+    // Verify connection configuration
+    try {
+        await transporter.verify();
+        console.log('✅ SMTP Connection Verified');
+    } catch (verifyError: any) {
+        console.error('❌ SMTP Verification Failed:', verifyError);
+        // Continue to try sending, sometimes verify fails but send works
+    }
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       await transporter.sendMail({
-        from: process.env.SMTP_FROM || `"ChatBull" <${process.env.SMTP_USER}>`,
+        from: process.env.SMTP_FROM || `"ChatBull Support" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Your Login Code',
+        subject: 'Your ChatBull Login Code',
         text: `Your verification code is: ${otp}`,
-        html: `<b>Your verification code is: ${otp}</b>`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #4A90E2;">ChatBull Verification</h2>
+            <p>Here is your one-time verification code:</p>
+            <h1 style="font-size: 32px; letter-spacing: 5px; background: #f4f4f4; padding: 10px; display: inline-block; border-radius: 5px;">${otp}</h1>
+            <p>This code will expire in 10 minutes.</p>
+            <p style="font-size: 12px; color: #888;">If you didn't request this code, please ignore this email.</p>
+          </div>
+        `,
       });
       logger.info(`OTP sent to ${email}`);
     } else {
