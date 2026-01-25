@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { Platform, StyleSheet, TextInput, TextInputProps, View, ViewStyle, StyleProp } from 'react-native';
 import { useTheme } from '../../config/theme';
 import { radii, spacing } from '../../config/tokens';
 import AppText from './AppText';
@@ -9,7 +9,7 @@ export type AppTextFieldProps = TextInputProps & {
   error?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
-  containerStyle?: ViewStyle;
+  containerStyle?: StyleProp<ViewStyle>;
   hint?: string;
 };
 
