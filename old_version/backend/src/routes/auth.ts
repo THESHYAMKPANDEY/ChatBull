@@ -243,71 +243,90 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
       otp,
     });
 
-    // Send Email
-    // Use env vars for configuration
-    const host = process.env.SMTP_HOST || 'smtpout.secureserver.net';
-    const port = parseInt(process.env.SMTP_PORT || '465');
-    // If SMTP_SECURE is explicitly set, use it. Otherwise default to true for port 465, false for others.
-    const isSecure = process.env.SMTP_SECURE !== undefined 
-        ? process.env.SMTP_SECURE === 'true' 
-        : port === 465;
-    
-    const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: isSecure,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-        tls: {
-            // Necessary for some GoDaddy/Office365 configurations to work with self-signed certs or proxies
-            rejectUnauthorized: false,
-            ciphers: 'SSLv3'
-        }
-    });
-
-    console.log(`📧 SMTP Config: ${host}:${port} (Secure: ${isSecure})`);
-    
-    // Verify connection configuration
+    // Send Email Logic
+    // Strategy: Try Resend API first (works on Render Free Tier), fallback to SMTP
     try {
-        await transporter.verify();
-        console.log('✅ SMTP Connection Verified');
-    } catch (verifyError: any) {
-        console.error('❌ SMTP Verification Failed:', verifyError);
-        // Continue to try sending, sometimes verify fails but send works
-    }
+        const resendApiKey = process.env.RESEND_API_KEY;
+        
+        if (resendApiKey) {
+            console.log('🚀 Sending email via Resend API (Bypassing SMTP ports)...');
+            const resendResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${resendApiKey}`
+                },
+                body: JSON.stringify({
+                    from: 'ChatBull <onboarding@resend.dev>', // Default free tier sender
+                    to: email,
+                    subject: 'Your ChatBull Login Code',
+                    html: `
+                      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #4A90E2;">ChatBull Verification</h2>
+                        <p>Here is your one-time verification code:</p>
+                        <h1 style="font-size: 32px; letter-spacing: 5px; background: #f4f4f4; padding: 10px; display: inline-block; border-radius: 5px;">${otp}</h1>
+                        <p>This code will expire in 10 minutes.</p>
+                      </div>
+                    `
+                })
+            });
 
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || `"ChatBull Support" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: 'Your ChatBull Login Code',
-        text: `Your verification code is: ${otp}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #4A90E2;">ChatBull Verification</h2>
-            <p>Here is your one-time verification code:</p>
-            <h1 style="font-size: 32px; letter-spacing: 5px; background: #f4f4f4; padding: 10px; display: inline-block; border-radius: 5px;">${otp}</h1>
-            <p>This code will expire in 10 minutes.</p>
-            <p style="font-size: 12px; color: #888;">If you didn't request this code, please ignore this email.</p>
-          </div>
-        `,
-      });
-      logger.info(`OTP sent to ${email}`);
-    } else {
-      logger.warn(`SMTP not configured. OTP for ${email} is ${otp}`);
-    }
+            if (!resendResponse.ok) {
+                const errorText = await resendResponse.text();
+                throw new Error(`Resend API Error: ${errorText}`);
+            }
+            logger.info(`OTP sent via Resend to ${email}`);
+            
+        } else {
+            // SMTP Fallback (Likely to fail on Render Free Tier)
+            console.log('⚠️ RESEND_API_KEY not found. Falling back to SMTP (May be blocked on Render Free Tier)...');
+            
+            const host = process.env.SMTP_HOST || 'smtpout.secureserver.net';
+            const port = parseInt(process.env.SMTP_PORT || '465');
+            const isSecure = process.env.SMTP_SECURE !== undefined 
+                ? process.env.SMTP_SECURE === 'true' 
+                : port === 465;
+            
+            const transporter = nodemailer.createTransport({
+                host,
+                port,
+                secure: isSecure,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS,
+                },
+                tls: {
+                    rejectUnauthorized: false,
+                    ciphers: 'SSLv3'
+                },
+                // Increase timeout
+                connectionTimeout: 10000
+            });
+    
+            if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+                await transporter.sendMail({
+                    from: process.env.SMTP_FROM || `"ChatBull Support" <${process.env.SMTP_USER}>`,
+                    to: email,
+                    subject: 'Your ChatBull Login Code',
+                    text: `Your verification code is: ${otp}`,
+                    html: `<b>Your verification code is: ${otp}</b>`,
+                });
+                logger.info(`OTP sent via SMTP to ${email}`);
+            } else {
+                logger.warn(`SMTP not configured. OTP for ${email} is ${otp}`);
+            }
+        }
 
-    res.status(200).json({ message: 'OTP sent' });
-  } catch (error: any) {
-    console.error('💥 Send OTP Fatal Error:', error);
-    logger.error('Send OTP error', { message: (error as any)?.message || String(error) });
-    res.status(500).json({ 
-        error: 'Failed to send OTP',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
-  }
+        res.status(200).json({ message: 'OTP sent' });
+
+    } catch (error: any) {
+        console.error('💥 Send OTP Fatal Error:', error);
+        logger.error('Send OTP error', { message: (error as any)?.message || String(error) });
+        res.status(500).json({ 
+            error: 'Failed to send OTP',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        });
+    }
 });
 
 // SMTP Diagnostic Endpoint
