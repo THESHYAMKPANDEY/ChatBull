@@ -7,7 +7,7 @@ import path from 'path';
 
 // Load .env file explicitly if NODE_ENV is not production (or for debugging)
 if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+  dotenv.config({ path: path.resolve(__dirname, '../.env') });
 } else {
   dotenv.config();
 }
