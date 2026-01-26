@@ -8,6 +8,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import VerifiedBadge from '../components/VerifiedBadge';
 import { api } from '../services/api';
 import { pickImage, uploadFile, PickedMedia } from '../services/media';
+import { getCurrentUser, linkEmailPassword, updateUserPassword } from '../services/authClient';
 import i18n from '../i18n';
 
 interface ProfileScreenProps {
@@ -15,7 +16,6 @@ interface ProfileScreenProps {
   onChats: () => void;
   onFeed: () => void;
   onPrivate: () => void;
-  onAI: () => void;
   onDeleteAccount: () => void;
   onUserUpdated: (user: any) => void;
   showTabBar?: boolean;
@@ -28,7 +28,7 @@ type Post = {
   mediaType?: 'image' | 'video' | 'file';
 };
 
-export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onAI, onDeleteAccount, onUserUpdated, showTabBar = true, onLogout }: ProfileScreenProps) {
+export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate, onDeleteAccount, onUserUpdated, showTabBar = true, onLogout }: ProfileScreenProps) {
   const { colors, theme, toggleTheme } = useTheme();
 
   const displayName = currentUser?.displayName || 'User';
@@ -44,8 +44,10 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   }, []);
 
   const [posts, setPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [postsTotal, setPostsTotal] = useState(0);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'tagged'>('posts');
 
@@ -59,6 +61,11 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const [pickedAvatar, setPickedAvatar] = useState<PickedMedia | null>(null);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordEmail, setPasswordEmail] = useState(email || '');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -93,9 +100,27 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
     }
   };
 
+  const loadSavedPosts = async () => {
+    try {
+      setLoadingSaved(true);
+      const result = await api.getSavedPosts();
+      setSavedPosts(Array.isArray(result?.posts) ? result.posts : []);
+    } catch {
+      setSavedPosts([]);
+    } finally {
+      setLoadingSaved(false);
+    }
+  };
+
   useEffect(() => {
     loadMyPosts();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'saved') {
+      loadSavedPosts();
+    }
+  }, [activeTab]);
 
   const openEditProfile = () => {
     setEditDisplayName(displayName);
@@ -106,6 +131,64 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
     setPickedAvatar(null);
     setAvatarPreviewUri(null);
     setEditOpen(true);
+  };
+
+  const openPasswordModal = () => {
+    setPasswordEmail(email || '');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordOpen(true);
+  };
+
+  const savePassword = async () => {
+    if (savingPassword) return;
+    if (!newPassword || newPassword.length < 6) {
+      Alert.alert(i18n.t('error'), 'Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert(i18n.t('error'), 'Passwords do not match.');
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      if (!email) {
+        if (!passwordEmail) {
+          Alert.alert(i18n.t('error'), i18n.t('enterEmail'));
+          return;
+        }
+        await linkEmailPassword(passwordEmail.trim(), newPassword);
+      } else {
+        const user = getCurrentUser();
+        if (!user) {
+          throw new Error('Please log in again to update your password.');
+        }
+        await updateUserPassword(user, newPassword);
+      }
+
+      const firebaseUser = getCurrentUser();
+      if (firebaseUser) {
+        const syncResult = await api.syncUser({
+          firebaseUid: firebaseUser.uid,
+          email: firebaseUser.email || passwordEmail.trim(),
+          displayName: firebaseUser.displayName || displayName,
+          phoneNumber: firebaseUser.phoneNumber || phoneNumber || '',
+          photoURL: firebaseUser.photoURL || photoURL || '',
+        });
+        if (syncResult?.user) {
+          onUserUpdated(syncResult.user);
+        }
+      }
+
+      setPasswordOpen(false);
+      Alert.alert(i18n.t('success'), 'Password updated successfully.');
+    } catch (error: any) {
+      const msg = error?.message || 'Failed to update password. Please try again.';
+      Alert.alert(i18n.t('error'), msg);
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const pickNewAvatar = async () => {
@@ -286,6 +369,21 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
 
           <TouchableOpacity 
             style={styles.settingRow} 
+            onPress={openPasswordModal}
+            accessibilityLabel="Set password"
+            accessibilityRole="button"
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.text} />
+              <Text style={[styles.settingText, { color: colors.text }]}>
+                {email ? 'Change Password' : 'Set Password'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.settingRow} 
             onPress={handleDeleteAccount}
             accessibilityLabel={i18n.t('deleteAccount')}
             accessibilityRole="button"
@@ -361,6 +459,8 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const gridData =
     activeTab === 'posts'
       ? posts.filter((p) => p.mediaType === 'image' && !!p.mediaUrl)
+      : activeTab === 'saved'
+      ? savedPosts.filter((p) => p.mediaType === 'image' && !!p.mediaUrl)
       : [];
 
   return (
@@ -395,6 +495,13 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                 <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>{i18n.t('noPosts')}</Text>
               </View>
             )
+          ) : activeTab === 'saved' ? (
+            loadingSaved ? null : (
+              <View style={styles.gridEmpty}>
+                <Ionicons name="bookmark-outline" size={28} color={colors.mutedText} />
+                <Text style={[styles.gridEmptyText, { color: colors.mutedText }]}>No saved posts yet.</Text>
+              </View>
+            )
           ) : (
             <View style={styles.gridEmpty}>
               <Ionicons name="lock-closed-outline" size={28} color={colors.mutedText} />
@@ -405,8 +512,8 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
         contentContainerStyle={styles.scrollContent}
         columnWrapperStyle={styles.gridRow}
         showsVerticalScrollIndicator={false}
-        refreshing={loadingPosts}
-        onRefresh={loadMyPosts}
+        refreshing={activeTab === 'posts' ? loadingPosts : activeTab === 'saved' ? loadingSaved : false}
+        onRefresh={activeTab === 'posts' ? loadMyPosts : activeTab === 'saved' ? loadSavedPosts : undefined}
       />
 
       {showTabBar && (
@@ -416,8 +523,8 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
             onChats={onChats}
             onFeed={onFeed}
             onPrivate={onPrivate}
-            onAI={onAI}
             onProfile={() => {}}
+            profilePhotoUrl={currentUser?.photoURL}
           />
         </View>
       )}
@@ -533,6 +640,66 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                   placeholder="+1234567890"
                   placeholderTextColor={colors.mutedText}
                   accessibilityLabel={i18n.t('phone')}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={passwordOpen} transparent animationType="slide" onRequestClose={() => setPasswordOpen(false)}>
+        <View style={styles.editBackdrop}>
+          <View style={[styles.editCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.editHeader, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={() => setPasswordOpen(false)} disabled={savingPassword} accessibilityLabel={i18n.t('cancel')} accessibilityRole="button">
+                <Text style={[styles.editHeaderBtn, { color: colors.mutedText }]}>{i18n.t('cancel')}</Text>
+              </TouchableOpacity>
+              <Text style={[styles.editTitle, { color: colors.text }]}>{email ? 'Change Password' : 'Set Password'}</Text>
+              <TouchableOpacity onPress={savePassword} disabled={savingPassword} accessibilityLabel={i18n.t('save')} accessibilityRole="button">
+                <Text style={[styles.editHeaderBtn, { color: savingPassword ? colors.mutedText : colors.primary }]}>{savingPassword ? i18n.t('saving') : i18n.t('done')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.editContent}>
+              {!email && (
+                <View style={styles.field}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('email')}</Text>
+                  <TextInput
+                    style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
+                    value={passwordEmail}
+                    onChangeText={setPasswordEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder={i18n.t('email')}
+                    placeholderTextColor={colors.mutedText}
+                    accessibilityLabel={i18n.t('email')}
+                  />
+                </View>
+              )}
+
+              <View style={styles.field}>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>{i18n.t('password')}</Text>
+                <TextInput
+                  style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
+                  placeholder={i18n.t('password')}
+                  placeholderTextColor={colors.mutedText}
+                  accessibilityLabel={i18n.t('password')}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Confirm Password</Text>
+                <TextInput
+                  style={[styles.fieldInput, { color: colors.text, borderColor: colors.border }]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  placeholder="Confirm Password"
+                  placeholderTextColor={colors.mutedText}
+                  accessibilityLabel="Confirm Password"
                 />
               </View>
             </View>

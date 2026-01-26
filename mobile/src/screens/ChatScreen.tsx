@@ -17,16 +17,14 @@ import {
 import { Socket } from 'socket.io-client';
 import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadEncryptedFile, PickedMedia } from '../services/media';
 import { withScreenshotProtection } from '../services/security';
-import { appConfig } from '../config/appConfig';
 import { messageStatusManager, MessageStatus } from '../services/messageStatus';
 import { messageReactionManager, DEFAULT_REACTIONS } from '../services/messageReactions';
 import * as Clipboard from 'expo-clipboard';
-import { auth } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import i18n from '../i18n';
 import { useTheme } from '../config/theme';
-import { connectSocket, getSocket } from '../services/socket';
+import { connectSocket } from '../services/socket';
 import { api } from '../services/api';
 import {
   decryptFromSender,
@@ -836,6 +834,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
             style={styles.iconButton}
             accessibilityLabel="Voice call"
             accessibilityRole="button"
+            disabled={otherUser?.isGroup}
           >
             <Ionicons name="call-outline" size={28} color={colors.text} />
           </TouchableOpacity>
@@ -851,6 +850,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
             style={styles.iconButton}
             accessibilityLabel="Video call"
             accessibilityRole="button"
+            disabled={otherUser?.isGroup}
           >
             <Ionicons name="videocam-outline" size={30} color={colors.text} />
           </TouchableOpacity>

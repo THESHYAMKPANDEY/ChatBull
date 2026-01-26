@@ -256,6 +256,8 @@ export const api = {
     phoneNumber?: string;
     username?: string;
     bio?: string;
+    website?: string;
+    email?: string;
   }) => {
     const headers = await getAuthHeaders();
     
@@ -273,6 +275,11 @@ export const api = {
     return await apiRequest('/posts/feed', {
       headers,
     });
+  },
+
+  getSavedPosts: async () => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/posts/saved', { headers });
   },
 
   createPost: async (postData: {

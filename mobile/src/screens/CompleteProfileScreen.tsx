@@ -123,44 +123,27 @@ export default function CompleteProfileScreen({ currentUser, onComplete }: Props
 
     setIsSaving(true);
     try {
-      // 1. Set Password if provided (for phone users)
-      if (password) {
-        // First ensure email is set on user object if we are linking
-        if (!currentUser.email) {
-           // We need to update email first on backend or pass it to auth client
-           // For simplicity, let's assume we update profile first
+      let linkedEmail = '';
+      if (!currentUser.email && email && password) {
+        try {
+          await linkEmailPassword(email, password);
+          linkedEmail = email;
+        } catch (e: any) {
+          console.error("Failed to link password", e);
+          Alert.alert("Security Update Failed", e.message || "Could not set password. Please try from settings later.");
+          setIsSaving(false);
+          return;
         }
-        
-        // Actually, we need to link credential. But linking requires the user to have an email in Firebase.
-        // If they are phone auth only, they have no email.
-        // We might need a separate flow: `linkEmailPassword(email, password)`
-        // For now, let's try setting it if they have email, or skip if complex.
-        // Simplified: Only set if user already has email or we provide one.
       }
 
-      // 2. Update Profile
+      // Update Profile
       const result = await api.updateProfile({
         displayName,
         username,
         bio,
         photoURL,
-        // If user added email here, we should send it to backend too
-        // (Backend user model update)
+        ...(linkedEmail ? { email: linkedEmail } : {}),
       });
-      
-      // 3. If phone user provided email/password, try to link in Firebase
-      if (!currentUser.email && email && password) {
-         try {
-           await linkEmailPassword(email, password);
-           // Also sync the email to backend again if successful
-           await api.updateProfile({ 
-             email, // We need to update our api.ts to accept email update if we want to sync it
-           } as any); 
-         } catch (e: any) {
-            console.error("Failed to link password", e);
-            Alert.alert("Security Update Failed", e.message || "Could not set password. Please try from settings later.");
-         }
-      }
 
       if (result.user) {
         onComplete(result.user);

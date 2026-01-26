@@ -108,12 +108,17 @@ router.get('/feed', verifyFirebaseToken, async (req: Request, res: Response) => 
       Post.countDocuments(),
     ]);
 
+    const savedSet = new Set(
+      Array.isArray(user.savedPosts) ? user.savedPosts.map((id) => String(id)) : []
+    );
+
     const mappedPosts = posts.map((p: any) => {
       const likes = Array.isArray(p.likes) ? p.likes.map((id: any) => String(id)) : [];
       return {
         ...p.toObject(),
         likeCount: likes.length,
         likedByMe: likes.includes(String(user._id)),
+        savedByMe: savedSet.has(String(p._id)),
       };
     });
 
@@ -127,6 +132,47 @@ router.get('/feed', verifyFirebaseToken, async (req: Request, res: Response) => 
   } catch (error) {
     logger.error('Get feed error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ success: false, error: 'Failed to load feed' });
+  }
+});
+
+/**
+ * GET /api/posts/saved
+ * Get saved posts for current user
+ */
+router.get('/saved', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const savedPosts = Array.isArray(user.savedPosts) ? user.savedPosts : [];
+    if (savedPosts.length === 0) {
+      res.status(200).json({ success: true, posts: [] });
+      return;
+    }
+
+    const posts = await Post.find({ _id: { $in: savedPosts } })
+      .sort({ createdAt: -1 })
+      .populate('author', 'displayName photoURL');
+
+    const userIdStr = String(user._id);
+    const mappedPosts = posts.map((p: any) => {
+      const likes = Array.isArray(p.likes) ? p.likes.map((id: any) => String(id)) : [];
+      return {
+        ...p.toObject(),
+        likeCount: likes.length,
+        likedByMe: likes.includes(userIdStr),
+        savedByMe: true,
+      };
+    });
+
+    res.status(200).json({ success: true, posts: mappedPosts });
+  } catch (error) {
+    logger.error('Get saved posts error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ success: false, error: 'Failed to load saved posts' });
   }
 });
 

@@ -297,11 +297,10 @@ export default function AIChatScreen({ onChats, onFeed, onPrivate, onProfile, sh
       {showTabBar && (
         <View style={styles.tabBar}>
           <BottomTabBar
-            active="ai"
+            active="chats"
             onChats={onChats}
             onFeed={onFeed}
             onPrivate={onPrivate}
-            onAI={() => {}}
             onProfile={onProfile}
           />
         </View>
