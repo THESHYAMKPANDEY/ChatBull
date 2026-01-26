@@ -28,7 +28,6 @@ export default function CallScreen({
   peerAvatar,
   callType,
   userID,
-  userName,
   incoming = false,
   callId: initialCallId,
   onBack,
@@ -37,18 +36,18 @@ export default function CallScreen({
   const [callState, setCallState] = useState<CallState>(incoming ? 'incoming' : 'calling');
   const [callId, setCallId] = useState<string | undefined>(initialCallId);
   const [error, setError] = useState<string | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [localStream, setLocalStream] = useState<any | null>(null);
+  const [remoteStream, setRemoteStream] = useState<any | null>(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
 
   const socketRef = useRef<any>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const pcRef = useRef<any>(null);
+  const localStreamRef = useRef<any>(null);
+  const remoteStreamRef = useRef<any>(null);
   const callIdRef = useRef<string | undefined>(initialCallId);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<any>(null);
+  const remoteVideoRef = useRef<any>(null);
 
   useEffect(() => {
     callIdRef.current = callId;
@@ -56,7 +55,7 @@ export default function CallScreen({
 
   const displayName = useMemo(() => peerName || 'Unknown', [peerName]);
 
-  const attachStream = (videoEl: HTMLVideoElement | null, stream: MediaStream | null, mutedVideo: boolean) => {
+  const attachStream = (videoEl: any, stream: any, mutedVideo: boolean) => {
     if (!videoEl) return;
     if (!stream) {
       videoEl.srcObject = null;
@@ -81,12 +80,13 @@ export default function CallScreen({
 
   const ensureLocalStream = async () => {
     if (localStreamRef.current) return localStreamRef.current;
-    if (!navigator?.mediaDevices?.getUserMedia) {
+    const nav = (globalThis as any).navigator;
+    if (!nav?.mediaDevices?.getUserMedia) {
       setError('Camera or microphone access is not supported on this browser.');
       setCallState('error');
       throw new Error('media_not_supported');
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const stream = await nav.mediaDevices.getUserMedia({
       audio: true,
       video: callType === 'video',
     });
@@ -97,7 +97,14 @@ export default function CallScreen({
 
   const ensurePeerConnection = async () => {
     if (pcRef.current) return pcRef.current;
-    const pc = new RTCPeerConnection({
+    const PeerConnection = (globalThis as any).RTCPeerConnection;
+    if (!PeerConnection) {
+      setError('WebRTC is not supported on this browser.');
+      setCallState('error');
+      throw new Error('webrtc_not_supported');
+    }
+
+    const pc = new PeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:global.stun.twilio.com:3478' },
@@ -148,7 +155,7 @@ export default function CallScreen({
   const handleSignal = async (signal: any) => {
     const pc = await ensurePeerConnection();
     if (signal.type === 'offer' && signal.sdp) {
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+      await pc.setRemoteDescription({ type: 'offer', sdp: signal.sdp } as any);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       socketRef.current?.emit('call:signal', {
@@ -160,14 +167,14 @@ export default function CallScreen({
     }
 
     if (signal.type === 'answer' && signal.sdp) {
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+      await pc.setRemoteDescription({ type: 'answer', sdp: signal.sdp } as any);
       setCallState('active');
       return;
     }
 
     if (signal.type === 'ice' && signal.candidate) {
       try {
-        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        await pc.addIceCandidate(signal.candidate);
       } catch {
         // ignore ICE errors
       }

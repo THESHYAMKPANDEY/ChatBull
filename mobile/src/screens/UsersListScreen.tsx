@@ -10,10 +10,14 @@ import {
   Modal,
   TextInput,
   Platform,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { api } from '../services/api';
 import { pickImage, pickVideo, uploadFile } from '../services/media';
 import * as Contacts from 'expo-contacts';
+import { Video } from 'expo-av';
+import BottomTabBar from '../components/BottomTabBar';
 
 import VerifiedBadge from '../components/VerifiedBadge';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +43,8 @@ interface UsersListScreenProps {
   onPrivateMode: () => void;
   onProfile: () => void;
   onFeed: () => void;
-  onAI: () => void;
+  onChats: () => void;
+  showTabBar?: boolean;
 }
 
 type Story = {
@@ -57,7 +62,8 @@ export default function UsersListScreen({
   onPrivateMode,
   onProfile,
   onFeed,
-  onAI,
+  onChats,
+  showTabBar = true,
 }: UsersListScreenProps) {
   const { colors, theme } = useTheme();
   const [users, setUsers] = useState<User[]>([]);
@@ -69,6 +75,7 @@ export default function UsersListScreen({
   const [isStartingPrivate, setIsStartingPrivate] = useState(false);
   const [stories, setStories] = useState<Story[]>([]);
   const [isPostingStory, setIsPostingStory] = useState(false);
+  const [activeStory, setActiveStory] = useState<Story | null>(null);
 
   // Group Creation State
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -228,6 +235,19 @@ export default function UsersListScreen({
     }
   };
 
+  const openStory = async (story: Story) => {
+    setActiveStory(story);
+    try {
+      await api.viewStory(story._id);
+    } catch (error) {
+      // non-blocking
+    }
+  };
+
+  const closeStory = () => {
+    setActiveStory(null);
+  };
+
   const handleNewChat = async () => {
     // Check phone number existence if needed
     if (!currentUser.phoneNumber) {
@@ -290,8 +310,7 @@ export default function UsersListScreen({
     <TouchableOpacity style={styles.userItem} onPress={() => onSelectUser(item)}>
       <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
         {item.photoURL ? (
-           // Simplified image handling
-           <Text style={[styles.avatarText, { color: colors.text }]}>{item.displayName.charAt(0).toUpperCase()}</Text>
+           <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
         ) : (
            <Text style={[styles.avatarText, { color: colors.text }]}>{item.displayName.charAt(0).toUpperCase()}</Text>
         )}
@@ -377,29 +396,35 @@ export default function UsersListScreen({
 
       {/* Stories/Active Section */}
       <View style={styles.storiesContainer}>
-        <TouchableOpacity style={styles.storyItem} onPress={handleCreateStory} disabled={isPostingStory}>
-          <View style={[styles.storyAvatar, styles.myStory, { borderColor: colors.border }]}>
-            <View style={[styles.storyAvatarInner, { backgroundColor: colors.secondary }]}>
-              {isPostingStory ? <ActivityIndicator color={colors.text} /> : <Ionicons name="add" size={24} color={colors.text} />}
-            </View>
-          </View>
-          <Text style={[styles.storyName, { color: colors.text }]}>{t('yourStory')}</Text>
-        </TouchableOpacity>
-
-        {stories.slice(0, 10).map((s) => (
-          <View key={s._id} style={styles.storyItem}>
-            <View style={styles.storyAvatar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesRow}>
+          <TouchableOpacity style={styles.storyItem} onPress={handleCreateStory} disabled={isPostingStory}>
+            <View style={[styles.storyAvatar, styles.myStory, { borderColor: colors.border }]}>
               <View style={[styles.storyAvatarInner, { backgroundColor: colors.secondary }]}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.text }}>
-                  {s.author?.displayName?.charAt(0)?.toUpperCase() || 'S'}
-                </Text>
+                {isPostingStory ? <ActivityIndicator color={colors.text} /> : <Ionicons name="add" size={24} color={colors.text} />}
               </View>
             </View>
-            <Text style={[styles.storyName, { color: colors.text }]} numberOfLines={1}>
-              {s.author?.displayName || 'Story'}
-            </Text>
-          </View>
-        ))}
+            <Text style={[styles.storyName, { color: colors.text }]}>{t('yourStory')}</Text>
+          </TouchableOpacity>
+
+          {stories.slice(0, 10).map((s) => (
+            <TouchableOpacity key={s._id} style={styles.storyItem} onPress={() => openStory(s)}>
+              <View style={styles.storyAvatar}>
+                <View style={[styles.storyAvatarInner, { backgroundColor: colors.secondary }]}>
+                  {s.author?.photoURL ? (
+                    <Image source={{ uri: s.author.photoURL }} style={styles.storyAvatarImage} />
+                  ) : (
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.text }}>
+                      {s.author?.displayName?.charAt(0)?.toUpperCase() || 'S'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <Text style={[styles.storyName, { color: colors.text }]} numberOfLines={1}>
+                {s.author?.displayName || 'Story'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <View style={{ height: 0.5, backgroundColor: colors.border }} />
@@ -466,9 +491,13 @@ export default function UsersListScreen({
                      }}
                    >
                      <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
-                        <Text style={[styles.avatarText, { color: colors.text }]}>
-                          {item.displayName.charAt(0).toUpperCase()}
-                        </Text>
+                        {item.photoURL ? (
+                          <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
+                        ) : (
+                          <Text style={[styles.avatarText, { color: colors.text }]}>
+                            {item.displayName.charAt(0).toUpperCase()}
+                          </Text>
+                        )}
                      </View>
                      <View style={styles.userInfo}>
                        <Text style={[styles.userName, { color: colors.text }]}>{item.displayName}</Text>
@@ -529,6 +558,38 @@ export default function UsersListScreen({
           </View>
         </View>
       </Modal>
+
+      {showTabBar && (
+        <View style={styles.tabBar}>
+          <BottomTabBar
+            active="chats"
+            onChats={onChats}
+            onFeed={onFeed}
+            onPrivate={onPrivateMode}
+            onProfile={onProfile}
+            profilePhotoUrl={currentUser?.photoURL}
+          />
+        </View>
+      )}
+
+      <Modal visible={!!activeStory} transparent animationType="fade" onRequestClose={closeStory}>
+        <View style={styles.storyViewer}>
+          <TouchableOpacity style={styles.storyClose} onPress={closeStory}>
+            <Ionicons name="close" size={20} color="#fff" />
+          </TouchableOpacity>
+          {activeStory?.mediaType === 'video' ? (
+            <Video
+              source={{ uri: activeStory.mediaUrl }}
+              style={styles.storyMedia}
+              resizeMode="contain"
+              shouldPlay
+              useNativeControls
+            />
+          ) : (
+            <Image source={{ uri: activeStory?.mediaUrl }} style={styles.storyMedia} resizeMode="contain" />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -574,6 +635,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
   },
+  storiesRow: {
+    paddingRight: 16,
+  },
   storyItem: {
     alignItems: 'center',
     marginRight: 16,
@@ -600,6 +664,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  storyAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
   storyName: {
     fontSize: 11,
     marginTop: 4,
@@ -625,6 +694,7 @@ const styles = StyleSheet.create({
   },
   usersList: {
     padding: 0,
+    paddingBottom: 96,
   },
   userItem: {
     flexDirection: 'row',
@@ -641,6 +711,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: '#666',
@@ -750,5 +825,34 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  storyViewer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  storyMedia: {
+    width: '100%',
+    height: '100%',
+    maxWidth: 900,
   },
 });

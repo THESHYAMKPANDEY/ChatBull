@@ -49,12 +49,11 @@ interface FeedScreenProps {
   currentUser: any;
   onChats: () => void;
   onPrivate: () => void;
-  onAI: () => void;
   onProfile: () => void;
   showTabBar?: boolean;
 }
 
-export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onProfile, showTabBar = true }: FeedScreenProps) {
+export default function FeedScreen({ currentUser, onChats, onPrivate, onProfile, showTabBar = true }: FeedScreenProps) {
   const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -567,8 +566,8 @@ export default function FeedScreen({ currentUser, onChats, onPrivate, onAI, onPr
             onChats={onChats}
             onFeed={() => {}}
             onPrivate={onPrivate}
-            onAI={onAI}
             onProfile={onProfile}
+            profilePhotoUrl={currentUser?.photoURL}
           />
         </View>
       )}

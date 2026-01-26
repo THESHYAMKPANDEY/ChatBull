@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Alert, Platform, PanResponder, TouchableOpacity, Text, BackHandler } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Alert, Platform, PanResponder, TouchableOpacity, Text, BackHandler, Image } from 'react-native';
 import type { Socket } from 'socket.io-client';
 import { auth } from './src/config/firebase';
 import { api } from './src/services/api';
@@ -21,10 +21,9 @@ import FeedScreen from './src/screens/FeedScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CallScreen from './src/screens/CallScreen';
 import { ThemeProvider, useTheme } from './src/config/theme';
-import AIChatScreen from './src/screens/AIChatScreen';
 import Sentry, { initSentry } from './src/services/sentry';
 
-type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call' | 'completeProfile';
+type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'createGroup' | 'call' | 'completeProfile';
 
 type CallData = {
   peerId: string;
@@ -294,11 +293,6 @@ function AppContent() {
         return true;
       }
       
-      if (currentScreen === 'ai') {
-        handleBackToUsers();
-        return true;
-      }
-
       if (currentScreen === 'private') {
         handleExitPrivateMode();
         return true;
@@ -323,10 +317,6 @@ function AppContent() {
 
   const handleFeed = () => {
     setCurrentScreen('feed');
-  };
-
-  const handleAI = () => {
-    setCurrentScreen('ai');
   };
 
   const handleBackToUsers = () => {
@@ -377,7 +367,13 @@ function AppContent() {
              style={[styles.webNavItem, activeTab === 'profile' && { backgroundColor: colors.secondary }]} 
              onPress={handleProfile}
            >
-             <Ionicons name={activeTab === 'profile' ? "person" : "person-outline"} size={28} color={activeTab === 'profile' ? colors.text : colors.mutedText} />
+             {currentUser?.photoURL ? (
+               <View style={[styles.navAvatarWrap, activeTab === 'profile' && { borderColor: colors.text }]}>
+                 <Image source={{ uri: currentUser.photoURL }} style={styles.navAvatar} />
+               </View>
+             ) : (
+               <Ionicons name={activeTab === 'profile' ? "person" : "person-outline"} size={28} color={activeTab === 'profile' ? colors.text : colors.mutedText} />
+             )}
            </TouchableOpacity>
 
            <TouchableOpacity 
@@ -414,7 +410,8 @@ function AppContent() {
                     onPrivateMode={handlePrivateMode}
                     onProfile={handleProfile}
                     onFeed={handleFeed}
-                    onAI={handleAI}
+                    onChats={handleBackToUsers}
+                    showTabBar={false}
                   />
                </View>
                <View style={[styles.webContent, { backgroundColor: colors.background }, !selectedUser ? styles.webContentEmpty : {}]}>
@@ -441,7 +438,6 @@ function AppContent() {
                currentUser={currentUser}
                onChats={handleBackToUsers}
                onPrivate={handlePrivateMode}
-               onAI={handleAI}
                onProfile={handleProfile}
                showTabBar={false}
              />
@@ -453,22 +449,11 @@ function AppContent() {
                onChats={handleBackToUsers}
                onFeed={handleFeed}
                onPrivate={handlePrivateMode}
-               onAI={handleAI}
                onDeleteAccount={handleDeleteAccount}
                onUserUpdated={(user) => setCurrentUser(user)}
                showTabBar={false}
               onLogout={handleLogout}
              />
-           )}
-
-           {activeTab === 'ai' && currentScreen !== 'call' && (
-              <AIChatScreen
-                onChats={handleBackToUsers}
-                onFeed={handleFeed}
-                onPrivate={handlePrivateMode}
-                onProfile={handleProfile}
-                showTabBar={false}
-              />
            )}
 
            {activeTab === 'private' && currentScreen !== 'call' && (
@@ -518,7 +503,7 @@ function AppContent() {
               onPrivateMode={handlePrivateMode}
               onProfile={handleProfile}
               onFeed={handleFeed}
-              onAI={handleAI}
+              onChats={handleBackToUsers}
             />
           )}
           
@@ -559,7 +544,6 @@ function AppContent() {
               onChats={handleBackToUsers}
               onFeed={handleFeed}
               onPrivate={handlePrivateMode}
-              onAI={handleAI}
               onDeleteAccount={handleDeleteAccount}
               onUserUpdated={(user) => setCurrentUser(user)}
             />
@@ -569,16 +553,6 @@ function AppContent() {
             <FeedScreen
               currentUser={currentUser}
               onChats={handleBackToUsers}
-              onPrivate={handlePrivateMode}
-              onAI={handleAI}
-              onProfile={handleProfile}
-            />
-          )}
-
-          {currentScreen === 'ai' && currentUser && (
-            <AIChatScreen
-              onChats={handleBackToUsers}
-              onFeed={handleFeed}
               onPrivate={handlePrivateMode}
               onProfile={handleProfile}
             />
@@ -663,6 +637,21 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 20,
     borderRadius: 8,
+  },
+  navAvatarWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   webMainArea: {
     flex: 1,

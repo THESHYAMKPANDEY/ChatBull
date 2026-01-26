@@ -5,9 +5,8 @@ export interface BottomTabBarProps {
   onChats: () => void;
   onFeed: () => void;
   onPrivate: () => void;
-  onAI: () => void;
   onProfile: () => void;
+  profilePhotoUrl?: string;
 }
 
 export default function BottomTabBar(props: BottomTabBarProps): React.JSX.Element;
-

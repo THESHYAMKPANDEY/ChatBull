@@ -103,7 +103,12 @@ router.put(
         const normalizedEmail = email.trim().toLowerCase();
         const firebaseEmail = (firebaseUser as any).email;
 
-        if (firebaseEmail && String(firebaseEmail).toLowerCase() !== normalizedEmail) {
+        if (!firebaseEmail) {
+          res.status(400).json({ error: 'Email must be set on your account before updating profile' });
+          return;
+        }
+
+        if (String(firebaseEmail).toLowerCase() !== normalizedEmail) {
           res.status(400).json({ error: 'Email must match authenticated account' });
           return;
         }
