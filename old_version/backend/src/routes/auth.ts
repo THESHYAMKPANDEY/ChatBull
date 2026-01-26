@@ -326,6 +326,12 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
             details: process.env.NODE_ENV === 'development' ? error.message : undefined 
         });
     }
+  } catch (error) {
+    logger.error('Email OTP send error', { message: (error as any)?.message || String(error) });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 });
 
 // SMTP Diagnostic Endpoint
