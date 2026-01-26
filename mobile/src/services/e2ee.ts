@@ -1,10 +1,33 @@
 import { Platform } from 'react-native';
-import EncryptedStorage from 'react-native-encrypted-storage';
 import nacl from 'tweetnacl';
 import util from 'tweetnacl-util';
 
 const IDENTITY_KEY_STORAGE = 'chatbull_identity_keypair_v1';
 const GROUP_KEY_PREFIX = 'chatbull_group_key_v1_';
+
+type SecureStore = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+};
+
+let secureStore: SecureStore | null = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const mod = require('react-native-encrypted-storage');
+    const storage = mod?.default || mod;
+    if (storage?.getItem) {
+      secureStore = {
+        getItem: storage.getItem,
+        setItem: storage.setItem,
+        removeItem: storage.removeItem,
+      };
+    }
+  } catch {
+    secureStore = null;
+  }
+}
 
 export type IdentityKeyPair = {
   publicKey: string; // base64
@@ -12,34 +35,34 @@ export type IdentityKeyPair = {
 };
 
 const getStorageItem = async (key: string): Promise<string | null> => {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' || !secureStore) {
     try {
       return localStorage.getItem(key);
     } catch {
       return null;
     }
   }
-  return EncryptedStorage.getItem(key);
+  return secureStore.getItem(key);
 };
 
 const setStorageItem = async (key: string, value: string): Promise<void> => {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' || !secureStore) {
     try {
       localStorage.setItem(key, value);
     } catch {}
     return;
   }
-  await EncryptedStorage.setItem(key, value);
+  await secureStore.setItem(key, value);
 };
 
 const removeStorageItem = async (key: string): Promise<void> => {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' || !secureStore) {
     try {
       localStorage.removeItem(key);
     } catch {}
     return;
   }
-  await EncryptedStorage.removeItem(key);
+  await secureStore.removeItem(key);
 };
 
 const encodeBase64 = (bytes: Uint8Array) => util.encodeBase64(bytes);
