@@ -308,11 +308,59 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
                 const sender = process.env.SMTP_FROM || process.env.SMTP_USER;
                 
                 const info = await transporter.sendMail({
-                    from: `"ChatBull Support" <${sender}>`,
+                    from: `"ChatBull Security" <${sender}>`,
                     to: email,
-                    subject: 'Your ChatBull Login Code',
+                    subject: '🔐 Your ChatBull Login Code',
                     text: `Your verification code is: ${otp}`,
-                    html: `<b>Your verification code is: ${otp}</b>`,
+                    html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>ChatBull Verification</title>
+                    </head>
+                    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td align="center" style="padding: 40px 0;">
+                                    <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);">
+                                        <!-- Header -->
+                                        <div style="background: linear-gradient(135deg, #128c7e 0%, #075e54 100%); padding: 32px 24px; text-align: center;">
+                                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">ChatBull</h1>
+                                            <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">Secure Login Verification</p>
+                                        </div>
+
+                                        <!-- Content -->
+                                        <div style="padding: 40px 32px; text-align: center;">
+                                            <p style="margin: 0 0 24px; color: #475569; font-size: 16px; line-height: 1.5;">
+                                                Someone (hopefully you) requested a verification code to log in to your ChatBull account.
+                                            </p>
+                                            
+                                            <div style="background-color: #f1f5f9; border-radius: 12px; padding: 20px; margin: 0 0 24px; display: inline-block;">
+                                                <span style="font-family: 'Courier New', monospace; font-size: 36px; font-weight: 700; color: #0f172a; letter-spacing: 6px;">${otp}</span>
+                                            </div>
+
+                                            <p style="margin: 0; color: #64748b; font-size: 14px;">
+                                                This code will expire in 10 minutes. <br>
+                                                If you didn't request this, please ignore this email.
+                                            </p>
+                                        </div>
+
+                                        <!-- Footer -->
+                                        <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                            <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+                                                &copy; ${new Date().getFullYear()} ChatBull Inc. All rights reserved. <br>
+                                                Military-grade secure communication.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </body>
+                    </html>
+                    `,
                 });
                 logger.info(`OTP sent via SMTP to ${email}`, { messageId: info.messageId, response: info.response });
             } else {
