@@ -114,6 +114,7 @@ export default function ViteLoginWeb({ onLogin }: Props) {
              // Send OTP
              await api.sendEmailOtp(email);
              setEmailOtpSent(true);
+             setIsLoading(false); // Stop loading so user can enter OTP
              // alert('OTP sent to ' + email);
              return; // Stop here, wait for user to enter OTP
           }
