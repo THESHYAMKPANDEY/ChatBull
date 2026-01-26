@@ -43,6 +43,7 @@ export default function ViteLoginWeb({ onLogin }: Props) {
     setOtp('');
     setOtpMode(false);
     setSignUpStep(0);
+    setEmailOtpSent(false);
   };
 
   React.useEffect(() => {
@@ -433,7 +434,7 @@ export default function ViteLoginWeb({ onLogin }: Props) {
           disabled={
             isLoading ||
             (loginMethod === 'email'
-              ? (!email || (!otpMode && !password) || (otpMode && !otp))
+              ? (!email || (!otpMode && !password) || (otpMode && emailOtpSent && !otp))
               : (!phone || (otpMode && !otp)))
           }
         >
