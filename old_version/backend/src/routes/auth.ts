@@ -304,14 +304,17 @@ router.post('/email-otp/send', async (req: Request, res: Response) => {
             });
     
             if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-                await transporter.sendMail({
-                    from: process.env.SMTP_FROM || `"ChatBull Support" <${process.env.SMTP_USER}>`,
+                // FORCE FROM ADDRESS TO MATCH AUTH USER (Required for GoDaddy/Office365)
+                const sender = process.env.SMTP_FROM || process.env.SMTP_USER;
+                
+                const info = await transporter.sendMail({
+                    from: `"ChatBull Support" <${sender}>`,
                     to: email,
                     subject: 'Your ChatBull Login Code',
                     text: `Your verification code is: ${otp}`,
                     html: `<b>Your verification code is: ${otp}</b>`,
                 });
-                logger.info(`OTP sent via SMTP to ${email}`);
+                logger.info(`OTP sent via SMTP to ${email}`, { messageId: info.messageId, response: info.response });
             } else {
                 logger.warn(`SMTP not configured. OTP for ${email} is ${otp}`);
             }
