@@ -6,6 +6,7 @@ export interface IUser extends Document {
   displayName: string;
   username?: string;
   bio?: string;
+  website?: string;
   photoURL?: string;
   phoneNumber?: string;
   deviceToken?: string;
@@ -47,6 +48,11 @@ const userSchema = new Schema<IUser>(
       type: String,
       default: '',
       maxlength: 150,
+    },
+    website: {
+      type: String,
+      default: '',
+      maxlength: 120,
     },
     savedPosts: [{
       type: Schema.Types.ObjectId,

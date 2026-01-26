@@ -38,6 +38,12 @@ export const setupCallSocket = (io: Server) => {
         // Note: connectedUsers map is in chatHandler.ts and not exported.
         // We should ideally have a shared UserSessionManager.
         // For now, we will emit to the room named by userId (which is joined in chatHandler).
+
+        socket.emit('call:started', {
+          callId: call._id,
+          receiverId,
+          type,
+        });
         
         io.to(receiverId).emit('call:incoming', {
           callId: call._id,

@@ -9,12 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
   ImageBackground,
   SafeAreaView,
   Image
 } from 'react-native';
-import { io, Socket } from 'socket.io-client';
-import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadFile, PickedMedia } from '../services/media';
+import { Socket } from 'socket.io-client';
+import { pickImage, pickVideo, pickDocument, takePhoto, takeVideo, uploadEncryptedFile, PickedMedia } from '../services/media';
 import { withScreenshotProtection } from '../services/security';
 import { appConfig } from '../config/appConfig';
 import { messageStatusManager, MessageStatus } from '../services/messageStatus';
@@ -25,8 +26,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import i18n from '../i18n';
 import { useTheme } from '../config/theme';
+import { connectSocket, getSocket } from '../services/socket';
+import { api } from '../services/api';
+import {
+  decryptFromSender,
+  decryptGroupKeyFromSender,
+  decryptGroupMessage,
+  encryptForRecipient,
+  encryptGroupKeyForMember,
+  encryptGroupMessage,
+  generateGroupKey,
+  getGroupKey as getStoredGroupKey,
+  getOrCreateIdentityKeypair,
+  IdentityKeyPair,
+  setGroupKey as saveGroupKey,
+} from '../services/e2ee';
+import * as FileSystem from 'expo-file-system';
+import nacl from 'tweetnacl';
+import util from 'tweetnacl-util';
 
-const SOCKET_URL = appConfig.SOCKET_BASE_URL;
 
 interface Message {
   _id: string;
@@ -42,13 +60,23 @@ interface Message {
     senderName: string;
     content: string;
   };
+  decryptedText?: string;
+  media?: {
+    url: string;
+    mediaType: 'image' | 'video' | 'file' | 'document';
+    key?: string;
+    nonce?: string;
+    name?: string;
+    mimeType?: string;
+  };
+  localMediaUri?: string;
 }
 
 interface ChatScreenProps {
   currentUser: any;
   otherUser: any;
   onBack: () => void;
-  onStartCall?: (callId: string) => void;
+  onStartCall?: (data: { receiverId: string; type: 'audio' | 'video'; receiverName?: string; receiverAvatar?: string }) => void;
 }
 
 export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall }: ChatScreenProps) {
@@ -59,9 +87,28 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
   const [isTyping, setIsTyping] = useState(false);
   const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [identityKeys, setIdentityKeys] = useState<IdentityKeyPair | null>(null);
+  const [recipientKey, setRecipientKey] = useState<string | null>(null);
+  const [groupKey, setGroupKeyState] = useState<string | null>(null);
+  const [isKeyReady, setIsKeyReady] = useState(false);
+  const identityKeysRef = useRef<IdentityKeyPair | null>(null);
+  const groupKeyRef = useRef<string | null>(null);
+  const messagesRef = useRef<Message[]>([]);
   const screenshotCleanupRef = useRef<Function | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    identityKeysRef.current = identityKeys;
+  }, [identityKeys]);
+
+  useEffect(() => {
+    groupKeyRef.current = groupKey;
+  }, [groupKey]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const showReactionPicker = (messageId: string) => {
     Alert.alert(
@@ -84,131 +131,376 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
     );
   };
 
+  const parseDecryptedBody = (text: string): any => {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && parsed.type) return parsed;
+    } catch {
+      // ignore
+    }
+    return { type: 'text', text };
+  };
+
+  const ensureRecipientKey = async () => {
+    if (recipientKey || otherUser?.isGroup) return;
+    try {
+      const keyRes = await api.getUserKey(otherUser._id);
+      if (keyRes?.identityKey) {
+        setRecipientKey(keyRes.identityKey);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch recipient key', error);
+    }
+  };
+
+  const ensureGroupKey = async (identity: IdentityKeyPair) => {
+    if (!otherUser?.isGroup) return;
+    const groupId = otherUser._id;
+
+    const cached = await getStoredGroupKey(groupId);
+    if (cached) {
+      setGroupKeyState(cached);
+      return;
+    }
+
+    try {
+      const record = await api.getGroupKey(groupId);
+      if (record?.encryptedKey && record?.nonce && record?.senderId) {
+        const senderKey = await api.getUserKey(String(record.senderId));
+        if (senderKey?.identityKey) {
+          const decrypted = decryptGroupKeyFromSender(
+            record.encryptedKey,
+            record.nonce,
+            senderKey.identityKey,
+            identity.secretKey
+          );
+          if (decrypted) {
+            await saveGroupKey(groupId, decrypted);
+            setGroupKeyState(decrypted);
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      // ignore and try to create
+    }
+
+    try {
+      const members: string[] = Array.isArray(otherUser.members) ? otherUser.members : [];
+      const keyResp = await api.getUserKeys(members);
+      const keyMap = new Map<string, string>();
+      (keyResp?.keys || []).forEach((k: any) => {
+        keyMap.set(String(k.userId), k.identityKey);
+      });
+
+      const groupKey = generateGroupKey();
+      const keysToUpload = members
+        .map((memberId) => {
+          const memberKey = keyMap.get(String(memberId));
+          if (!memberKey) return null;
+          const enc = encryptGroupKeyForMember(groupKey, memberKey, identity.secretKey);
+          return { userId: String(memberId), encryptedKey: enc.encryptedKey, nonce: enc.nonce };
+        })
+        .filter(Boolean) as { userId: string; encryptedKey: string; nonce: string }[];
+
+      if (keysToUpload.length > 0) {
+        await api.uploadGroupKeys(groupId, keysToUpload, 1);
+      }
+
+      await saveGroupKey(groupId, groupKey);
+      setGroupKeyState(groupKey);
+    } catch (error) {
+      console.warn('Failed to create group key', error);
+    }
+  };
+
+  const hydrateMessage = async (message: Message): Promise<Message> => {
+    let content = message.content;
+    let replyTo = message.replyTo;
+    let media = message.media;
+    let decryptedText: string | undefined;
+
+    if (typeof message.content === 'string') {
+      try {
+        const payload = JSON.parse(message.content);
+        if (payload?.t === 'dm' || payload?.t === 'group') {
+          let decrypted: string | null = null;
+          const identity = identityKeysRef.current;
+          if (payload.t === 'dm' && identity?.secretKey) {
+            decrypted = decryptFromSender(payload, identity.secretKey);
+          }
+          const currentGroupKey = groupKeyRef.current;
+          if (payload.t === 'group' && currentGroupKey) {
+            decrypted = decryptGroupMessage(payload, currentGroupKey);
+          }
+          if (decrypted) {
+            const body = parseDecryptedBody(decrypted);
+            if (body.type === 'media' && body.media) {
+              media = body.media;
+              content = body.caption || '[media]';
+            } else {
+              content = body.text || decrypted;
+            }
+            replyTo = body.replyTo || replyTo;
+            decryptedText = content;
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    return { ...message, content, replyTo, decryptedText, media };
+  };
+
+  const decryptMediaToUri = async (msg: Message): Promise<string | null> => {
+    if (!msg.media?.url || !msg.media.key || !msg.media.nonce) return null;
+    try {
+      const response = await fetch(msg.media.url);
+      const buffer = await response.arrayBuffer();
+      const cipherBytes = new Uint8Array(buffer);
+
+      const key = util.decodeBase64(msg.media.key);
+      const nonce = util.decodeBase64(msg.media.nonce);
+      const plain = nacl.secretbox.open(cipherBytes, nonce, key);
+      if (!plain) return null;
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([plain], { type: msg.media.mimeType || 'application/octet-stream' });
+        return URL.createObjectURL(blob);
+      }
+
+      const base64 = util.encodeBase64(plain);
+      const safeName = msg.media.name || `media_${Date.now()}`;
+      const fileUri = `${FileSystem.cacheDirectory}dec_${safeName}`;
+      await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      return fileUri;
+    } catch (error) {
+      console.warn('Failed to decrypt media', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      autoConnect: false,
-      transports: ['websocket'],
-    });
-    socketRef.current = socket;
+    let isMounted = true;
+    let socket: Socket | null = null;
 
-    (async () => {
-      const token = await auth.currentUser?.getIdToken();
-      socket.auth = { token };
-      socket.connect();
-    })();
-    
-    messageStatusManager.initialize(socketRef.current);
-    messageReactionManager.initialize(socketRef.current);
+    const setup = async () => {
+      const identity = await getOrCreateIdentityKeypair();
+      if (!isMounted) return;
+      setIdentityKeys(identity);
 
-    socketRef.current.emit('user:join', currentUser.id);
+      if (otherUser?.isGroup) {
+        await ensureGroupKey(identity);
+      } else {
+        await ensureRecipientKey();
+      }
 
-    socketRef.current.emit('messages:get', {
-      userId: currentUser.id,
-      otherUserId: otherUser._id,
-    });
+      if (!isMounted) return;
+      setIsKeyReady(true);
 
-    socketRef.current.on('messages:history', (history: Message[]) => {
-      setMessages(
-        history.map((msg) => ({
-          ...msg,
-          status: msg.isRead === true ? ('read' as MessageStatus) : ('delivered' as MessageStatus),
-        })),
-      );
-    });
+      socket = await connectSocket();
+      if (!isMounted || !socket) return;
+      socketRef.current = socket;
 
-    socketRef.current.on('message:receive', (message: Message) => {
-      setMessages((prev: Message[]) => [
-        ...prev,
-        { ...message, status: 'delivered' as MessageStatus },
-      ]);
-      if (message.sender._id === otherUser._id) {
-        socketRef.current?.emit('messages:read', {
-          senderId: otherUser._id,
-          receiverId: currentUser.id,
+      messageStatusManager.initialize(socket);
+      messageReactionManager.initialize(socket);
+
+      socket.emit('user:join', currentUser.id);
+
+      socket.emit('messages:get', otherUser?.isGroup ? { groupId: otherUser._id } : { otherUserId: otherUser._id });
+
+      socket.on('messages:history', async (history: Message[]) => {
+        const hydrated = await Promise.all(history.map((msg) => hydrateMessage(msg)));
+        if (!isMounted) return;
+        setMessages(
+          hydrated.map((msg) => ({
+            ...msg,
+            status: msg.isRead === true ? ('read' as MessageStatus) : ('delivered' as MessageStatus),
+          })),
+        );
+      });
+
+      socket.on('message:receive', async (message: Message) => {
+        const hydrated = await hydrateMessage(message);
+        if (!isMounted) return;
+        setMessages((prev: Message[]) => [...prev, { ...hydrated, status: 'delivered' as MessageStatus }]);
+        if (!otherUser?.isGroup && message.sender?._id === otherUser._id) {
+          socket?.emit('messages:read', {
+            senderId: otherUser._id,
+            receiverId: currentUser.id,
+          });
+        }
+      });
+
+      socket.on('message:sent', async (message: Message) => {
+        const hydrated = await hydrateMessage(message);
+        if (!isMounted) return;
+        setMessages((prev: Message[]) => [...prev, { ...hydrated, status: 'sent' as MessageStatus }]);
+      });
+
+      socket.on('messages:read', (receiverId: string) => {
+        if (receiverId === otherUser._id) {
+          setMessages((prev: Message[]) =>
+            prev.map((msg: Message) =>
+              msg.sender._id === currentUser.id
+                ? { ...msg, status: 'read' as MessageStatus }
+                : msg,
+            ),
+          );
+        }
+      });
+
+      if (!otherUser?.isGroup) {
+        socket.on('user:online', (userId: string) => {
+          if (userId === otherUser._id) setIsOtherUserOnline(true);
+        });
+
+        socket.on('user:offline', (userId: string) => {
+          if (userId === otherUser._id) setIsOtherUserOnline(false);
+        });
+
+        socket.emit('user:subscribe-status', otherUser._id);
+        socket.emit('user:status-request', otherUser._id);
+
+        socket.on('user:status-response', (data: { userId: string; isOnline: boolean }) => {
+          if (data.userId === otherUser._id) setIsOtherUserOnline(data.isOnline);
         });
       }
-    });
 
-    socketRef.current.on('message:sent', (message: Message) => {
-      setMessages((prev: Message[]) => [
-        ...prev,
-        { ...message, status: 'sent' as MessageStatus },
-      ]);
-    });
-
-    socketRef.current.on('messages:read', (receiverId: string) => {
-      if (receiverId === otherUser._id) {
-        setMessages((prev: Message[]) =>
-          prev.map((msg: Message) =>
-            msg.sender._id === currentUser.id
-              ? { ...msg, status: 'read' as MessageStatus }
-              : msg,
-          ),
+      socket.on('message:reaction:add', (data: any) => {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg._id !== data.messageId) return msg;
+            const reactions = { ...(msg.reactions || {}) };
+            const users = new Set(reactions[data.reaction] || []);
+            users.add(data.userId);
+            reactions[data.reaction] = Array.from(users);
+            return { ...msg, reactions };
+          })
         );
-      }
-    });
+      });
 
-    socketRef.current.on('user:online', (userId: string) => {
-      if (userId === otherUser._id) setIsOtherUserOnline(true);
-    });
+      socket.on('message:reaction:remove', (data: any) => {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg._id !== data.messageId || !msg.reactions) return msg;
+            const reactions = { ...msg.reactions };
+            const users = (reactions[data.reaction] || []).filter(id => id !== data.userId);
+            if (users.length === 0) delete reactions[data.reaction];
+            else reactions[data.reaction] = users;
+            return { ...msg, reactions };
+          })
+        );
+      });
 
-    socketRef.current.on('user:offline', (userId: string) => {
-      if (userId === otherUser._id) setIsOtherUserOnline(false);
-    });
+      socket.on('typing:start', (senderId: string) => {
+        if (!otherUser?.isGroup && senderId === otherUser._id) setIsTyping(true);
+      });
 
-    socketRef.current.emit('user:subscribe-status', otherUser._id);
-    socketRef.current.emit('user:status-request', otherUser._id);
+      socket.on('typing:stop', (senderId: string) => {
+        if (!otherUser?.isGroup && senderId === otherUser._id) setIsTyping(false);
+      });
+    };
 
-    socketRef.current.on('user:status-response', (data: { userId: string; isOnline: boolean }) => {
-      if (data.userId === otherUser._id) setIsOtherUserOnline(data.isOnline);
-    });
-
-    socketRef.current.on('message:reaction:add', (data: any) => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg._id !== data.messageId) return msg;
-          const reactions = { ...(msg.reactions || {}) };
-          const users = new Set(reactions[data.reaction] || []);
-          users.add(data.userId);
-          reactions[data.reaction] = Array.from(users);
-          return { ...msg, reactions };
-        })
-      );
-    });
-
-    socketRef.current.on('message:reaction:remove', (data: any) => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg._id !== data.messageId || !msg.reactions) return msg;
-          const reactions = { ...msg.reactions };
-          const users = (reactions[data.reaction] || []).filter(id => id !== data.userId);
-          if (users.length === 0) delete reactions[data.reaction];
-          else reactions[data.reaction] = users;
-          return { ...msg, reactions };
-        })
-      );
-    });
-
-    socketRef.current.on('typing:start', (senderId: string) => {
-      if (senderId === otherUser._id) setIsTyping(true);
-    });
-
-    socketRef.current.on('typing:stop', (senderId: string) => {
-      if (senderId === otherUser._id) setIsTyping(false);
-    });
+    setup();
 
     screenshotCleanupRef.current = withScreenshotProtection(null, currentUser.firebaseUid, 'chat_screen');
 
     return () => {
-      socketRef.current?.disconnect();
+      isMounted = false;
+      if (socket) {
+        socket.off('messages:history');
+        socket.off('message:receive');
+        socket.off('message:sent');
+        socket.off('messages:read');
+        socket.off('user:online');
+        socket.off('user:offline');
+        socket.off('user:status-response');
+        socket.off('message:reaction:add');
+        socket.off('message:reaction:remove');
+        socket.off('typing:start');
+        socket.off('typing:stop');
+      }
       if (screenshotCleanupRef.current) screenshotCleanupRef.current();
     };
-  }, [currentUser.id, currentUser.firebaseUid, otherUser._id]);
+  }, [currentUser.id, currentUser.firebaseUid, otherUser._id, otherUser.isGroup]);
 
-  const sendMessage = () => {
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!identityKeysRef.current && !groupKeyRef.current) return;
+      const hydrated = await Promise.all(messagesRef.current.map((msg) => hydrateMessage(msg)));
+      if (!active) return;
+      setMessages((prev) =>
+        hydrated.map((msg, index) => ({
+          ...msg,
+          status: prev[index]?.status || msg.status,
+        }))
+      );
+    })();
+    return () => {
+      active = false;
+    };
+  }, [identityKeys, groupKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const pending = messagesRef.current.filter(
+        (msg) => msg.media && !msg.localMediaUri && msg.media.key && msg.media.nonce
+      );
+      for (const msg of pending) {
+        const uri = await decryptMediaToUri(msg);
+        if (cancelled) return;
+        if (uri) {
+          setMessages((prev) =>
+            prev.map((m) => (m._id === msg._id ? { ...m, localMediaUri: uri } : m))
+          );
+        }
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages]);
+
+  const sendMessage = async () => {
     if (!newMessage.trim() || !socketRef.current) return;
-    
+    if (!isKeyReady || !identityKeysRef.current) {
+      Alert.alert(i18n.t('error'), 'Encryption keys are not ready yet.');
+      return;
+    }
+
     const tempId = Date.now().toString();
+    const body = JSON.stringify({
+      type: 'text',
+      text: newMessage.trim(),
+      replyTo: replyingTo || null,
+    });
+
+    let encryptedContent: string | null = null;
+
+    if (otherUser?.isGroup) {
+      if (!groupKeyRef.current) {
+        Alert.alert(i18n.t('error'), 'Group encryption key not ready.');
+        return;
+      }
+      const payload = encryptGroupMessage(body, groupKeyRef.current);
+      encryptedContent = JSON.stringify(payload);
+    } else {
+      if (!recipientKey) {
+        await ensureRecipientKey();
+      }
+      if (!recipientKey) {
+        Alert.alert(i18n.t('error'), 'Recipient key not found.');
+        return;
+      }
+      const payload = encryptForRecipient(body, recipientKey, identityKeysRef.current.publicKey);
+      encryptedContent = JSON.stringify(payload);
+    }
+
     const tempMessage: Message = {
       _id: tempId,
       sender: { _id: currentUser.id, displayName: currentUser.displayName },
@@ -218,7 +510,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       status: 'sending' as MessageStatus,
       ...(replyingTo && { replyTo: replyingTo })
     };
-    
+
     setMessages((prev: Message[]) => [...prev, tempMessage]);
     messageStatusManager.trackMessageSending(tempId);
 
@@ -227,9 +519,8 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       senderId: currentUser.id,
       receiverId: otherUser.isGroup ? undefined : otherUser._id,
       groupId: otherUser.isGroup ? otherUser._id : undefined,
-      content: newMessage.trim(),
+      content: encryptedContent,
       messageType: 'text' as const,
-      ...(replyingTo && { replyTo: replyingTo })
     });
 
     setNewMessage('');
@@ -261,7 +552,83 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       }
 
       if (picked) {
-        // ... (upload logic would go here, skipping for brevity as in original)
+        if (!isKeyReady || !identityKeysRef.current) {
+          Alert.alert(i18n.t('error'), 'Encryption keys are not ready yet.');
+          return;
+        }
+
+        const upload = await uploadEncryptedFile(picked);
+        if (!upload.success || !upload.url || !upload.key || !upload.nonce) {
+          Alert.alert(i18n.t('error'), upload.error || i18n.t('uploadFailed'));
+          return;
+        }
+
+        const payloadBody = JSON.stringify({
+          type: 'media',
+          caption: newMessage.trim() || '',
+          replyTo: replyingTo || null,
+          media: {
+            url: upload.url,
+            mediaType: picked.type === 'file' ? 'document' : picked.type,
+            key: upload.key,
+            nonce: upload.nonce,
+            name: picked.name,
+            mimeType: picked.mimeType,
+          },
+        });
+
+        let encryptedContent: string | null = null;
+        if (otherUser?.isGroup) {
+          if (!groupKeyRef.current) {
+            Alert.alert(i18n.t('error'), 'Group encryption key not ready.');
+            return;
+          }
+          const payload = encryptGroupMessage(payloadBody, groupKeyRef.current);
+          encryptedContent = JSON.stringify(payload);
+        } else {
+          if (!recipientKey) {
+            await ensureRecipientKey();
+          }
+          if (!recipientKey) {
+            Alert.alert(i18n.t('error'), 'Recipient key not found.');
+            return;
+          }
+          const payload = encryptForRecipient(payloadBody, recipientKey, identityKeysRef.current.publicKey);
+          encryptedContent = JSON.stringify(payload);
+        }
+
+        const tempId = `media_${Date.now()}`;
+        const tempMessage: Message = {
+          _id: tempId,
+          sender: { _id: currentUser.id, displayName: currentUser.displayName },
+          content: '[media]',
+          messageType: picked.type === 'file' ? 'document' : picked.type,
+          createdAt: new Date().toISOString(),
+          status: 'sending' as MessageStatus,
+          media: {
+            url: upload.url,
+            mediaType: picked.type === 'file' ? 'document' : picked.type,
+            key: upload.key,
+            nonce: upload.nonce,
+            name: picked.name,
+            mimeType: picked.mimeType,
+          },
+          ...(replyingTo && { replyTo: replyingTo }),
+        };
+
+        setMessages((prev) => [...prev, tempMessage]);
+
+        socketRef.current?.emit('message:send', {
+          _id: tempId,
+          senderId: currentUser.id,
+          receiverId: otherUser.isGroup ? undefined : otherUser._id,
+          groupId: otherUser.isGroup ? otherUser._id : undefined,
+          content: encryptedContent,
+          messageType: picked.type === 'file' ? 'document' : picked.type,
+        });
+
+        setNewMessage('');
+        setReplyingTo(null);
       }
     } catch (error) {
       console.error(error);
@@ -281,17 +648,29 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       
       if (text.length > 0 && !isCurrentlyTyping) {
         setIsCurrentlyTyping(true);
-        socketRef.current.emit('typing:start', { senderId: currentUser.id, receiverId: otherUser._id });
+        socketRef.current.emit('typing:start', {
+          senderId: currentUser.id,
+          receiverId: otherUser.isGroup ? undefined : otherUser._id,
+          groupId: otherUser.isGroup ? otherUser._id : undefined,
+        });
       } else if (text.length === 0 && isCurrentlyTyping) {
         setIsCurrentlyTyping(false);
-        socketRef.current.emit('typing:stop', { senderId: currentUser.id, receiverId: otherUser._id });
+        socketRef.current.emit('typing:stop', {
+          senderId: currentUser.id,
+          receiverId: otherUser.isGroup ? undefined : otherUser._id,
+          groupId: otherUser.isGroup ? otherUser._id : undefined,
+        });
       }
       
       if (text.length > 0) {
         typingTimeoutRef.current = setTimeout(() => {
           if (isCurrentlyTyping && socketRef.current) {
             setIsCurrentlyTyping(false);
-            socketRef.current.emit('typing:stop', { senderId: currentUser.id, receiverId: otherUser._id });
+            socketRef.current.emit('typing:stop', {
+              senderId: currentUser.id,
+              receiverId: otherUser.isGroup ? undefined : otherUser._id,
+              groupId: otherUser.isGroup ? otherUser._id : undefined,
+            });
           }
         }, 2000);
       }
@@ -300,7 +679,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender._id === currentUser.id;
-    const isMedia = item.messageType && ['image', 'video', 'file', 'document'].includes(item.messageType);
+    const isMedia = !!item.media || (item.messageType && ['image', 'video', 'file', 'document'].includes(item.messageType));
 
     return (
       <View style={[styles.messageRow, isMyMessage ? styles.rowEnd : styles.rowStart]}>
@@ -332,50 +711,88 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
     );
   };
 
-  const renderMessageContent = (item: Message, isMedia: boolean | undefined, isMyMessage: boolean) => (
-    <View style={!isMedia ? styles.textContainer : undefined}>
-      {item.replyTo && (
-        <View style={[styles.replyPreview, isMyMessage ? styles.replyPreviewMy : [styles.replyPreviewOther, { borderLeftColor: colors.border }]]}>
-          <Text style={[styles.replySender, isMyMessage ? { color: 'rgba(255,255,255,0.9)' } : { color: colors.mutedText }]}>
-            {item.replyTo.senderName}
-          </Text>
-          <Text style={[styles.replyContent, isMyMessage ? { color: 'rgba(255,255,255,0.8)' } : { color: colors.mutedText }]} numberOfLines={1}>
-            {item.replyTo.content}
-          </Text>
-        </View>
-      )}
-      
-      <TouchableOpacity
-        onLongPress={() => {
-          Alert.alert(i18n.t('options'), '', [
-            { text: i18n.t('reply'), onPress: () => setReplyingTo({ messageId: item._id, senderName: item.sender.displayName, content: item.content }) },
-            { text: i18n.t('react'), onPress: () => showReactionPicker(item._id) },
-            { text: i18n.t('copy'), onPress: () => Clipboard.setStringAsync(item.content) },
-            { text: i18n.t('cancel'), style: 'cancel' }
-          ]);
-        }}
-        activeOpacity={0.9}
-        accessibilityLabel={item.content}
-        accessibilityRole="text"
-      >
-        <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : { color: colors.text }]}>
-          {isMedia && item.messageType ? `📷 [${item.messageType.toUpperCase()}]` : item.content}
-        </Text>
-      </TouchableOpacity>
-      
-      <View style={styles.messageFooter}>
-          {item.reactions && Object.keys(item.reactions).length > 0 && (
-          <View style={styles.reactionsContainer}>
-            {Object.entries(item.reactions).map(([reaction, users]) => (
-              <View key={reaction} style={[styles.reactionBubble, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-                <Text style={styles.reactionText}>{reaction}</Text>
-              </View>
-            ))}
+  const renderMessageContent = (item: Message, isMedia: boolean | undefined, isMyMessage: boolean) => {
+    const displayText = item.decryptedText || item.content;
+
+    const renderMedia = () => {
+      if (!item.media) return null;
+      if (item.media.mediaType === 'image' && item.localMediaUri) {
+        return (
+          <Image
+            source={{ uri: item.localMediaUri }}
+            style={{ width: 220, height: 220, borderRadius: 12 }}
+            resizeMode="cover"
+          />
+        );
+      }
+
+      const openUrl = item.localMediaUri || item.media.url;
+      return (
+        <TouchableOpacity onPress={() => Linking.openURL(openUrl)} activeOpacity={0.8}>
+          <View style={[styles.mediaRowBubble, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Ionicons
+              name={item.media.mediaType === 'video' ? 'play-circle-outline' : item.media.mediaType === 'document' ? 'document-text-outline' : 'attach-outline'}
+              size={18}
+              color={colors.text}
+            />
+            <Text style={[styles.mediaRowText, { color: colors.text }]}>
+              {item.media.name || item.media.mediaType.toUpperCase()}
+            </Text>
+            <Text style={[styles.mediaRowOpen, { color: colors.primary }]}>Open</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    };
+
+    return (
+      <View style={!isMedia ? styles.textContainer : undefined}>
+        {item.replyTo && (
+          <View style={[styles.replyPreview, isMyMessage ? styles.replyPreviewMy : [styles.replyPreviewOther, { borderLeftColor: colors.border }]]}>
+            <Text style={[styles.replySender, isMyMessage ? { color: 'rgba(255,255,255,0.9)' } : { color: colors.mutedText }]}>
+              {item.replyTo.senderName}
+            </Text>
+            <Text style={[styles.replyContent, isMyMessage ? { color: 'rgba(255,255,255,0.8)' } : { color: colors.mutedText }]} numberOfLines={1}>
+              {item.replyTo.content}
+            </Text>
           </View>
         )}
+
+        <TouchableOpacity
+          onLongPress={() => {
+            Alert.alert(i18n.t('options'), '', [
+              { text: i18n.t('reply'), onPress: () => setReplyingTo({ messageId: item._id, senderName: item.sender.displayName, content: displayText }) },
+              { text: i18n.t('react'), onPress: () => showReactionPicker(item._id) },
+              { text: i18n.t('copy'), onPress: () => Clipboard.setStringAsync(displayText) },
+              { text: i18n.t('cancel'), style: 'cancel' }
+            ]);
+          }}
+          activeOpacity={0.9}
+          accessibilityLabel={displayText}
+          accessibilityRole="text"
+        >
+          {item.media ? (
+            renderMedia()
+          ) : (
+            <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : { color: colors.text }]}>
+              {isMedia && item.messageType ? `[${item.messageType.toUpperCase()}]` : displayText}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.messageFooter}>
+            {item.reactions && Object.keys(item.reactions).length > 0 && (
+            <View style={styles.reactionsContainer}>
+              {Object.entries(item.reactions).map(([reaction, users]) => (
+                <View key={reaction} style={[styles.reactionBubble, { backgroundColor: colors.card, shadowColor: colors.text }]}>
+                  <Text style={styles.reactionText}>{reaction}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -409,8 +826,12 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         <View style={styles.headerIcons}>
           <TouchableOpacity 
             onPress={() => {
-              const callId = `call_${[currentUser.id, otherUser._id].sort().join('_')}`;
-              onStartCall?.(callId);
+              onStartCall?.({
+                receiverId: otherUser._id,
+                type: 'audio',
+                receiverName: otherUser.displayName,
+                receiverAvatar: otherUser.photoURL,
+              });
             }} 
             style={styles.iconButton}
             accessibilityLabel="Voice call"
@@ -420,8 +841,12 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => {
-              const callId = `call_${[currentUser.id, otherUser._id].sort().join('_')}`;
-              onStartCall?.(callId);
+              onStartCall?.({
+                receiverId: otherUser._id,
+                type: 'video',
+                receiverName: otherUser.displayName,
+                receiverAvatar: otherUser.photoURL,
+              });
             }} 
             style={styles.iconButton}
             accessibilityLabel="Video call"
@@ -634,6 +1059,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 4,
+  },
+  mediaRowBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  mediaRowText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mediaRowOpen: {
+    marginLeft: 'auto',
+    fontSize: 12,
+    fontWeight: '700',
   },
   reactionBubble: {
     borderRadius: 10,

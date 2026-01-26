@@ -76,6 +76,10 @@ export const fileValidationRules = (): ValidationChain[] => {
 // Validation for user profile updates
 export const profileUpdateValidationRules = (): ValidationChain[] => {
   return [
+    body('email')
+      .optional({ checkFalsy: true })
+      .isEmail()
+      .withMessage('Email must be a valid address'),
     body('displayName')
       .optional()
       .trim()
@@ -86,7 +90,7 @@ export const profileUpdateValidationRules = (): ValidationChain[] => {
       .isString()
       .withMessage('Photo URL must be a string'),
     body('phoneNumber')
-      .optional()
+      .optional({ checkFalsy: true })
       .matches(/^[\+]?[1-9][\d]{0,15}$/)
       .withMessage('Phone number must be a valid international format'),
     body('username')
@@ -100,5 +104,9 @@ export const profileUpdateValidationRules = (): ValidationChain[] => {
       .trim()
       .isLength({ max: 150 })
       .withMessage('Bio cannot exceed 150 characters'),
+    body('website')
+      .optional({ checkFalsy: true })
+      .isURL({ require_protocol: true })
+      .withMessage('Website must be a valid URL'),
   ];
 };

@@ -31,6 +31,7 @@ import storyRoutes from './routes/story';
 import contactRoutes from './routes/contact';
 import groupRoutes from './routes/group';
 import aiRoutes from './routes/ai';
+import keysRoutes from './routes/keys';
 
 import { verifyFirebaseToken } from './middleware/auth';
 import admin from 'firebase-admin';
@@ -141,6 +142,7 @@ app.use('/api/story', storyRoutes); // Alias for mobile app compatibility
 app.use('/api/ai', aiRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/keys', keysRoutes);
 
 // Production-ready health check endpoints
 app.get('/', (req, res) => {
