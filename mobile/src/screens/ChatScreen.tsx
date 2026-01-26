@@ -43,6 +43,15 @@ import * as FileSystem from 'expo-file-system';
 import nacl from 'tweetnacl';
 import util from 'tweetnacl-util';
 
+const getFsEncodingBase64 = () => {
+  const fsAny = FileSystem as any;
+  return fsAny?.EncodingType?.Base64 ?? 'base64';
+};
+
+const getFsCacheDir = () => {
+  const fsAny = FileSystem as any;
+  return fsAny?.cacheDirectory || fsAny?.documentDirectory || '';
+};
 
 interface Message {
   _id: string;
@@ -264,14 +273,19 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       if (!plain) return null;
 
       if (Platform.OS === 'web') {
-        const blob = new Blob([plain], { type: msg.media.mimeType || 'application/octet-stream' });
+        const buffer = plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength);
+        const blob = new Blob([buffer], { type: msg.media.mimeType || 'application/octet-stream' });
         return URL.createObjectURL(blob);
       }
 
       const base64 = util.encodeBase64(plain);
       const safeName = msg.media.name || `media_${Date.now()}`;
-      const fileUri = `${FileSystem.cacheDirectory}dec_${safeName}`;
-      await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      const cacheDir = getFsCacheDir();
+      if (!cacheDir) {
+        throw new Error('File system cache directory not available');
+      }
+      const fileUri = `${cacheDir}dec_${safeName}`;
+      await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: getFsEncodingBase64() as any });
       return fileUri;
     } catch (error) {
       console.warn('Failed to decrypt media', error);

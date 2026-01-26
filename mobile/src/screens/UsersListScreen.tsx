@@ -16,7 +16,7 @@ import {
 import { api } from '../services/api';
 import { pickImage, pickVideo, uploadFile } from '../services/media';
 import * as Contacts from 'expo-contacts';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import BottomTabBar from '../components/BottomTabBar';
 
 import VerifiedBadge from '../components/VerifiedBadge';
@@ -581,7 +581,7 @@ export default function UsersListScreen({
             <Video
               source={{ uri: activeStory.mediaUrl }}
               style={styles.storyMedia}
-              resizeMode="contain"
+              resizeMode={ResizeMode.CONTAIN}
               shouldPlay
               useNativeControls
             />

@@ -5,9 +5,12 @@ import i18n from '../i18n';
 
 type CallScreenProps = {
   peerId: string;
+  peerName?: string;
+  peerAvatar?: string;
   callType: 'audio' | 'video';
   userID: string;
   userName: string;
+  incoming?: boolean;
   callId?: string;
   onBack: () => void;
 };

@@ -7,6 +7,15 @@ import { auth } from '../config/firebase';
 import nacl from 'tweetnacl';
 import util from 'tweetnacl-util';
 
+const getFsEncodingBase64 = () => {
+  const fsAny = FileSystem as any;
+  return fsAny?.EncodingType?.Base64 ?? 'base64';
+};
+
+const getFsCacheDir = () => {
+  const fsAny = FileSystem as any;
+  return fsAny?.cacheDirectory || fsAny?.documentDirectory || '';
+};
 export type PickedMedia = {
   uri: string;
   type: 'image' | 'video' | 'file';
@@ -220,15 +229,19 @@ const readFileBytes = async (media: PickedMedia): Promise<Uint8Array> => {
     return new Uint8Array(buffer);
   }
 
-  const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: FileSystem.EncodingType.Base64 });
+  const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: getFsEncodingBase64() as any });
   return util.decodeBase64(base64);
 };
 
 const writeEncryptedTempFile = async (data: Uint8Array, name: string): Promise<string> => {
   const base64 = util.encodeBase64(data);
   const fileName = `${name || 'file'}_${Date.now()}.enc`;
-  const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+  const cacheDir = getFsCacheDir();
+  if (!cacheDir) {
+    throw new Error('File system cache directory not available');
+  }
+  const fileUri = `${cacheDir}${fileName}`;
+  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: getFsEncodingBase64() as any });
   return fileUri;
 };
 
@@ -250,7 +263,8 @@ export const uploadEncryptedFile = async (
     const actualFileName = media.name || media.uri.split('/').pop() || 'file';
 
     if (Platform.OS === 'web') {
-      const blob = new Blob([cipher], { type: 'application/octet-stream' });
+      const buffer = cipher.buffer.slice(cipher.byteOffset, cipher.byteOffset + cipher.byteLength);
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
       formData.append('file', blob, `${actualFileName}.enc`);
     } else {
       const fileUri = await writeEncryptedTempFile(cipher, actualFileName);

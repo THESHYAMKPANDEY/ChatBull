@@ -22,6 +22,10 @@ const VideoTag: any = 'video';
 const remoteVideoStyle: any = { width: '100%', height: '100%', objectFit: 'cover' };
 const localVideoStyle: any = { width: '100%', height: '100%', objectFit: 'cover' };
 
+type IceCandidateEvent = { candidate: any | null };
+type TrackEvent = { streams: any[] };
+type MediaTrack = { stop?: () => void; enabled?: boolean };
+
 export default function CallScreen({
   peerId,
   peerName,
@@ -111,7 +115,7 @@ export default function CallScreen({
       ],
     });
 
-    pc.onicecandidate = (event) => {
+    pc.onicecandidate = (event: IceCandidateEvent) => {
       if (!event.candidate || !socketRef.current) return;
       socketRef.current.emit('call:signal', {
         targetId: peerId,
@@ -119,7 +123,7 @@ export default function CallScreen({
       });
     };
 
-    pc.ontrack = (event) => {
+    pc.ontrack = (event: TrackEvent) => {
       const [stream] = event.streams;
       if (stream) {
         remoteStreamRef.current = stream;
@@ -136,7 +140,7 @@ export default function CallScreen({
     };
 
     const stream = await ensureLocalStream();
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    stream.getTracks().forEach((track: MediaTrack) => pc.addTrack(track, stream));
 
     pcRef.current = pc;
     return pc;
@@ -194,12 +198,12 @@ export default function CallScreen({
     }
 
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current.getTracks().forEach((track: MediaTrack) => track.stop?.());
       localStreamRef.current = null;
     }
 
     if (remoteStreamRef.current) {
-      remoteStreamRef.current.getTracks().forEach((track) => track.stop());
+      remoteStreamRef.current.getTracks().forEach((track: MediaTrack) => track.stop?.());
       remoteStreamRef.current = null;
     }
 
@@ -234,7 +238,7 @@ export default function CallScreen({
   const toggleMute = () => {
     const stream = localStreamRef.current;
     if (!stream) return;
-    stream.getAudioTracks().forEach((track) => {
+    stream.getAudioTracks().forEach((track: MediaTrack) => {
       track.enabled = muted;
     });
     setMuted((prev) => !prev);
@@ -243,7 +247,7 @@ export default function CallScreen({
   const toggleVideo = () => {
     const stream = localStreamRef.current;
     if (!stream) return;
-    stream.getVideoTracks().forEach((track) => {
+    stream.getVideoTracks().forEach((track: MediaTrack) => {
       track.enabled = videoOff;
     });
     setVideoOff((prev) => !prev);
