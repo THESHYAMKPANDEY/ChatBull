@@ -1,20 +1,26 @@
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity } from 'react-native';
-import { ZegoUIKitPrebuiltCall, ONE_ON_ONE_VIDEO_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn';
+import { ZegoUIKitPrebuiltCall, ONE_ON_ONE_VIDEO_CALL_CONFIG, ONE_ON_ONE_VOICE_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import i18n from '../i18n';
 
 type CallScreenProps = {
-  callID: string;
+  peerId: string;
+  callType: 'audio' | 'video';
   userID: string;
   userName: string;
+  callId?: string;
   onBack: () => void;
 };
 
-export default function CallScreen({ callID, userID, userName, onBack }: CallScreenProps) {
+export default function CallScreen({ peerId, callType, userID, userName, callId, onBack }: CallScreenProps) {
 
   // Use environment variables or fallbacks (ensure you updated .env)
   const appId = Number(process.env.EXPO_PUBLIC_ZEGO_APP_ID);
   const appSign = process.env.EXPO_PUBLIC_ZEGO_APP_SIGN || '';
+
+  const fallbackCallId = [userID, peerId].sort().join('-');
+  const resolvedCallId = callId || fallbackCallId;
+  const config = callType === 'audio' ? ONE_ON_ONE_VOICE_CALL_CONFIG : ONE_ON_ONE_VIDEO_CALL_CONFIG;
 
   if (!appId || !appSign) {
     return (
@@ -39,9 +45,9 @@ export default function CallScreen({ callID, userID, userName, onBack }: CallScr
         appSign={appSign}
         userID={userID}
         userName={userName}
-        callID={callID}
+        callID={resolvedCallId}
         config={{
-          ...ONE_ON_ONE_VIDEO_CALL_CONFIG,
+          ...config,
           onOnlySelfInRoom: () => {
             onBack();
           },

@@ -371,6 +371,14 @@ export const api = {
       body: JSON.stringify({ mediaUrl, type }),
     });
   },
+
+  viewStory: async (storyId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/story/${storyId}/view`, {
+      method: 'POST',
+      headers,
+    });
+  },
   
   sendEmailOtp: async (email: string) => {
     return await apiRequest('/auth/email-otp/send', {
@@ -384,6 +392,44 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, otp })
     });
+  },
+
+  // E2EE Key Management
+  uploadIdentityKey: async (identityKey: string, deviceId?: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/keys/upload', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ identityKey, deviceId }),
+    });
+  },
+
+  getUserKey: async (userId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/keys/${userId}`, { headers });
+  },
+
+  getUserKeys: async (userIds: string[]) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest('/keys/batch', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ userIds }),
+    });
+  },
+
+  uploadGroupKeys: async (groupId: string, keys: { userId: string; encryptedKey: string; nonce: string }[], version = 1) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/keys/group/${groupId}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ keys, version }),
+    });
+  },
+
+  getGroupKey: async (groupId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/keys/group/${groupId}`, { headers });
   },
 
   // Contact Sync

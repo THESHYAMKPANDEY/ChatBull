@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import User from '../models/User';
 import Message from '../models/Message';
 import PrivateMessage from '../models/PrivateMessage';
+import Post from '../models/Post';
 import { profileUpdateValidationRules, validate } from '../middleware/validation';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { logger } from '../utils/logger';
@@ -89,7 +90,7 @@ router.put(
     try {
       const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
       const firebaseUid = firebaseUser.uid;
-      const { displayName, photoURL, phoneNumber, username, bio } = req.body;
+      const { displayName, photoURL, phoneNumber, username, bio, website, email } = req.body;
 
       const user = await User.findOne({ firebaseUid });
       if (!user) {
@@ -98,10 +99,28 @@ router.put(
       }
 
       // Update fields if provided
+      if (typeof email === 'string' && email.trim()) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const firebaseEmail = (firebaseUser as any).email;
+
+        if (firebaseEmail && String(firebaseEmail).toLowerCase() !== normalizedEmail) {
+          res.status(400).json({ error: 'Email must match authenticated account' });
+          return;
+        }
+
+        const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+        if (existing) {
+          res.status(400).json({ error: 'Email already in use' });
+          return;
+        }
+
+        user.email = normalizedEmail;
+      }
       if (displayName) user.displayName = displayName;
       if (photoURL) user.photoURL = photoURL;
       if (phoneNumber) user.phoneNumber = phoneNumber;
       if (bio !== undefined) user.bio = bio;
+      if (website !== undefined) user.website = website;
       
       if (username) {
         const lowerUsername = username.toLowerCase();
@@ -127,6 +146,7 @@ router.put(
           phoneNumber: user.phoneNumber,
           username: user.username,
           bio: user.bio,
+          website: user.website,
         },
       });
     } catch (error) {
@@ -135,5 +155,37 @@ router.put(
     }
   }
 );
+
+/**
+ * GET /api/user/me/posts
+ * Get current user's posts (paginated)
+ */
+router.get('/me/posts', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '20', 10), 1), 50);
+    const skip = (page - 1) * limit;
+
+    const [posts, total] = await Promise.all([
+      Post.find({ author: user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Post.countDocuments({ author: user._id }),
+    ]);
+
+    res.status(200).json({ success: true, posts, total, page, limit });
+  } catch (error: any) {
+    logger.error('Get my posts error', { message: error?.message || String(error) });
+    res.status(500).json({ error: 'Failed to load posts' });
+  }
+});
 
 export default router;

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Alert, Platform, PanResponder, TouchableOpacity, Text, BackHandler } from 'react-native';
+import type { Socket } from 'socket.io-client';
 import { auth } from './src/config/firebase';
 import { api } from './src/services/api';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Ionicons } from '@expo/vector-icons';
+import { getOrCreateIdentityKeypair } from './src/services/e2ee';
+import { connectSocket, disconnectSocket } from './src/services/socket';
 
 import LoginScreen from './src/screens/LoginScreen';
 import CompleteProfileScreen from './src/screens/CompleteProfileScreen';
@@ -23,6 +26,15 @@ import Sentry, { initSentry } from './src/services/sentry';
 
 type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'ai' | 'createGroup' | 'call' | 'completeProfile';
 
+type CallData = {
+  peerId: string;
+  peerName?: string;
+  peerAvatar?: string;
+  callType: 'audio' | 'video';
+  incoming?: boolean;
+  callId?: string;
+};
+
 initSentry();
 
 // Session Timeout Configuration (e.g., 5 minutes)
@@ -33,7 +45,7 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [callData, setCallData] = useState<any>(null);
+  const [callData, setCallData] = useState<CallData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
@@ -105,6 +117,13 @@ function AppContent() {
             phoneNumber: (firebaseUser as any).phoneNumber || '',
           });
           console.log('App: Backend sync successful, result:', result);
+          try {
+            const identity = await getOrCreateIdentityKeypair();
+            const deviceId = Device.modelName || Platform.OS;
+            await api.uploadIdentityKey(identity.publicKey, deviceId);
+          } catch (keyError) {
+            console.warn('E2EE key upload failed', keyError);
+          }
           setCurrentUser(result.user);
           if (!result.user.username) {
             setCurrentScreen('completeProfile');
@@ -136,6 +155,40 @@ function AppContent() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    let active = true;
+    let socket: Socket | null = null;
+
+    const onIncomingCall = (data: { callId: string; callerId: string; callerName?: string; type: 'audio' | 'video' }) => {
+      if (!active) return;
+      setCallData({
+        peerId: data.callerId,
+        peerName: data.callerName,
+        callType: data.type,
+        incoming: true,
+        callId: data.callId,
+      });
+      setCurrentScreen('call');
+    };
+
+    const setupSocket = async () => {
+      socket = await connectSocket();
+      if (!active || !socket) return;
+      socket.emit('user:join', currentUser.id);
+      socket.on('call:incoming', onIncomingCall);
+    };
+
+    setupSocket();
+
+    return () => {
+      active = false;
+      if (socket) {
+        socket.off('call:incoming', onIncomingCall);
+      }
+    };
+  }, [currentUser?.id]);
+
   const handleLogin = (user: any) => {
     setCurrentUser(user);
     if (!user.username) {
@@ -155,6 +208,7 @@ function AppContent() {
       if (currentUser) {
         await api.logout();
       }
+      disconnectSocket();
       await auth.signOut();
       setCurrentUser(null);
       setCurrentScreen('login');
@@ -173,12 +227,14 @@ function AppContent() {
     setCurrentScreen('users');
   };
 
-  const handleStartCall = (callID: string) => {
+  const handleStartCall = (data: { receiverId: string; type: 'audio' | 'video'; receiverName?: string; receiverAvatar?: string }) => {
     if (!currentUser) return;
     setCallData({
-      callID,
-      userID: currentUser.id,
-      userName: currentUser.displayName,
+      peerId: data.receiverId,
+      peerName: data.receiverName,
+      peerAvatar: data.receiverAvatar,
+      callType: data.type,
+      incoming: false,
     });
     setCurrentScreen('call');
   };
@@ -297,7 +353,7 @@ function AppContent() {
 
   const renderWebLayout = () => {
     // Determine active tab for sidebar highlight
-    const activeTab = currentScreen;
+    const activeTab = currentScreen === 'call' ? (selectedUser ? 'chat' : 'users') : currentScreen;
 
     return (
       <View style={[styles.webContainer, { backgroundColor: colors.background, shadowColor: colors.text }]}>
@@ -334,7 +390,21 @@ function AppContent() {
 
         {/* Dynamic Content Area based on current screen */}
         <View style={[styles.webMainArea, { backgroundColor: colors.background }]}>
-           {activeTab === 'users' || activeTab === 'chat' ? (
+           {currentScreen === 'call' && callData ? (
+             <CallScreen
+               peerId={callData.peerId}
+               peerName={callData.peerName}
+               peerAvatar={callData.peerAvatar}
+               callType={callData.callType}
+               incoming={callData.incoming}
+               callId={callData.callId}
+               userID={currentUser.id}
+               userName={currentUser.displayName}
+               onBack={handleBackFromCall}
+             />
+           ) : null}
+
+           {(activeTab === 'users' || activeTab === 'chat') && currentScreen !== 'call' ? (
              <View style={{ flex: 1, flexDirection: 'row' }}>
                <View style={[styles.webSidebar, { borderRightColor: colors.border }, selectedUser ? styles.webSidebarHidden : {}]}>
                   <UsersListScreen
@@ -366,7 +436,7 @@ function AppContent() {
              </View>
            ) : null}
 
-           {activeTab === 'feed' && (
+           {activeTab === 'feed' && currentScreen !== 'call' && (
              <FeedScreen
                currentUser={currentUser}
                onChats={handleBackToUsers}
@@ -377,7 +447,7 @@ function AppContent() {
              />
            )}
            
-           {activeTab === 'profile' && (
+           {activeTab === 'profile' && currentScreen !== 'call' && (
              <ProfileScreen
                currentUser={currentUser}
                onChats={handleBackToUsers}
@@ -391,7 +461,7 @@ function AppContent() {
              />
            )}
 
-           {activeTab === 'ai' && (
+           {activeTab === 'ai' && currentScreen !== 'call' && (
               <AIChatScreen
                 onChats={handleBackToUsers}
                 onFeed={handleFeed}
@@ -401,7 +471,7 @@ function AppContent() {
               />
            )}
 
-           {activeTab === 'private' && (
+           {activeTab === 'private' && currentScreen !== 'call' && (
              <PrivateModeScreen onExit={handleExitPrivateMode} />
            )}
         </View>
@@ -458,9 +528,14 @@ function AppContent() {
           
           {currentScreen === 'call' && callData && (
             <CallScreen
-              callID={callData.callID}
-              userID={callData.userID}
-              userName={callData.userName}
+              peerId={callData.peerId}
+              peerName={callData.peerName}
+              peerAvatar={callData.peerAvatar}
+              callType={callData.callType}
+              incoming={callData.incoming}
+              callId={callData.callId}
+              userID={currentUser.id}
+              userName={currentUser.displayName}
               onBack={handleBackFromCall}
             />
           )}

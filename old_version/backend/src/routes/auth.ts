@@ -26,17 +26,19 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
     const phoneNumber = body.phoneNumber;
 
     const firebaseUid = firebaseUser.uid;
-    const email = firebaseUser.email || req.body.email;
+    const email = firebaseUser.email || req.body.email || undefined;
+    const phoneNumberFromFirebase = (firebaseUser as any).phoneNumber;
+    const resolvedPhoneNumber = phoneNumber || phoneNumberFromFirebase || '';
 
-    if (!firebaseUid || !email) {
-      res.status(400).json({ error: 'Authenticated Firebase user must include an email' });
+    if (!firebaseUid || (!email && !resolvedPhoneNumber)) {
+      res.status(400).json({ error: 'Authenticated Firebase user must include an email or phone number' });
       return;
     }
 
     const resolvedDisplayName =
       displayNameFromBody ||
       firebaseUser.name ||
-      email.split('@')[0];
+      (email ? email.split('@')[0] : resolvedPhoneNumber || 'User');
 
     const resolvedPhotoURL =
       photoURLFromBody ||
@@ -54,10 +56,10 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
         
         if (user) {
           // Update existing user
-          user.email = email;
+          if (email) user.email = email;
           user.displayName = resolvedDisplayName || user.displayName;
           user.photoURL = resolvedPhotoURL || user.photoURL;
-          user.phoneNumber = phoneNumber || user.phoneNumber;
+          user.phoneNumber = resolvedPhoneNumber || user.phoneNumber;
           user.isOnline = true;
           user.lastSeen = new Date();
           await user.save();
@@ -65,10 +67,10 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
           // Try to create new user with explicit handling of potential username field
           const userData: any = {
             firebaseUid,
-            email,
+            ...(email ? { email } : {}),
             displayName: resolvedDisplayName,
             photoURL: resolvedPhotoURL,
-            phoneNumber: phoneNumber || '',
+            phoneNumber: resolvedPhoneNumber || '',
             isOnline: true,
             lastSeen: new Date(),
           };
@@ -157,6 +159,11 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
         displayName: user.displayName,
         photoURL: user.photoURL,
         isOnline: user.isOnline,
+        phoneNumber: user.phoneNumber,
+        username: user.username,
+        bio: user.bio,
+        website: user.website,
+        isPremium: user.isPremium,
       },
     });
   } catch (error: any) {

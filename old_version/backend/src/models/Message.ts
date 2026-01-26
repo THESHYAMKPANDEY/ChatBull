@@ -8,6 +8,12 @@ export interface IMessage extends Document {
   messageType: 'text' | 'image' | 'file' | 'video' | 'document';
   isRead: boolean;
   isPrivate: boolean;
+  replyTo?: {
+    messageId: mongoose.Types.ObjectId;
+    senderName: string;
+    content: string;
+  };
+  reactions?: Map<string, string[]>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +51,26 @@ const messageSchema = new Schema<IMessage>(
     isPrivate: {
       type: Boolean,
       default: false,
+    },
+    replyTo: {
+      messageId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Message',
+        required: false,
+      },
+      senderName: {
+        type: String,
+        required: false,
+      },
+      content: {
+        type: String,
+        required: false,
+      },
+    },
+    reactions: {
+      type: Map,
+      of: [String],
+      default: {},
     },
   },
   {

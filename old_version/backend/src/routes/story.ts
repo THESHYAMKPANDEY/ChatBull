@@ -90,4 +90,34 @@ router.post('/', verifyFirebaseToken, async (req: Request, res: Response) => {
   }
 });
 
+// Mark story as viewed
+router.post('/:storyId/view', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const { storyId } = req.params;
+
+    const user = await User.findOne({ firebaseUid: firebaseUser.uid });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const story = await Story.findById(storyId);
+    if (!story) {
+      res.status(404).json({ success: false, error: 'Story not found' });
+      return;
+    }
+
+    if (!story.viewers.some((id: any) => String(id) === String(user._id))) {
+      story.viewers.push(user._id);
+      await story.save();
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    logger.error('View story error', { message: (error as any)?.message || String(error) });
+    res.status(500).json({ success: false, error: 'Failed to mark view' });
+  }
+});
+
 export default router;

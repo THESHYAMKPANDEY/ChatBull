@@ -1,8 +1,11 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import { Alert, Platform } from 'react-native';
 import { appConfig } from '../config/appConfig';
 import { auth } from '../config/firebase';
+import nacl from 'tweetnacl';
+import util from 'tweetnacl-util';
 
 export type PickedMedia = {
   uri: string;
@@ -207,6 +210,84 @@ export const uploadFile = async (media: PickedMedia): Promise<{
       success: false,
       error: error.message || 'Network error occurred',
     };
+  }
+};
+
+const readFileBytes = async (media: PickedMedia): Promise<Uint8Array> => {
+  if (Platform.OS === 'web') {
+    const response = await fetch(media.uri);
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: FileSystem.EncodingType.Base64 });
+  return util.decodeBase64(base64);
+};
+
+const writeEncryptedTempFile = async (data: Uint8Array, name: string): Promise<string> => {
+  const base64 = util.encodeBase64(data);
+  const fileName = `${name || 'file'}_${Date.now()}.enc`;
+  const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+  return fileUri;
+};
+
+export const uploadEncryptedFile = async (
+  media: PickedMedia
+): Promise<{ success: boolean; url?: string; error?: string; key?: string; nonce?: string }> => {
+  try {
+    const rawBytes = await readFileBytes(media);
+    const key = nacl.randomBytes(32);
+    const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+    const cipher = nacl.secretbox(rawBytes, nonce, key);
+
+    const token = await auth.currentUser?.getIdToken?.();
+    if (!token) {
+      return { success: false, error: 'Not authenticated. Please login again.' };
+    }
+
+    const formData = new FormData();
+    const actualFileName = media.name || media.uri.split('/').pop() || 'file';
+
+    if (Platform.OS === 'web') {
+      const blob = new Blob([cipher], { type: 'application/octet-stream' });
+      formData.append('file', blob, `${actualFileName}.enc`);
+    } else {
+      const fileUri = await writeEncryptedTempFile(cipher, actualFileName);
+      formData.append('file', {
+        uri: fileUri,
+        name: `${actualFileName}.enc`,
+        type: 'application/octet-stream',
+      } as any);
+    }
+
+    const response = await fetch(`${appConfig.API_BASE_URL}/api/media/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: errorText || `Upload failed with status ${response.status}` };
+    }
+
+    const result = await response.json();
+    if (result.success) {
+      return {
+        success: true,
+        url: result.url,
+        key: util.encodeBase64(key),
+        nonce: util.encodeBase64(nonce),
+      };
+    }
+
+    return { success: false, error: result.error || 'Upload failed' };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Encryption upload failed' };
   }
 };
 

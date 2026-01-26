@@ -1,71 +1,71 @@
-import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, ActivityIndicator, Platform, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signInEmailPassword, startPhoneOtp, confirmPhoneOtp, setupRecaptcha, signInCustomToken, sendEmailVerificationLink, sendForgotPasswordEmail } from '../services/authClient';
+import {
+  signInEmailPassword,
+  signInCustomToken,
+  sendForgotPasswordEmail,
+  startPhoneOtp,
+  confirmPhoneOtp,
+  setupRecaptcha,
+  updateUserPassword,
+  getCurrentUser,
+} from '../services/authClient';
 import { api } from '../services/api';
 
 interface Props {
   onLogin: (user: any) => void;
 }
 
+type SignUpStep = 0 | 1 | 2;
+
 export default function ViteLoginWeb({ onLogin }: Props) {
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [otpMode, setOtpMode] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [phone, setPhone] = useState('');
   const [confirmation, setConfirmation] = useState<any>(null);
   const [countryCode, setCountryCode] = useState<'IN' | 'US' | 'UK' | 'JP' | 'DE'>('IN');
   const [callingCode, setCallingCode] = useState('91');
-  const [rememberPhone, setRememberPhone] = useState(false);
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [signUpStep, setSignUpStep] = useState<SignUpStep>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
   const countries = [
-    { code: 'IN', label: '🇮🇳 +91', calling: '91' },
-    { code: 'US', label: '🇺🇸 +1', calling: '1' },
-    { code: 'UK', label: '🇬🇧 +44', calling: '44' },
-    { code: 'JP', label: '🇯🇵 +81', calling: '81' },
-    { code: 'DE', label: '🇩🇪 +49', calling: '49' },
+    { code: 'IN', label: 'IN +91', calling: '91' },
+    { code: 'US', label: 'US +1', calling: '1' },
+    { code: 'UK', label: 'UK +44', calling: '44' },
+    { code: 'JP', label: 'JP +81', calling: '81' },
+    { code: 'DE', label: 'DE +49', calling: '49' },
   ] as const;
 
-  const [signUpStep, setSignUpStep] = useState(0); // 0: Email, 1: OTP, 2: Password
-
-  const resetState = () => {
-    setEmail('');
-    setPhone('');
-    setPassword('');
-    setConfirmPassword('');
-    setOtp('');
-    setOtpMode(false);
-    setSignUpStep(0);
-    setEmailOtpSent(false);
-  };
-
-  React.useEffect(() => {
-    resetState();
-  }, [isSignUp, loginMethod]);
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (Platform.OS === 'web') {
       setupRecaptcha('recaptcha-container');
     }
   }, []);
 
+  useEffect(() => {
+    setError('');
+    setOtp('');
+    setPassword('');
+    setConfirmPassword('');
+    setSignUpStep(0);
+  }, [isSignUp, loginMethod]);
+
   const handleForgotPassword = async () => {
     if (!email) {
-      setError('Please enter your email address to reset password');
+      setError('Please enter your email address to reset password.');
       return;
     }
     try {
       setIsLoading(true);
       await sendForgotPasswordEmail(email);
-      alert('Password reset link sent to ' + email);
       setError('');
+      alert(`Password reset link sent to ${email}`);
     } catch (e: any) {
       setError(e.message || 'Failed to send reset email');
     } finally {
@@ -73,174 +73,106 @@ export default function ViteLoginWeb({ onLogin }: Props) {
     }
   };
 
+  const handleEmailLogin = async () => {
+    if (!email) throw new Error('Please enter your email address');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) throw new Error('Please enter a valid email address');
+
+    if (!isSignUp) {
+      if (!password) throw new Error('Please enter your password');
+      const cred = await signInEmailPassword(email, password, false);
+      const result = await api.syncUser({
+        firebaseUid: cred.user.uid,
+        email,
+        displayName: cred.user.displayName || email.split('@')[0],
+        photoURL: cred.user.photoURL || '',
+        phoneNumber: cred.user.phoneNumber || '',
+      });
+      onLogin(result.user ?? { id: cred.user.uid, displayName: email.split('@')[0], email });
+      return;
+    }
+
+    // Sign up flow: OTP -> verify -> set password
+    if (signUpStep === 0) {
+      await api.sendEmailOtp(email);
+      setSignUpStep(1);
+      return;
+    }
+
+    if (signUpStep === 1) {
+      if (!otp || otp.length !== 6) throw new Error('Please enter the 6-digit OTP');
+      const response = await api.verifyEmailOtp(email, otp);
+      if (!response?.customToken) throw new Error('Invalid OTP response');
+      await signInCustomToken(response.customToken);
+      setSignUpStep(2);
+      return;
+    }
+
+    if (signUpStep === 2) {
+      if (!password) throw new Error('Please set a password');
+      if (password !== confirmPassword) throw new Error('Passwords do not match');
+      const user = getCurrentUser();
+      if (!user) throw new Error('Session expired. Please verify email again.');
+      await updateUserPassword(user, password);
+      const result = await api.syncUser({
+        firebaseUid: user.uid,
+        email,
+        displayName: user.displayName || email.split('@')[0],
+        photoURL: user.photoURL || '',
+        phoneNumber: user.phoneNumber || '',
+      });
+      onLogin(result.user ?? { id: user.uid, displayName: email.split('@')[0], email });
+    }
+  };
+
+  const handlePhoneLogin = async () => {
+    if (!phone) throw new Error('Please enter your phone number');
+    const fullNumber = `+${callingCode}${phone}`;
+
+    if (!confirmation) {
+      const conf = await startPhoneOtp(fullNumber);
+      setConfirmation(conf);
+      return;
+    }
+
+    if (!otp || otp.length !== 6) throw new Error('Please enter the 6-digit OTP');
+
+    const userCredential = await confirmPhoneOtp(confirmation, otp);
+    const result = await api.syncUser({
+      firebaseUid: userCredential.user.uid,
+      email: userCredential.user.email || '',
+      displayName: userCredential.user.displayName || fullNumber,
+      photoURL: userCredential.user.photoURL || '',
+      phoneNumber: fullNumber,
+    });
+    onLogin(result.user ?? { id: userCredential.user.uid, displayName: fullNumber, phoneNumber: fullNumber });
+  };
+
   const handleSubmit = async () => {
     setError('');
     setIsLoading(true);
     try {
       if (loginMethod === 'email') {
-        if (!email) throw new Error('Please enter your email address');
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) throw new Error('Please enter a valid email address');
-        if (!otpMode) {
-          if (!password) throw new Error('Please enter your password');
-          
-          if (isSignUp) {
-             if (password !== confirmPassword) throw new Error('Passwords do not match');
-          }
-
-          const cred = await signInEmailPassword(email, password, isSignUp);
-          
-          if (isSignUp) {
-            // Send Verification Email
-            try {
-              await sendEmailVerificationLink();
-              alert('Account created! Please check your email to verify your account.');
-            } catch (e) {
-              console.warn('Failed to send verification email:', e);
-            }
-          }
-
-          const result = await api.syncUser({
-            firebaseUid: cred.user.uid,
-            email,
-            displayName: email.split('@')[0],
-            photoURL: '',
-            phoneNumber: '',
-          });
-          onLogin(result.user ?? { id: cred.user.uid, displayName: email.split('@')[0], email });
-        } else {
-          // Email OTP Flow
-          if (!emailOtpSent) {
-             // Send OTP
-             await api.sendEmailOtp(email);
-             setEmailOtpSent(true);
-             setIsLoading(false); // Stop loading so user can enter OTP
-             // alert('OTP sent to ' + email);
-             return; // Stop here, wait for user to enter OTP
-          }
-
-          if (!otp) throw new Error('Please enter the OTP');
-          
-          try {
-             // Verify OTP with Backend
-             const response = await api.verifyEmailOtp(email, otp);
-             if (!response.customToken) throw new Error('Invalid OTP response');
-             
-             // Sign in with Custom Token
-             const cred = await signInCustomToken(response.customToken);
-             
-             const result = await api.syncUser({
-                firebaseUid: cred.user.uid,
-                email,
-                displayName: email.split('@')[0],
-                photoURL: '',
-                phoneNumber: '',
-             });
-             onLogin(result.user ?? { id: cred.user.uid, displayName: email.split('@')[0], email });
-
-          } catch (err: any) {
-             // Fallback to Mock if 123456 (Dev Mode)
-             if (otp === '123456') {
-                const mockUser = { uid: 'web_' + Date.now(), email, displayName: email.split('@')[0] };
-                onLogin({
-                  id: mockUser.uid,
-                  firebaseUid: mockUser.uid,
-                  email: mockUser.email,
-                  displayName: mockUser.displayName,
-                  photoURL: '',
-                  isOnline: true,
-                });
-             } else {
-                throw err;
-             }
-          }
-        }
+        await handleEmailLogin();
       } else {
-        if (!phone) throw new Error('Please enter your phone number');
-        const fullNumber = `+${callingCode}${phone}`;
-        
-        // DEV BYPASS: Allow login without Firebase Billing for this specific number
-        if (fullNumber === '+919999999999') {
-          console.log('Using Dev Bypass for:', fullNumber);
-          setConfirmation({ verificationId: 'dev-bypass-id' });
-          setOtpMode(true);
-          return;
-        }
-
-        if (!otpMode) {
-          try {
-            const conf = await startPhoneOtp(fullNumber);
-            setConfirmation(conf);
-            setOtpMode(true);
-          } catch (err: any) {
-            setError(err.message || 'Failed to send OTP');
-          }
-        } else {
-          if (!otp || otp.length !== 6) throw new Error('Please enter the 6-digit OTP');
-          
-          // DEV BYPASS: Verify the specific number with fixed OTP
-          if (fullNumber === '+919999999999' && otp === '123456') {
-             const mockUser = { uid: 'dev_' + Date.now(), displayName: fullNumber, phoneNumber: fullNumber };
-             onLogin({
-                id: mockUser.uid,
-                firebaseUid: mockUser.uid,
-                email: '',
-                displayName: mockUser.displayName,
-                photoURL: '',
-                isOnline: true,
-                phoneNumber: fullNumber,
-             });
-             return;
-          }
-
-          try {
-            const userCredential = await confirmPhoneOtp(confirmation, otp);
-            const result = await api.syncUser({
-              firebaseUid: userCredential.user.uid,
-              email: userCredential.user.email || '',
-              displayName: userCredential.user.displayName || fullNumber,
-              photoURL: userCredential.user.photoURL || '',
-              phoneNumber: fullNumber,
-            });
-            onLogin(result.user ?? { id: userCredential.user.uid, displayName: fullNumber, phoneNumber: fullNumber });
-          } catch (err: any) {
-            if (otp === '123456') {
-              const mockUser = { uid: 'web_' + Date.now(), displayName: fullNumber, phoneNumber: fullNumber };
-              onLogin({
-                id: mockUser.uid,
-                firebaseUid: mockUser.uid,
-                email: '',
-                displayName: mockUser.displayName,
-                photoURL: '',
-                isOnline: true,
-                phoneNumber: fullNumber,
-              });
-            } else {
-              throw err;
-            }
-          }
-        }
+        await handlePhoneLogin();
       }
     } catch (e: any) {
-      console.error('Login error:', e);
       let msg = e.message || 'Login failed. Please try again.';
-      
-      // Handle specific Firebase errors
-      if (e.code === 'auth/billing-not-enabled') {
-        msg = 'Project billing not enabled. Please upgrade Firebase project to Blaze plan for Phone Auth.';
-      } else if (e.code === 'auth/invalid-phone-number') {
-        msg = 'Please enter a valid phone number.';
-      } else if (e.code === 'auth/too-many-requests') {
-        msg = 'Too many attempts. Please try again later.';
-      } else if (e.code === 'auth/quota-exceeded') {
-        msg = 'SMS quota exceeded for this project.';
-      }
-
+      if (e.code === 'auth/invalid-phone-number') msg = 'Please enter a valid phone number.';
+      if (e.code === 'auth/too-many-requests') msg = 'Too many attempts. Please try again later.';
       setError(msg);
-      // Removed mock login fallback
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const buttonLabel = () => {
+    if (loginMethod === 'phone') return confirmation ? 'Verify' : 'Send OTP';
+    if (!isSignUp) return 'Sign In';
+    if (signUpStep === 0) return 'Send Verification Code';
+    if (signUpStep === 1) return 'Verify Email';
+    return 'Create Account';
   };
 
   return (
@@ -248,15 +180,11 @@ export default function ViteLoginWeb({ onLogin }: Props) {
       <View style={styles.card}>
         <View style={styles.logoContainer}>
           <View style={styles.logoWrapper}>
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
           </View>
         </View>
         <Text style={styles.title}>ChatBull</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+        <Text style={styles.subtitle}>{isSignUp ? 'Create your account' : 'Sign in to your account'}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -285,17 +213,18 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e: any) => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || (isSignUp && signUpStep > 0)}
                 className="vite-input"
                 style={styles.input as any}
               />
             </View>
-            {!otpMode ? (
+
+            {!isSignUp && (
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Password</Text>
                 <input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e: any) => setPassword(e.target.value)}
@@ -303,64 +232,60 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                   className="vite-input"
                   style={styles.input as any}
                 />
-                {!otpMode && (
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.link}>{showPassword ? 'Hide' : 'Show'} Password</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setOtpMode(true)}>
-                  <Text style={styles.link}>Login with OTP</Text>
-                </TouchableOpacity>
               </View>
             )}
 
-            {otpMode && (
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
-                <TouchableOpacity onPress={() => setOtpMode(false)}>
-                  <Text style={styles.link}>Use Password</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {!otpMode && isSignUp && (
-              <View style={[styles.formGroup, { marginTop: 12 }]}>
-                <Text style={styles.label}>Confirm Password</Text>
+            {isSignUp && signUpStep === 1 && (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Enter Verification Code</Text>
                 <input
-                  id="confirmPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e: any) => setConfirmPassword(e.target.value)}
+                  id="otp"
+                  type="tel"
+                  placeholder="6-digit code"
+                  value={otp}
+                  onChange={(e: any) => setOtp(e.target.value.replace(/\D/g, ''))}
                   disabled={isLoading}
                   className="vite-input"
                   style={styles.input as any}
                 />
               </View>
             )}
-          </View>
+
+            {isSignUp && signUpStep === 2 && (
+              <>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Set Password</Text>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e: any) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="vite-input"
+                    style={styles.input as any}
+                  />
+                </View>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Confirm Password</Text>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e: any) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="vite-input"
+                    style={styles.input as any}
+                  />
+                </View>
+              </>
+            )}
+          </>
         ) : (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Enter OTP</Text>
-            <input
-              id="otp"
-              type="tel"
-              placeholder="6-digit code"
-              value={otp}
-              onChange={(e: any) => setOtp(e.target.value.replace(/\D/g, ''))}
-              disabled={isLoading}
-              className="vite-input"
-              style={styles.input as any}
-            />
-            <TouchableOpacity onPress={() => setOtpMode(false)} style={{ marginTop: 8, alignSelf: 'flex-end' }}>
-               <Text style={styles.link}>Use Password</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </>
-    ) : (
-      <>
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Mobile Number</Text>
+          <>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Mobile Number</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <select
                   value={countryCode}
@@ -370,11 +295,11 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                     setCountryCode(val);
                     setCallingCode(found.calling);
                   }}
-                  disabled={isLoading || otpMode}
+                  disabled={isLoading || !!confirmation}
                   style={{
                     width: 130,
                     padding: 12,
-                    fontSize: 18,
+                    fontSize: 16,
                     borderWidth: 1,
                     borderColor: '#e9edef',
                     borderRadius: 8,
@@ -391,13 +316,13 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                   placeholder="Mobile number"
                   value={phone}
                   onChange={(e: any) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  disabled={isLoading || otpMode}
+                  disabled={isLoading || !!confirmation}
                   className="vite-input"
                   style={styles.input as any}
                 />
               </View>
             </View>
-            {otpMode && (
+            {confirmation && (
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Enter OTP</Text>
                 <input
@@ -412,17 +337,6 @@ export default function ViteLoginWeb({ onLogin }: Props) {
                 />
               </View>
             )}
-            {!otpMode && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <input
-                  type="checkbox"
-                  id="remember-phone"
-                  checked={rememberPhone}
-                  onChange={(e: any) => setRememberPhone(e.target.checked)}
-                />
-                <label htmlFor="remember-phone">Keep me signed in</label>
-              </View>
-            )}
           </>
         )}
 
@@ -432,39 +346,27 @@ export default function ViteLoginWeb({ onLogin }: Props) {
           nativeID="sign-in-button"
           style={[styles.button, isLoading && { opacity: 0.7 }]}
           onPress={handleSubmit}
-          disabled={
-            isLoading ||
-            (loginMethod === 'email'
-              ? (!email || (!otpMode && !password) || (otpMode && emailOtpSent && !otp))
-              : (!phone || (otpMode && !otp)))
-          }
+          disabled={isLoading}
         >
           {isLoading ? <ActivityIndicator color="#fff" /> : (
-            <Text style={styles.buttonText}>
-              {loginMethod === 'email' 
-                ? (otpMode 
-                    ? (emailOtpSent ? 'Verify' : 'Get OTP') 
-                    : (isSignUp ? 'Sign Up' : 'Sign In')) 
-                : (otpMode ? 'Verify' : 'Get OTP')}
-            </Text>
+            <Text style={styles.buttonText}>{buttonLabel()}</Text>
           )}
         </Pressable>
 
-        {!otpMode && (
-          <View style={{ marginTop: 16, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.muted}>{isSignUp ? 'Already have an account?' : "Don't have an account?"} </Text>
-                <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-                   <Text style={styles.link}>{isSignUp ? 'Sign In' : 'Sign Up'}</Text>
-                </TouchableOpacity>
-            </View>
-            {!isSignUp && (
-                <TouchableOpacity style={{ marginTop: 8 }} onPress={handleForgotPassword}>
-                   <Text style={styles.link}>Forgot your password?</Text>
-                </TouchableOpacity>
-            )}
-          </View>
+        {loginMethod === 'email' && !isSignUp && (
+          <TouchableOpacity style={{ marginTop: 12 }} onPress={handleForgotPassword}>
+            <Text style={styles.link}>Forgot your password?</Text>
+          </TouchableOpacity>
         )}
+
+        <View style={{ marginTop: 16, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.muted}>{isSignUp ? 'Already have an account?' : "Don't have an account?"} </Text>
+            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+              <Text style={styles.link}>{isSignUp ? 'Sign In' : 'Sign Up'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
@@ -511,7 +413,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 5,
-    padding: 2, // Slight border effect
+    padding: 2,
   },
   logo: {
     width: 90,
@@ -597,7 +499,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#128c7e',
-    borderRadius: 24, // More rounded pill shape
+    borderRadius: 24,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 16,

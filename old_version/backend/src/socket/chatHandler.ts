@@ -72,6 +72,7 @@ export const setupSocket = (io: Server) => {
       content: string;
       messageType?: string;
       isPrivate?: boolean;
+      replyTo?: { messageId?: string; senderName?: string; content?: string };
     }) => {
       try {
         if (!allowEvent(socket.id, 'message:send', 60, 60_000)) {
@@ -90,6 +91,10 @@ export const setupSocket = (io: Server) => {
         const content = asTrimmedString(data.content, 4000);
         const messageType = typeof data.messageType === 'string' ? data.messageType : 'text';
         const isPrivate = typeof data.isPrivate === 'boolean' ? data.isPrivate : false;
+        const replyToRaw = data.replyTo && typeof data.replyTo === 'object' ? data.replyTo : undefined;
+        const replyToMessageId = replyToRaw?.messageId && typeof replyToRaw.messageId === 'string' ? replyToRaw.messageId : undefined;
+        const replyToSenderName = replyToRaw?.senderName && typeof replyToRaw.senderName === 'string' ? replyToRaw.senderName.trim().slice(0, 80) : undefined;
+        const replyToContent = replyToRaw?.content && typeof replyToRaw.content === 'string' ? replyToRaw.content.trim().slice(0, 400) : undefined;
 
         if (!content) {
           socket.emit('message:error', { error: 'Invalid message content' });
@@ -107,6 +112,14 @@ export const setupSocket = (io: Server) => {
           messageType,
           isPrivate,
         };
+
+        if (replyToMessageId && replyToSenderName && replyToContent) {
+          messageData.replyTo = {
+            messageId: replyToMessageId,
+            senderName: replyToSenderName,
+            content: replyToContent,
+          };
+        }
 
         if (groupId) {
           messageData.groupId = groupId;
@@ -272,6 +285,11 @@ export const setupSocket = (io: Server) => {
         const message = await Message.findById(messageId).select('sender receiver groupId');
         if (!message) return;
 
+        await Message.updateOne(
+          { _id: messageId },
+          { $addToSet: { [`reactions.${reaction}`]: userId } }
+        );
+
         const payload = {
           messageId,
           userId,
@@ -311,6 +329,11 @@ export const setupSocket = (io: Server) => {
 
         const message = await Message.findById(messageId).select('sender receiver groupId');
         if (!message) return;
+
+        await Message.updateOne(
+          { _id: messageId },
+          { $pull: { [`reactions.${reaction}`]: userId } }
+        );
 
         const payload = {
           messageId,
