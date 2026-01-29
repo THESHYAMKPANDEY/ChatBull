@@ -56,6 +56,7 @@ const getFsCacheDir = () => {
 
 interface Message {
   _id: string;
+  clientTempId?: string;
   sender: { _id: string; displayName: string; photoURL?: string };
   content: string;
   messageType?: 'text' | 'image' | 'video' | 'file' | 'document';
@@ -237,6 +238,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
     let replyTo = message.replyTo;
     let media = message.media;
     let decryptedText: string | undefined;
+    let clientTempId: string | undefined;
 
     if (typeof message.content === 'string') {
       const legacyDecoded = decodeLegacyWebMessage(message.content);
@@ -250,7 +252,8 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         }
         replyTo = body.replyTo || replyTo;
         decryptedText = content;
-        return { ...message, content, replyTo, decryptedText, media };
+        clientTempId = body.clientTempId || undefined;
+        return { ...message, content, replyTo, decryptedText, media, clientTempId };
       }
 
       try {
@@ -278,6 +281,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
             }
             replyTo = body.replyTo || replyTo;
             decryptedText = content;
+            clientTempId = body.clientTempId || undefined;
           } else {
             content = i18n.t('encryptedMsg');
           }
@@ -290,13 +294,14 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
           }
           replyTo = payload.replyTo || replyTo;
           decryptedText = content;
+          clientTempId = payload.clientTempId || undefined;
         }
       } catch {
         // ignore parse errors
       }
     }
 
-    return { ...message, content, replyTo, decryptedText, media };
+    return { ...message, content, replyTo, decryptedText, media, clientTempId };
   };
 
   const decryptMediaToUri = async (msg: Message): Promise<string | null> => {
@@ -387,7 +392,28 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       socket.on('message:sent', async (message: Message) => {
         const hydrated = await hydrateMessage(message);
         if (!isMounted) return;
-        setMessages((prev: Message[]) => [...prev, { ...hydrated, status: 'sent' as MessageStatus }]);
+        setMessages((prev: Message[]) => {
+          if (hydrated.clientTempId) {
+            const idx = prev.findIndex((msg) => msg.clientTempId === hydrated.clientTempId);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = { ...hydrated, status: 'sent' as MessageStatus };
+              return next;
+            }
+          }
+          const fallbackIdx = prev.findIndex(
+            (msg) =>
+              msg.status === 'sending' &&
+              msg.sender?._id === currentUser.id &&
+              msg.content === hydrated.content
+          );
+          if (fallbackIdx >= 0) {
+            const next = [...prev];
+            next[fallbackIdx] = { ...hydrated, status: 'sent' as MessageStatus };
+            return next;
+          }
+          return [...prev, { ...hydrated, status: 'sent' as MessageStatus }];
+        });
       });
 
       socket.on('messages:read', (receiverId: string) => {
@@ -529,6 +555,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       type: 'text',
       text: newMessage.trim(),
       replyTo: replyingTo || null,
+      clientTempId: tempId,
     });
 
     let encryptedContent: string | null = null;
@@ -619,10 +646,12 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
           return;
         }
 
+        const tempId = `media_${Date.now()}`;
         const payloadBody = JSON.stringify({
           type: 'media',
           caption: newMessage.trim() || '',
           replyTo: replyingTo || null,
+          clientTempId: tempId,
           media: {
             url: upload.url,
             mediaType: picked.type === 'file' ? 'document' : picked.type,
@@ -658,7 +687,6 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
           encryptedContent = JSON.stringify(payload);
         }
 
-        const tempId = `media_${Date.now()}`;
         const tempMessage: Message = {
           _id: tempId,
           sender: { _id: currentUser.id, displayName: currentUser.displayName },
