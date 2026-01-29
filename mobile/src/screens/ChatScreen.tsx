@@ -148,6 +148,16 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
     return { type: 'text', text };
   };
 
+  const decodeLegacyWebMessage = (text: string): string | null => {
+    if (!text.startsWith('enc:')) return null;
+    try {
+      const decoded = util.encodeUTF8(util.decodeBase64(text.slice(4)));
+      return decoded || null;
+    } catch {
+      return null;
+    }
+  };
+
   const ensureRecipientKey = async () => {
     if (recipientKey || otherUser?.isGroup) return;
     try {
@@ -228,6 +238,20 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
     let decryptedText: string | undefined;
 
     if (typeof message.content === 'string') {
+      const legacyDecoded = decodeLegacyWebMessage(message.content);
+      if (legacyDecoded) {
+        const body = parseDecryptedBody(legacyDecoded);
+        if (body.type === 'media' && body.media) {
+          media = body.media;
+          content = body.caption || '[media]';
+        } else {
+          content = body.text || legacyDecoded;
+        }
+        replyTo = body.replyTo || replyTo;
+        decryptedText = content;
+        return { ...message, content, replyTo, decryptedText, media };
+      }
+
       try {
         const payload = JSON.parse(message.content);
         if (payload?.t === 'dm' || payload?.t === 'group') {
@@ -250,7 +274,18 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
             }
             replyTo = body.replyTo || replyTo;
             decryptedText = content;
+          } else {
+            content = i18n.t('encryptedMsg');
           }
+        } else if (payload?.type) {
+          if (payload.type === 'media' && payload.media) {
+            media = payload.media;
+            content = payload.caption || '[media]';
+          } else {
+            content = payload.text || message.content;
+          }
+          replyTo = payload.replyTo || replyTo;
+          decryptedText = content;
         }
       } catch {
         // ignore parse errors
