@@ -18,6 +18,7 @@ import { pickImage, pickVideo, uploadFile } from '../services/media';
 import * as Contacts from 'expo-contacts';
 import { Video, ResizeMode } from 'expo-av';
 import BottomTabBar from '../components/BottomTabBar';
+import { loadRecentChats, RecentChatUser } from '../services/recentChats';
 
 import VerifiedBadge from '../components/VerifiedBadge';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,21 +31,26 @@ export interface User {
   email: string;
   isOnline: boolean;
   isPremium?: boolean;
+  username?: string;
   phoneNumber?: string;
   photoURL?: string;
   isGroup?: boolean;
   members?: string[];
+  allowDirectMessages?: boolean;
+  isFollowing?: boolean;
 }
 
 interface UsersListScreenProps {
   currentUser: any;
   onSelectUser: (user: User) => void;
+  onViewProfile: (user: User) => void;
   onLogout: () => void;
   onPrivateMode: () => void;
   onProfile: () => void;
   onFeed: () => void;
   onChats: () => void;
   showTabBar?: boolean;
+  refreshToken?: number;
 }
 
 type Story = {
@@ -58,17 +64,19 @@ type Story = {
 export default function UsersListScreen({
   currentUser,
   onSelectUser,
+  onViewProfile,
   onLogout,
   onPrivateMode,
   onProfile,
   onFeed,
   onChats,
   showTabBar = true,
+  refreshToken = 0,
 }: UsersListScreenProps) {
-  const { colors, theme } = useTheme();
-  const [users, setUsers] = useState<User[]>([]);
+  const { colors } = useTheme();
   const [contactUsers, setContactUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<User[]>([]); // Groups treated as Users for list
+  const [recentChats, setRecentChats] = useState<User[]>([]);
   const [mergedList, setMergedList] = useState<User[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
@@ -76,10 +84,13 @@ export default function UsersListScreen({
   const [stories, setStories] = useState<Story[]>([]);
   const [isPostingStory, setIsPostingStory] = useState(false);
   const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Group Creation State
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [showContactsModal, setShowContactsModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [selectedForGroup, setSelectedForGroup] = useState<string[]>([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -90,12 +101,16 @@ export default function UsersListScreen({
 
   useEffect(() => {
     mergeLists();
-  }, [users, contactUsers, groups]);
+  }, [contactUsers, groups, recentChats]);
+
+  useEffect(() => {
+    loadRecents();
+  }, [refreshToken]);
 
   const initializeData = async () => {
     setIsLoading(true);
     await Promise.all([
-      loadUsers(), // Social/Global users
+      loadRecents(),
       loadStories(),
       fetchGroups(),
       currentUser.phoneNumber ? syncDeviceContacts() : Promise.resolve()
@@ -103,10 +118,50 @@ export default function UsersListScreen({
     setIsLoading(false);
   };
 
+  const loadRecents = async () => {
+    const items = await loadRecentChats();
+    const normalized: User[] = items.map((u: RecentChatUser) => ({
+      _id: u._id,
+      displayName: u.displayName,
+      email: u.email || '',
+      isOnline: false,
+      username: u.username,
+      phoneNumber: u.phoneNumber,
+      photoURL: u.photoURL,
+      isGroup: u.isGroup,
+      members: u.members,
+    }));
+    setRecentChats(normalized);
+  };
+
+  useEffect(() => {
+    if (!showSearchModal) return;
+    const query = searchQuery.trim();
+    const timer = setTimeout(async () => {
+      if (query.length < 2) {
+        setSearchResults([]);
+        setSearchLoading(false);
+        return;
+      }
+      setSearchLoading(true);
+      try {
+        const result = await api.searchUsers(query, 50);
+        setSearchResults(Array.isArray(result?.users) ? result.users : []);
+      } catch (error) {
+        console.error('Search users error:', error);
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, showSearchModal]);
+
   const mergeLists = () => {
     // Combine Groups + Contacts + Social Users
     // Filter duplicates based on _id
-    const combined = [...groups, ...contactUsers, ...users];
+    const combined = [...groups, ...recentChats, ...contactUsers];
     const unique = combined.filter((v, i, a) => a.findIndex(t => t._id === v._id) === i);
     setMergedList(unique);
   };
@@ -167,18 +222,6 @@ export default function UsersListScreen({
     } catch (error) {
       console.error('Sync contacts error:', error);
       Alert.alert('Error', 'Failed to sync contacts.');
-    }
-  };
-
-  const loadUsers = async () => {
-    try {
-      const result = await api.getUsers();
-      const otherUsers = result.users.filter(
-        (u: User) => u._id !== currentUser.id
-      );
-      setUsers(otherUsers);
-    } catch (error) {
-      console.error('Load users error:', error);
     }
   };
 
@@ -248,16 +291,10 @@ export default function UsersListScreen({
     setActiveStory(null);
   };
 
-  const handleNewChat = async () => {
-    // Check phone number existence if needed
-    if (!currentUser.phoneNumber) {
-       Alert.alert('Phone Number Required', 'Please link your phone number in Profile to sync contacts and chat with friends.');
-       // We still show modal to let them see empty state / instructions
-    }
-    
-    // Refresh contacts when opening
-    await syncDeviceContacts();
-    setShowContactsModal(true);
+  const handleNewChat = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchModal(true);
   };
 
   const handleCreateGroup = async () => {
@@ -343,6 +380,42 @@ export default function UsersListScreen({
     </TouchableOpacity>
   );
 
+  const renderSearchUser = ({ item }: { item: User }) => (
+    <TouchableOpacity
+      style={styles.userItem}
+      onPress={() => {
+        onViewProfile(item);
+        setShowSearchModal(false);
+      }}
+    >
+      <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
+        {item.photoURL ? (
+          <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
+        ) : (
+          <Text style={[styles.avatarText, { color: colors.text }]}>{item.displayName.charAt(0).toUpperCase()}</Text>
+        )}
+      </View>
+      <View style={styles.userInfo}>
+        <View style={styles.nameRow}>
+          <Text style={[styles.userName, { color: colors.text }]}>{item.displayName}</Text>
+          {item.isPremium && (
+            <View style={{ marginLeft: 4 }}>
+              <VerifiedBadge size={14} />
+            </View>
+          )}
+        </View>
+        <Text style={[styles.userEmail, { color: colors.mutedText }]} numberOfLines={1}>
+          {item.username ? `@${item.username}` : item.email}
+        </Text>
+      </View>
+      {item.isFollowing ? (
+        <View style={[styles.followingBadge, { borderColor: colors.border }]}>
+          <Text style={[styles.followingBadgeText, { color: colors.mutedText }]}>Following</Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+
   const renderSelectableUser = ({ item }: { item: User }) => {
     const isSelected = selectedForGroup.includes(item._id);
     return (
@@ -380,9 +453,9 @@ export default function UsersListScreen({
            <TouchableOpacity 
              onPress={handleNewChat}
              style={styles.headerIcon}
-             accessibilityLabel="New Chat"
+             accessibilityLabel="Search"
            >
-             <Ionicons name="create-outline" size={24} color={colors.text} />
+             <Ionicons name="search-outline" size={24} color={colors.text} />
            </TouchableOpacity>
            <TouchableOpacity 
              onPress={handleCreateGroup}
@@ -452,61 +525,58 @@ export default function UsersListScreen({
         />
       )}
 
-      {/* Contacts List Modal (New Chat) */}
+      {/* Search Modal (New Chat) */}
       <Modal
-        visible={showContactsModal}
+        visible={showSearchModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowContactsModal(false)}
+        onRequestClose={() => setShowSearchModal(false)}
       >
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>New Chat</Text>
-            <TouchableOpacity onPress={() => setShowContactsModal(false)}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Search</Text>
+            <TouchableOpacity onPress={() => setShowSearchModal(false)}>
               <Text style={{ color: colors.primary, fontSize: 16 }}>Cancel</Text>
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.modalContent}>
-             {contactUsers.length === 0 ? (
-               <View style={styles.emptyContainer}>
-                 <Ionicons name="people-outline" size={64} color={colors.mutedText} />
-                 <Text style={[styles.emptyText, { color: colors.text, marginTop: 16 }]}>No Contacts Found</Text>
-                 <Text style={[styles.emptySubtext, { display: 'flex', color: colors.mutedText, textAlign: 'center', marginTop: 8 }]}>
-                   {Platform.OS === 'web' 
-                     ? 'Contact syncing is only available on mobile devices.' 
-                     : 'Sync your contacts to find friends on ChatBull.'}
-                 </Text>
-               </View>
-             ) : (
-               <FlatList
-                 data={contactUsers}
-                 keyExtractor={item => item._id}
-                 renderItem={({ item }) => (
-                   <TouchableOpacity 
-                     style={styles.userItem} 
-                     onPress={() => {
-                       onSelectUser(item);
-                       setShowContactsModal(false);
-                     }}
-                   >
-                     <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
-                        {item.photoURL ? (
-                          <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
-                        ) : (
-                          <Text style={[styles.avatarText, { color: colors.text }]}>
-                            {item.displayName.charAt(0).toUpperCase()}
-                          </Text>
-                        )}
-                     </View>
-                     <View style={styles.userInfo}>
-                       <Text style={[styles.userName, { color: colors.text }]}>{item.displayName}</Text>
-                       <Text style={[styles.userEmail, { color: colors.mutedText }]}>{item.phoneNumber || item.email}</Text>
-                     </View>
-                   </TouchableOpacity>
-                 )}
-               />
-             )}
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.secondary, borderColor: colors.border }]}
+              placeholder="Search by name, username, email, phone"
+              placeholderTextColor={colors.mutedText}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+            />
+
+            {searchLoading ? (
+              <View style={styles.searchLoading}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : searchQuery.trim().length < 2 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={64} color={colors.mutedText} />
+                <Text style={[styles.emptyText, { color: colors.text, marginTop: 16 }]}>Start typing</Text>
+                <Text style={[styles.emptySubtext, { display: 'flex', color: colors.mutedText, textAlign: 'center', marginTop: 8 }]}>
+                  Search by name, username, email, or phone.
+                </Text>
+              </View>
+            ) : searchResults.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="person-outline" size={64} color={colors.mutedText} />
+                <Text style={[styles.emptyText, { color: colors.text, marginTop: 16 }]}>No results</Text>
+                <Text style={[styles.emptySubtext, { display: 'flex', color: colors.mutedText, textAlign: 'center', marginTop: 8 }]}>
+                  Try a different search.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item._id}
+                renderItem={renderSearchUser}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -538,7 +608,7 @@ export default function UsersListScreen({
             <Text style={[styles.sectionTitle, { color: colors.mutedText }]}>Select Members</Text>
             
             <FlatList
-              data={[...contactUsers, ...users].filter((v,i,a) => a.findIndex(t => t._id === v._id) === i)}
+              data={[...contactUsers, ...recentChats].filter((v,i,a) => a.findIndex(t => t._id === v._id) === i)}
               keyExtractor={item => item._id}
               renderItem={renderSelectableUser}
               style={{ flex: 1 }}
@@ -780,7 +850,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8e8e8e',
     textAlign: 'center',
-    display: 'none',
+  },
+  searchLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  followingBadge: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  followingBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   // Modal
   modalContainer: {

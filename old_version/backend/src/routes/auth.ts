@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import User from '../models/User';
+import Follow from '../models/Follow';
 import EmailOtp from '../models/EmailOtp';
 import { validate } from '../middleware/validation';
 import { verifyFirebaseToken } from '../middleware/auth';
@@ -164,6 +165,7 @@ router.post('/sync', verifyFirebaseToken, async (req: Request, res: Response) =>
         bio: user.bio,
         website: user.website,
         isPremium: user.isPremium,
+        allowDirectMessages: user.allowDirectMessages,
       },
     });
   } catch (error: any) {
@@ -208,8 +210,49 @@ router.get('/profile/:firebaseUid', verifyFirebaseToken, async (req: Request, re
 // Get all users (for chat list) - must be authenticated
 router.get('/users', verifyFirebaseToken, async (req: Request, res: Response) => {
   try {
-    const users = await User.find({}, 'displayName email photoURL isOnline lastSeen');
-    res.status(200).json({ users });
+    const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
+    const rawSearch = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const rawLimit = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : undefined;
+    const limit = rawLimit && Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 50;
+
+    if (!rawSearch || rawSearch.length < 2) {
+      res.status(200).json({ users: [] });
+      return;
+    }
+
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const search = new RegExp(escapeRegex(rawSearch), 'i');
+
+    const me = await User.findOne({ firebaseUid: firebaseUser.uid }).select('_id');
+    const query: any = {
+      $or: [
+        { displayName: search },
+        { email: search },
+        { username: search },
+        { phoneNumber: search },
+      ],
+    };
+    if (me?._id) {
+      query._id = { $ne: me._id };
+    }
+
+    const users = await User.find(
+      query,
+      'displayName email photoURL isOnline lastSeen username phoneNumber allowDirectMessages'
+    ).limit(limit);
+
+    const ids = users.map((u) => u._id);
+    const following = me?._id
+      ? await Follow.find({ follower: me._id, following: { $in: ids } }).select('following')
+      : [];
+    const followingSet = new Set(following.map((f) => f.following.toString()));
+
+    const enriched = users.map((u) => ({
+      ...u.toObject(),
+      isFollowing: followingSet.has(u._id.toString()),
+    }));
+
+    res.status(200).json({ users: enriched });
   } catch (error) {
     logger.error('Get users error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Internal server error' });

@@ -17,13 +17,14 @@ import UsersListScreen from './src/screens/UsersListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import PrivateModeScreen from './src/screens/PrivateModeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import UserProfileScreen from './src/screens/UserProfileScreen';
 import FeedScreen from './src/screens/FeedScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CallScreen from './src/screens/CallScreen';
 import { ThemeProvider, useTheme } from './src/config/theme';
 import Sentry, { initSentry } from './src/services/sentry';
 
-type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'feed' | 'createGroup' | 'call' | 'completeProfile';
+type Screen = 'login' | 'users' | 'chat' | 'private' | 'profile' | 'userProfile' | 'feed' | 'createGroup' | 'call' | 'completeProfile';
 
 type CallData = {
   peerId: string;
@@ -44,6 +45,8 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedProfileUser, setSelectedProfileUser] = useState<any>(null);
+  const [usersListRefreshToken, setUsersListRefreshToken] = useState(0);
   const [callData, setCallData] = useState<CallData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
@@ -217,12 +220,25 @@ function AppContent() {
   };
 
   const handleSelectUser = (user: any) => {
+    setSelectedProfileUser(null);
     setSelectedUser(user);
     setCurrentScreen('chat');
   };
 
   const handleBackFromChat = () => {
     setSelectedUser(null);
+    setCurrentScreen('users');
+    setUsersListRefreshToken((prev) => prev + 1);
+  };
+
+  const handleViewProfile = (user: any) => {
+    setSelectedUser(null);
+    setSelectedProfileUser(user);
+    setCurrentScreen('userProfile');
+  };
+
+  const handleBackFromUserProfile = () => {
+    setSelectedProfileUser(null);
     setCurrentScreen('users');
   };
 
@@ -287,6 +303,11 @@ function AppContent() {
         handleBackToUsers();
         return true;
       }
+
+      if (currentScreen === 'userProfile') {
+        handleBackFromUserProfile();
+        return true;
+      }
       
       if (currentScreen === 'feed') {
         handleBackToUsers();
@@ -320,6 +341,7 @@ function AppContent() {
   };
 
   const handleBackToUsers = () => {
+    setSelectedProfileUser(null);
     setCurrentScreen('users');
   };
 
@@ -343,7 +365,12 @@ function AppContent() {
 
   const renderWebLayout = () => {
     // Determine active tab for sidebar highlight
-    const activeTab = currentScreen === 'call' ? (selectedUser ? 'chat' : 'users') : currentScreen;
+    const activeTab =
+      currentScreen === 'call'
+        ? (selectedUser ? 'chat' : 'users')
+        : currentScreen === 'userProfile'
+        ? 'users'
+        : currentScreen;
 
     return (
       <View style={[styles.webContainer, { backgroundColor: colors.background, shadowColor: colors.text }]}>
@@ -406,16 +433,28 @@ function AppContent() {
                   <UsersListScreen
                     currentUser={currentUser}
                     onSelectUser={handleSelectUser}
+                    onViewProfile={handleViewProfile}
                     onLogout={handleLogout}
                     onPrivateMode={handlePrivateMode}
                     onProfile={handleProfile}
                     onFeed={handleFeed}
                     onChats={handleBackToUsers}
                     showTabBar={false}
+                    refreshToken={usersListRefreshToken}
                   />
                </View>
-               <View style={[styles.webContent, { backgroundColor: colors.background }, !selectedUser ? styles.webContentEmpty : {}]}>
-                 {selectedUser ? (
+               <View style={[styles.webContent, { backgroundColor: colors.background }, !selectedUser && currentScreen !== 'userProfile' ? styles.webContentEmpty : {}]}>
+                 {currentScreen === 'userProfile' && selectedProfileUser ? (
+                   <UserProfileScreen
+                     currentUser={currentUser}
+                     user={selectedProfileUser}
+                     onBack={handleBackFromUserProfile}
+                     onMessage={(user) => {
+                       setSelectedProfileUser(null);
+                       handleSelectUser(user);
+                     }}
+                   />
+                 ) : selectedUser ? (
                   <ChatScreen
                     currentUser={currentUser}
                     otherUser={selectedUser}
@@ -499,11 +538,13 @@ function AppContent() {
             <UsersListScreen
               currentUser={currentUser}
               onSelectUser={handleSelectUser}
+              onViewProfile={handleViewProfile}
               onLogout={handleLogout}
               onPrivateMode={handlePrivateMode}
               onProfile={handleProfile}
               onFeed={handleFeed}
               onChats={handleBackToUsers}
+              refreshToken={usersListRefreshToken}
             />
           )}
           
@@ -531,6 +572,18 @@ function AppContent() {
               otherUser={selectedUser}
               onBack={handleBackFromChat}
               onStartCall={handleStartCall}
+            />
+          )}
+
+          {currentScreen === 'userProfile' && currentUser && selectedProfileUser && (
+            <UserProfileScreen
+              currentUser={currentUser}
+              user={selectedProfileUser}
+              onBack={handleBackFromUserProfile}
+              onMessage={(user) => {
+                setSelectedProfileUser(null);
+                handleSelectUser(user);
+              }}
             />
           )}
 
