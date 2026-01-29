@@ -115,15 +115,36 @@ export type EncryptedPayload = {
   nonce: string; // base64
   ct: string; // base64
   mt?: string; // optional message type (text/media)
+  sc?: string; // self-encrypted ciphertext (base64)
+  scn?: string; // self-encrypted nonce (base64)
 };
 
-export const encryptForRecipient = (plaintext: string, recipientPublicKeyBase64: string, senderPublicKeyBase64: string) => {
+export const encryptForRecipient = (
+  plaintext: string,
+  recipientPublicKeyBase64: string,
+  senderPublicKeyBase64: string,
+  senderSecretKeyBase64?: string
+) => {
   const ephemeral = nacl.box.keyPair();
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
   const messageBytes = encodeUtf8(plaintext);
   const recipientPub = decodeBase64(recipientPublicKeyBase64);
 
   const boxed = nacl.box(messageBytes, nonce, recipientPub, ephemeral.secretKey);
+
+  let selfCipher: Uint8Array | null = null;
+  let selfNonce: Uint8Array | null = null;
+  if (senderSecretKeyBase64) {
+    try {
+      const senderPub = decodeBase64(senderPublicKeyBase64);
+      const senderSecret = decodeBase64(senderSecretKeyBase64);
+      selfNonce = nacl.randomBytes(nacl.box.nonceLength);
+      selfCipher = nacl.box(messageBytes, selfNonce, senderPub, senderSecret);
+    } catch {
+      selfCipher = null;
+      selfNonce = null;
+    }
+  }
 
   const payload: EncryptedPayload = {
     v: 1,
@@ -132,6 +153,8 @@ export const encryptForRecipient = (plaintext: string, recipientPublicKeyBase64:
     spk: senderPublicKeyBase64,
     nonce: encodeBase64(nonce),
     ct: encodeBase64(boxed),
+    sc: selfCipher ? encodeBase64(selfCipher) : undefined,
+    scn: selfNonce ? encodeBase64(selfNonce) : undefined,
   };
 
   return payload;
@@ -146,6 +169,25 @@ export const decryptFromSender = (payload: EncryptedPayload, recipientSecretKeyB
     const recipientSecretKey = decodeBase64(recipientSecretKeyBase64);
 
     const opened = nacl.box.open(ciphertext, nonce, senderEphemeralPublicKey, recipientSecretKey);
+    if (!opened) return null;
+    return decodeUtf8(opened);
+  } catch {
+    return null;
+  }
+};
+
+export const decryptSelfCopy = (
+  payload: EncryptedPayload,
+  senderPublicKeyBase64: string,
+  senderSecretKeyBase64: string
+): string | null => {
+  if (!payload?.sc || !payload?.scn) return null;
+  try {
+    const nonce = decodeBase64(payload.scn);
+    const ciphertext = decodeBase64(payload.sc);
+    const senderPub = decodeBase64(senderPublicKeyBase64);
+    const senderSecret = decodeBase64(senderSecretKeyBase64);
+    const opened = nacl.box.open(ciphertext, nonce, senderPub, senderSecret);
     if (!opened) return null;
     return decodeUtf8(opened);
   } catch {
