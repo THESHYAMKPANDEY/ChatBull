@@ -54,15 +54,15 @@ router.delete('/:userId', verifyFirebaseToken, async (req: Request, res: Respons
   }
 });
 
-router.get('/followers/:userId?', verifyFirebaseToken, async (req: Request, res: Response) => {
+const getFollowers = async (req: Request, res: Response, userId?: string) => {
   try {
     const me = await getCurrentUser(res);
     if (!me) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
-    const userId = req.params.userId || String(me._id);
-    const followers = await Follow.find({ following: userId })
+    const targetId = userId || String(me._id);
+    const followers = await Follow.find({ following: targetId })
       .populate('follower', 'displayName email photoURL username phoneNumber')
       .limit(200);
     res.status(200).json({
@@ -72,17 +72,25 @@ router.get('/followers/:userId?', verifyFirebaseToken, async (req: Request, res:
     logger.error('Get followers error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Failed to load followers' });
   }
+};
+
+router.get('/followers', verifyFirebaseToken, async (req: Request, res: Response) => {
+  await getFollowers(req, res);
 });
 
-router.get('/following/:userId?', verifyFirebaseToken, async (req: Request, res: Response) => {
+router.get('/followers/:userId', verifyFirebaseToken, async (req: Request, res: Response) => {
+  await getFollowers(req, res, req.params.userId);
+});
+
+const getFollowing = async (req: Request, res: Response, userId?: string) => {
   try {
     const me = await getCurrentUser(res);
     if (!me) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
-    const userId = req.params.userId || String(me._id);
-    const following = await Follow.find({ follower: userId })
+    const targetId = userId || String(me._id);
+    const following = await Follow.find({ follower: targetId })
       .populate('following', 'displayName email photoURL username phoneNumber')
       .limit(200);
     res.status(200).json({
@@ -92,25 +100,41 @@ router.get('/following/:userId?', verifyFirebaseToken, async (req: Request, res:
     logger.error('Get following error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Failed to load following' });
   }
+};
+
+router.get('/following', verifyFirebaseToken, async (req: Request, res: Response) => {
+  await getFollowing(req, res);
 });
 
-router.get('/counts/:userId?', verifyFirebaseToken, async (req: Request, res: Response) => {
+router.get('/following/:userId', verifyFirebaseToken, async (req: Request, res: Response) => {
+  await getFollowing(req, res, req.params.userId);
+});
+
+const getCounts = async (req: Request, res: Response, userId?: string) => {
   try {
     const me = await getCurrentUser(res);
     if (!me) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
-    const userId = req.params.userId || String(me._id);
+    const targetId = userId || String(me._id);
     const [followers, following] = await Promise.all([
-      Follow.countDocuments({ following: userId }),
-      Follow.countDocuments({ follower: userId }),
+      Follow.countDocuments({ following: targetId }),
+      Follow.countDocuments({ follower: targetId }),
     ]);
     res.status(200).json({ followers, following });
   } catch (error) {
     logger.error('Get follow counts error', { message: (error as any)?.message || String(error) });
     res.status(500).json({ error: 'Failed to load counts' });
   }
+};
+
+router.get('/counts', verifyFirebaseToken, async (req: Request, res: Response) => {
+  await getCounts(req, res);
+});
+
+router.get('/counts/:userId', verifyFirebaseToken, async (req: Request, res: Response) => {
+  await getCounts(req, res, req.params.userId);
 });
 
 router.get('/status/:userId', verifyFirebaseToken, async (req: Request, res: Response) => {
