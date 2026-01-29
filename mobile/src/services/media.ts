@@ -263,7 +263,7 @@ export const uploadEncryptedFile = async (
     const actualFileName = media.name || media.uri.split('/').pop() || 'file';
 
     if (Platform.OS === 'web') {
-      const buffer = cipher.buffer.slice(cipher.byteOffset, cipher.byteOffset + cipher.byteLength);
+      const buffer = (cipher.buffer as ArrayBuffer).slice(cipher.byteOffset, cipher.byteOffset + cipher.byteLength);
       const blob = new Blob([buffer], { type: 'application/octet-stream' });
       formData.append('file', blob, `${actualFileName}.enc`);
     } else {

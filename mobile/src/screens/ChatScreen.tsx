@@ -308,7 +308,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
       if (!plain) return null;
 
       if (Platform.OS === 'web') {
-        const buffer = plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength);
+        const buffer = (plain.buffer as ArrayBuffer).slice(plain.byteOffset, plain.byteOffset + plain.byteLength);
         const blob = new Blob([buffer], { type: msg.media.mimeType || 'application/octet-stream' });
         return URL.createObjectURL(blob);
       }
