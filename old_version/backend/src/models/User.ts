@@ -12,6 +12,7 @@ export interface IUser extends Document {
   deviceToken?: string;
   savedPosts?: mongoose.Types.ObjectId[];
   isPremium?: boolean;
+  allowDirectMessages?: boolean;
   isDeleted?: boolean;
   deletedAt?: Date;
   isOnline: boolean;
@@ -73,6 +74,10 @@ const userSchema = new Schema<IUser>(
     isPremium: {
       type: Boolean,
       default: false,
+    },
+    allowDirectMessages: {
+      type: Boolean,
+      default: true,
     },
     isDeleted: {
       type: Boolean,

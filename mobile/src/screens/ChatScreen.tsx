@@ -26,6 +26,7 @@ import i18n from '../i18n';
 import { useTheme } from '../config/theme';
 import { connectSocket } from '../services/socket';
 import { api } from '../services/api';
+import { saveRecentChat } from '../services/recentChats';
 import {
   decryptFromSender,
   decryptSelfCopy,
@@ -114,6 +115,20 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
   useEffect(() => {
     groupKeyRef.current = groupKey;
   }, [groupKey]);
+
+  useEffect(() => {
+    if (!otherUser?._id) return;
+    saveRecentChat({
+      _id: otherUser._id,
+      displayName: otherUser.displayName,
+      email: otherUser.email,
+      username: otherUser.username,
+      phoneNumber: otherUser.phoneNumber,
+      photoURL: otherUser.photoURL,
+      isGroup: otherUser.isGroup,
+      members: otherUser.members,
+    });
+  }, [otherUser?._id]);
 
   useEffect(() => {
     messagesRef.current = messages;

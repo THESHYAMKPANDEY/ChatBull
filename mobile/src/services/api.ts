@@ -226,6 +226,14 @@ export const api = {
     });
   },
 
+  searchUsers: async (search: string, limit = 50) => {
+    const headers = await getAuthHeaders();
+    const query = encodeURIComponent(search);
+    return await apiRequest(`/auth/users?search=${query}&limit=${limit}`, {
+      headers,
+    });
+  },
+
   logout: async () => {
     const headers = await getAuthHeaders();
     
@@ -258,6 +266,7 @@ export const api = {
     bio?: string;
     website?: string;
     email?: string;
+    allowDirectMessages?: boolean;
   }) => {
     const headers = await getAuthHeaders();
     
@@ -462,5 +471,38 @@ export const api = {
   getGroups: async () => {
     const headers = await getAuthHeaders();
     return await apiRequest('/groups', { headers });
+  },
+
+  followUser: async (userId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/follow/${userId}`, { method: 'POST', headers });
+  },
+
+  unfollowUser: async (userId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/follow/${userId}`, { method: 'DELETE', headers });
+  },
+
+  getFollowers: async (userId?: string) => {
+    const headers = await getAuthHeaders();
+    const path = userId ? `/follow/followers/${userId}` : '/follow/followers';
+    return await apiRequest(path, { headers });
+  },
+
+  getFollowing: async (userId?: string) => {
+    const headers = await getAuthHeaders();
+    const path = userId ? `/follow/following/${userId}` : '/follow/following';
+    return await apiRequest(path, { headers });
+  },
+
+  getFollowCounts: async (userId?: string) => {
+    const headers = await getAuthHeaders();
+    const path = userId ? `/follow/counts/${userId}` : '/follow/counts';
+    return await apiRequest(path, { headers });
+  },
+
+  getFollowStatus: async (userId: string) => {
+    const headers = await getAuthHeaders();
+    return await apiRequest(`/follow/status/${userId}`, { headers });
   },
 };

@@ -90,7 +90,7 @@ router.put(
     try {
       const firebaseUser = (res.locals as any).firebaseUser as { uid: string };
       const firebaseUid = firebaseUser.uid;
-      const { displayName, photoURL, phoneNumber, username, bio, website, email } = req.body;
+      const { displayName, photoURL, phoneNumber, username, bio, website, email, allowDirectMessages } = req.body;
 
       const user = await User.findOne({ firebaseUid });
       if (!user) {
@@ -126,6 +126,9 @@ router.put(
       if (phoneNumber) user.phoneNumber = phoneNumber;
       if (bio !== undefined) user.bio = bio;
       if (website !== undefined) user.website = website;
+      if (typeof allowDirectMessages === 'boolean') {
+        user.allowDirectMessages = allowDirectMessages;
+      }
       
       if (username) {
         const lowerUsername = username.toLowerCase();
@@ -152,6 +155,7 @@ router.put(
           username: user.username,
           bio: user.bio,
           website: user.website,
+          allowDirectMessages: user.allowDirectMessages,
         },
       });
     } catch (error) {

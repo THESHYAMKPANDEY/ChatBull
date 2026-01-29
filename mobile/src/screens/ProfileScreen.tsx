@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking, Image, Switch, Platform, Modal, TextInput, FlatList, Share } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking, Image, Switch, Platform, Modal, TextInput, FlatList, Share, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { appConfig } from '../config/appConfig';
 import { useTheme } from '../config/theme';
@@ -39,9 +39,14 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const website = currentUser?.website as string | undefined;
   const phoneNumber = currentUser?.phoneNumber as string | undefined;
 
-  const stats = useMemo(() => {
-    return { followers: 0, following: 0 };
-  }, []);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [loadingFollowCounts, setLoadingFollowCounts] = useState(true);
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [following, setFollowing] = useState<any[]>([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
@@ -66,6 +71,8 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+  const [allowDirectMessages, setAllowDirectMessages] = useState(currentUser?.allowDirectMessages ?? true);
+  const [updatingDmSetting, setUpdatingDmSetting] = useState(false);
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -112,9 +119,79 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
     }
   };
 
+  const loadFollowCounts = async () => {
+    if (!currentUser?.id) return;
+    try {
+      setLoadingFollowCounts(true);
+      const result = await api.getFollowCounts();
+      if (typeof result?.followers === 'number' && typeof result?.following === 'number') {
+        setFollowCounts({ followers: result.followers, following: result.following });
+      }
+    } catch {
+      setFollowCounts({ followers: 0, following: 0 });
+    } finally {
+      setLoadingFollowCounts(false);
+    }
+  };
+
+  const openFollowers = async () => {
+    setShowFollowers(true);
+    try {
+      setLoadingFollowers(true);
+      const result = await api.getFollowers();
+      setFollowers(Array.isArray(result?.users) ? result.users : []);
+    } catch {
+      setFollowers([]);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
+  const openFollowing = async () => {
+    setShowFollowing(true);
+    try {
+      setLoadingFollowing(true);
+      const result = await api.getFollowing();
+      setFollowing(Array.isArray(result?.users) ? result.users : []);
+    } catch {
+      setFollowing([]);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  const toggleAllowDirectMessages = async (nextValue: boolean) => {
+    if (updatingDmSetting) return;
+    const previous = allowDirectMessages;
+    setAllowDirectMessages(nextValue);
+    setUpdatingDmSetting(true);
+    try {
+      const result = await api.updateProfile({ allowDirectMessages: nextValue });
+      if (result?.user) {
+        onUserUpdated(result.user);
+        setAllowDirectMessages(result.user.allowDirectMessages ?? nextValue);
+      } else {
+        setAllowDirectMessages(nextValue);
+      }
+    } catch (error: any) {
+      Alert.alert(i18n.t('error'), error?.message || 'Failed to update setting.');
+      setAllowDirectMessages(previous);
+    } finally {
+      setUpdatingDmSetting(false);
+    }
+  };
+
   useEffect(() => {
     loadMyPosts();
   }, []);
+
+  useEffect(() => {
+    setAllowDirectMessages(currentUser?.allowDirectMessages ?? true);
+  }, [currentUser?.allowDirectMessages]);
+
+  useEffect(() => {
+    loadFollowCounts();
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (activeTab === 'saved') {
@@ -285,14 +362,28 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
                 <Text style={[styles.statNumber, { color: colors.text }]}>{postsTotal}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedText }]}>{i18n.t('posts')}</Text>
               </View>
-              <View style={styles.stat} accessibilityLabel={`${stats.followers} ${i18n.t('followers')}`}>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{stats.followers}</Text>
+              <TouchableOpacity
+                style={styles.stat}
+                onPress={openFollowers}
+                disabled={loadingFollowCounts}
+                accessibilityLabel={`${followCounts.followers} ${i18n.t('followers')}`}
+              >
+                <Text style={[styles.statNumber, { color: colors.text }]}>
+                  {loadingFollowCounts ? '-' : followCounts.followers}
+                </Text>
                 <Text style={[styles.statLabel, { color: colors.mutedText }]}>{i18n.t('followers')}</Text>
-              </View>
-              <View style={styles.stat} accessibilityLabel={`${stats.following} ${i18n.t('following')}`}>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{stats.following}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.stat}
+                onPress={openFollowing}
+                disabled={loadingFollowCounts}
+                accessibilityLabel={`${followCounts.following} ${i18n.t('following')}`}
+              >
+                <Text style={[styles.statNumber, { color: colors.text }]}>
+                  {loadingFollowCounts ? '-' : followCounts.following}
+                </Text>
                 <Text style={[styles.statLabel, { color: colors.mutedText }]}>{i18n.t('following')}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -351,6 +442,23 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
               accessibilityLabel={i18n.t('darkMode')}
               accessibilityRole="switch"
               accessibilityState={{ checked: theme === 'dark' }}
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.text} />
+              <Text style={[styles.settingText, { color: colors.text }]}>Allow direct messages</Text>
+            </View>
+            <Switch
+              value={allowDirectMessages}
+              onValueChange={(value) => toggleAllowDirectMessages(value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+              disabled={updatingDmSetting}
+              accessibilityLabel="Allow direct messages"
+              accessibilityRole="switch"
+              accessibilityState={{ checked: allowDirectMessages, disabled: updatingDmSetting }}
             />
           </View>
 
@@ -528,6 +636,86 @@ export default function ProfileScreen({ currentUser, onChats, onFeed, onPrivate,
           />
         </View>
       )}
+
+      <Modal visible={showFollowers} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowFollowers(false)}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Followers</Text>
+            <TouchableOpacity onPress={() => setShowFollowers(false)}>
+              <Text style={{ color: colors.primary, fontSize: 16 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          {loadingFollowers ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={followers}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <View style={styles.listItem}>
+                  <View style={[styles.listAvatar, { backgroundColor: colors.secondary }]}>
+                    {item.photoURL ? (
+                      <Image source={{ uri: item.photoURL }} style={styles.listAvatarImage} />
+                    ) : (
+                      <Text style={[styles.listAvatarText, { color: colors.text }]}>
+                        {item.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.listInfo}>
+                    <Text style={[styles.listName, { color: colors.text }]}>{item.displayName}</Text>
+                    <Text style={[styles.listMeta, { color: colors.mutedText }]} numberOfLines={1}>
+                      {item.username ? `@${item.username}` : item.email}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
+
+      <Modal visible={showFollowing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowFollowing(false)}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Following</Text>
+            <TouchableOpacity onPress={() => setShowFollowing(false)}>
+              <Text style={{ color: colors.primary, fontSize: 16 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          {loadingFollowing ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={following}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <View style={styles.listItem}>
+                  <View style={[styles.listAvatar, { backgroundColor: colors.secondary }]}>
+                    {item.photoURL ? (
+                      <Image source={{ uri: item.photoURL }} style={styles.listAvatarImage} />
+                    ) : (
+                      <Text style={[styles.listAvatarText, { color: colors.text }]}>
+                        {item.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.listInfo}>
+                    <Text style={[styles.listName, { color: colors.text }]}>{item.displayName}</Text>
+                    <Text style={[styles.listMeta, { color: colors.mutedText }]} numberOfLines={1}>
+                      {item.username ? `@${item.username}` : item.email}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
 
       <Modal visible={!!imageViewerUrl} transparent animationType="fade" onRequestClose={() => setImageViewerUrl(null)}>
         <View style={styles.viewerBackdrop}>
@@ -953,6 +1141,60 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#dbdbdb',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  listAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  listAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  listAvatarText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  listInfo: {
+    flex: 1,
+  },
+  listName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  listMeta: {
+    fontSize: 12,
   },
   viewerBackdrop: {
     flex: 1,
