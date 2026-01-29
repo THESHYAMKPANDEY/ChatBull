@@ -28,6 +28,7 @@ import { connectSocket } from '../services/socket';
 import { api } from '../services/api';
 import {
   decryptFromSender,
+  decryptSelfCopy,
   decryptGroupKeyFromSender,
   decryptGroupMessage,
   encryptForRecipient,
@@ -259,6 +260,9 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
           const identity = identityKeysRef.current;
           if (payload.t === 'dm' && identity?.secretKey) {
             decrypted = decryptFromSender(payload, identity.secretKey);
+            if (!decrypted && message.sender?._id === currentUser.id && identity?.publicKey) {
+              decrypted = decryptSelfCopy(payload, identity.publicKey, identity.secretKey);
+            }
           }
           const currentGroupKey = groupKeyRef.current;
           if (payload.t === 'group' && currentGroupKey) {
@@ -544,7 +548,12 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         Alert.alert(i18n.t('error'), 'Recipient key not found.');
         return;
       }
-      const payload = encryptForRecipient(body, recipientKey, identityKeysRef.current.publicKey);
+      const payload = encryptForRecipient(
+        body,
+        recipientKey,
+        identityKeysRef.current.publicKey,
+        identityKeysRef.current.secretKey
+      );
       encryptedContent = JSON.stringify(payload);
     }
 
@@ -640,7 +649,12 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
             Alert.alert(i18n.t('error'), 'Recipient key not found.');
             return;
           }
-          const payload = encryptForRecipient(payloadBody, recipientKey, identityKeysRef.current.publicKey);
+          const payload = encryptForRecipient(
+            payloadBody,
+            recipientKey,
+            identityKeysRef.current.publicKey,
+            identityKeysRef.current.secretKey
+          );
           encryptedContent = JSON.stringify(payload);
         }
 
