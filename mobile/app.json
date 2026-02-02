@@ -25,6 +25,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.socialchat.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1
     },
     "web": {
@@ -36,7 +37,13 @@
     "extra": {
       "eas": {
         "projectId": "475b8712-7d94-45bd-9a9f-1c5d25233283"
-      }
+      },
+      "EXPO_PUBLIC_FIREBASE_API_KEY": "REDACTED_API_KEY",
+      "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "social-chat-2df37.firebaseapp.com",
+      "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "social-chat-2df37",
+      "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "social-chat-2df37.firebasestorage.app",
+      "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "130500966218",
+      "EXPO_PUBLIC_FIREBASE_APP_ID": "1:130500966218:android:11b3989f1db6f44751f3b3"
     },
     "plugins": [
       "expo-font",
