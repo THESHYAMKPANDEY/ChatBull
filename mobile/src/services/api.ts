@@ -1,5 +1,5 @@
 import { appConfig } from '../config/appConfig';
-import { auth } from '../config/firebase';
+import { getIdToken } from './authClient';
 
 const API_URL = `${appConfig.API_BASE_URL}/api`;
 const TIMEOUT_MS = 120000; // Increased to 120 seconds for Render free tier cold starts
@@ -20,9 +20,9 @@ const apiRequest = async (
 
     try {
       if (attempt === 1) {
-        console.log(`🚀 API Request: ${API_URL}${endpoint}`);
+        console.log(`?? API Request: ${API_URL}${endpoint}`);
       } else {
-        console.log(`🔄 API Retry ${attempt}/${retries + 1}: ${API_URL}${endpoint}`);
+        console.log(`?? API Retry ${attempt}/${retries + 1}: ${API_URL}${endpoint}`);
       }
       
       const response = await fetch(`${API_URL}${endpoint}`, {
@@ -72,7 +72,7 @@ const apiRequest = async (
       }
 
       const data = await response.json();
-      console.log(`✅ API Success: ${endpoint}`, data);
+      console.log(`? API Success: ${endpoint}`, data);
       return data;
       
     } catch (error: any) {
@@ -87,44 +87,37 @@ const apiRequest = async (
 
       if (shouldRetry) {
         const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff max 10s
-        console.log(`⚠️ Request failed (${error.message}). Retrying in ${delay}ms...`);
+        console.log(`?? Request failed (${error.message}). Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
       
       // Final error handling
       if (isTimeout) {
-        console.error('⏰ Request timeout:', endpoint);
+        console.error('? Request timeout:', endpoint);
         throw new Error('Request timed out. Please check your connection.');
       }
       
       if (isNetworkError) {
-        console.error('🌐 Network error:', error.message);
+        console.error('?? Network error:', error.message);
         throw new Error('Network request failed. Please check your WiFi connection.');
       }
       
-      console.error(`💥 API request failed: ${endpoint}`, error);
+      console.error(`?? API request failed: ${endpoint}`, error);
       throw error;
     }
   }
 };
 
 const getAuthHeaders = async (): Promise<Record<string, string>> => {
-  const currentUser = auth.currentUser;
-
-  if (!currentUser) {
-    console.log('No current user, proceeding without auth header');
-    return {};
-  }
-
   try {
-    // Force refresh token to ensure it's valid
-    const idToken = await currentUser.getIdToken(true);
-    console.log('✅ Token generated for user:', currentUser.uid);
-    
-    return {
-      Authorization: `Bearer ${idToken}`,
-    };
+    const idToken = await getIdToken();
+    if (!idToken) {
+      console.log('No current user token, proceeding without auth header');
+      return {};
+    }
+
+    return { Authorization: `Bearer ${idToken}` };
   } catch (error) {
     console.error('Auth token error:', error);
     return {};
@@ -135,7 +128,7 @@ export const api = {
   // Health check endpoint
   healthCheck: async () => {
     try {
-      console.log('🔍 Performing health check...');
+      console.log('?? Performing health check...');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
@@ -148,14 +141,14 @@ export const api = {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Health check passed:', data);
+        console.log('? Health check passed:', data);
         return { success: true, data };
       } else {
-        console.error('❌ Health check failed:', response.status);
+        console.error('? Health check failed:', response.status);
         return { success: false, error: `Health check failed with status ${response.status}` };
       }
     } catch (error: any) {
-      console.error('💥 Health check error:', error);
+      console.error('?? Health check error:', error);
       return { success: false, error: error.message || 'Unknown error' };
     }
   },
@@ -168,12 +161,12 @@ export const api = {
     photoURL?: string;
     phoneNumber?: string;
   }) => {
-    console.log('🔄 Starting user sync process...');
+    console.log('?? Starting user sync process...');
     
     // Perform health check before sync
     const health = await api.healthCheck();
     if (!health.success) {
-      console.warn('⚠️ Backend health check failed, but proceeding with sync...');
+      console.warn('?? Backend health check failed, but proceeding with sync...');
     }
     
     const maxRetries = 2;
@@ -181,7 +174,7 @@ export const api = {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 Sync attempt ${attempt}/${maxRetries}`);
+        console.log(`?? Sync attempt ${attempt}/${maxRetries}`);
         
         const headers = await getAuthHeaders();
         
@@ -191,30 +184,30 @@ export const api = {
           body: JSON.stringify(userData),
         });
         
-        console.log('✅ User sync successful!');
+        console.log('? User sync successful!');
         return result;
         
       } catch (error: any) {
         lastError = error;
-        console.error(`❌ Sync attempt ${attempt} failed:`, error.message);
+        console.error(`? Sync attempt ${attempt} failed:`, error.message);
         
         // Don't retry on certain errors
         if (error.message.includes('401') || error.message.includes('403')) {
-          console.log('🔐 Authentication error - not retrying');
+          console.log('?? Authentication error - not retrying');
           throw error;
         }
         
         // Retry with exponential backoff
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-          console.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
+          console.log(`? Waiting ${delay}ms before retry ${attempt + 1}...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
     
     // All retries failed
-    console.error('💥 All sync attempts failed');
+    console.error('?? All sync attempts failed');
     throw lastError;
   },
 
