@@ -19,12 +19,12 @@ This repository is intended for internal development and controlled deployment o
 - Render account (for backend deployment) or equivalent Node hosting
 
 ## Backend (Production)
-1. Configure environment variables using [backend/.env.example](file:///d:/New%20folder%20(3)/Chatbull/backend/.env.example).
+1. Configure environment variables using `old_version/backend/.env.example`.
    - **Important**: Set `ENCRYPTION_KEY` to a 32-byte hex string (e.g., generated via `openssl rand -hex 32`).
 2. Install and build:
 
 ```bash
-cd backend
+cd old_version/backend
 npm ci
 npm run build
 ```
@@ -61,7 +61,7 @@ cd mobile
 npm test
 
 # Backend Health Tests
-cd backend
+cd old_version/backend
 npm test
 ```
 

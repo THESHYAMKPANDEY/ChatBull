@@ -129,6 +129,11 @@ const en = {
   react: 'React',
   copy: 'Copy',
   options: 'Options',
+  deleteMessage: 'Delete message',
+  deleteMessageTitle: 'Delete message?',
+  deleteMessageConfirm: 'Choose how you want to delete this message.',
+  deleteForMe: 'Delete for me',
+  deleteForEveryone: 'Delete for everyone',
   
   // AI Screen
   aiTitle: 'JANEAI',

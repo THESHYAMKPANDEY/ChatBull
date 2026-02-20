@@ -4,7 +4,7 @@
 
 ### Backend (local)
 - Install + build:
-  - `cd backend`
+  - `cd old_version/backend`
   - `npm ci`
   - `npm run build`
 - Start:

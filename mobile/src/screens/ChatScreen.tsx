@@ -486,6 +486,12 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         );
       });
 
+      socket.on('message:deleted', (data: { messageId: string }) => {
+        if (!data?.messageId) return;
+        setMessages((prev) => prev.filter((msg) => msg._id !== data.messageId));
+        messageReactionManager.clearMessageReactions(data.messageId);
+      });
+
       socket.on('typing:start', (senderId: string) => {
         if (!otherUser?.isGroup && senderId === otherUser._id) setIsTyping(true);
       });
@@ -511,6 +517,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         socket.off('user:status-response');
         socket.off('message:reaction:add');
         socket.off('message:reaction:remove');
+        socket.off('message:deleted');
         socket.off('typing:start');
         socket.off('typing:stop');
       }
@@ -817,6 +824,34 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
 
   const renderMessageContent = (item: Message, isMedia: boolean | undefined, isMyMessage: boolean) => {
     const displayText = item.decryptedText || item.content;
+    const canDelete = isMyMessage;
+
+    const deleteForMe = () => {
+      setMessages((prev) => prev.filter((msg) => msg._id !== item._id));
+      messageReactionManager.clearMessageReactions(item._id);
+    };
+
+    const deleteForEveryone = () => {
+      deleteForMe();
+      socketRef.current?.emit('message:delete', {
+        messageId: item._id,
+        receiverId: otherUser?.isGroup ? undefined : otherUser?._id,
+        groupId: otherUser?.isGroup ? otherUser?._id : undefined,
+        scope: 'everyone',
+      });
+    };
+
+    const confirmDeleteMessage = () => {
+      Alert.alert(
+        i18n.t('deleteMessageTitle'),
+        i18n.t('deleteMessageConfirm'),
+        [
+          { text: i18n.t('deleteForMe'), style: 'destructive', onPress: deleteForMe },
+          ...(canDelete ? [{ text: i18n.t('deleteForEveryone'), style: 'destructive' as const, onPress: deleteForEveryone }] : []),
+          { text: i18n.t('cancel'), style: 'cancel' as const },
+        ]
+      );
+    };
 
     const renderMedia = () => {
       if (!item.media) return null;
@@ -863,12 +898,14 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
 
         <TouchableOpacity
           onLongPress={() => {
-            Alert.alert(i18n.t('options'), '', [
+            const options = [
               { text: i18n.t('reply'), onPress: () => setReplyingTo({ messageId: item._id, senderName: item.sender.displayName, content: displayText }) },
               { text: i18n.t('react'), onPress: () => showReactionPicker(item._id) },
               { text: i18n.t('copy'), onPress: () => Clipboard.setStringAsync(displayText) },
-              { text: i18n.t('cancel'), style: 'cancel' }
-            ]);
+              { text: i18n.t('deleteMessage'), onPress: confirmDeleteMessage, style: 'destructive' as const },
+              { text: i18n.t('cancel'), style: 'cancel' as const },
+            ];
+            Alert.alert(i18n.t('options'), '', options);
           }}
           activeOpacity={0.9}
           accessibilityLabel={displayText}
@@ -884,7 +921,7 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
         </TouchableOpacity>
 
         <View style={styles.messageFooter}>
-            {item.reactions && Object.keys(item.reactions).length > 0 && (
+          {item.reactions && Object.keys(item.reactions).length > 0 && (
             <View style={styles.reactionsContainer}>
               {Object.entries(item.reactions).map(([reaction, users]) => (
                 <View key={reaction} style={[styles.reactionBubble, { backgroundColor: colors.card, shadowColor: colors.text }]}>
@@ -892,6 +929,16 @@ export default function ChatScreen({ currentUser, otherUser, onBack, onStartCall
                 </View>
               ))}
             </View>
+          )}
+          {canDelete && (
+            <TouchableOpacity
+              onPress={confirmDeleteMessage}
+              style={[styles.deleteButton, { backgroundColor: colors.card }]}
+              accessibilityLabel={i18n.t('deleteMessage')}
+              accessibilityRole="button"
+            >
+              <Ionicons name="trash-outline" size={14} color={colors.text} />
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -1160,6 +1207,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 2,
+    alignItems: 'center',
+    gap: 6,
   },
   reactionsContainer: {
     flexDirection: 'row',
@@ -1193,6 +1242,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 1,
+  },
+  deleteButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
   },
   reactionText: {
     fontSize: 10,

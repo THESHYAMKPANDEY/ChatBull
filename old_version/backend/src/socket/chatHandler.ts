@@ -359,5 +359,50 @@ export const setupSocket = (io: Server) => {
         logger.error('Error removing reaction', { socketId: socket.id });
       }
     });
+
+    socket.on('message:delete', async (data: { messageId?: string; scope?: string }) => {
+      try {
+        if (!allowEvent(socket.id, 'message:delete', 60, 60_000)) return;
+        const userId = String((socket.data as any).userId || '');
+        if (!userId) return;
+
+        const messageId = typeof data?.messageId === 'string' ? data.messageId : '';
+        if (!messageId) return;
+
+        const message = await Message.findById(messageId).select('sender receiver groupId');
+        if (!message) return;
+
+        if (String(message.sender) !== userId) {
+          socket.emit('message:error', { error: 'Unauthorized' });
+          return;
+        }
+
+        await Message.deleteOne({ _id: messageId });
+
+        const payload = {
+          messageId,
+          deletedBy: userId,
+          scope: 'everyone',
+          timestamp: new Date().toISOString(),
+        };
+
+        if (message.groupId) {
+          const group = await Group.findById(message.groupId);
+          if (group) {
+            group.members.forEach((memberId) => {
+              io.to(memberId.toString()).emit('message:deleted', payload);
+            });
+          }
+          return;
+        }
+
+        const senderId = message.sender?.toString();
+        const receiverId = message.receiver?.toString();
+        if (senderId) io.to(senderId).emit('message:deleted', payload);
+        if (receiverId) io.to(receiverId).emit('message:deleted', payload);
+      } catch (error) {
+        logger.error('Error deleting message', { socketId: socket.id });
+      }
+    });
   });
 };
