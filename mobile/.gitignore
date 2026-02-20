@@ -44,5 +44,5 @@ yarn-error.*
 /android
 
 # Firebase native config (do not commit)
-# google-services.json
-# GoogleService-Info.plist
+google-services.json
+GoogleService-Info.plist

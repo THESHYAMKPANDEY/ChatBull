@@ -47,4 +47,4 @@ You have the right to:
 
 If you have questions about this privacy policy, please contact us at:
 
-Email: privacy@chatbull.com
+Email: support@chatbull.in
